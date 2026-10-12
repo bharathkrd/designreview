@@ -44,3 +44,12 @@ description = "AgentSwitch tenant password given a literal value (AS_<TENANT>_PA
 regex = '''\bAS_[A-Z0-9_]*PASSWORD\s*[:=]\s*["']?([^\s"'<>$]{8,})'''
 secretGroup = 1
 keywords = ["_password"]
+
+# Reviewed 2026-10-12: platform tool definitions in the captured fixtures carry
+# "_meta.agentswitch.script_key", a server-side script path such as
+# "scheduling/birthdays" -- a name, not a credential. Only that exact field
+# shape (a lowercase path) is allowed.
+[[allowlists]]
+description = "AgentSwitch tool metadata: script_key is a script path, not a key"
+regexTarget = "line"
+regexes = ['''^\s*"script_key":\s*"[a-z0-9_./-]+",?\s*$''']

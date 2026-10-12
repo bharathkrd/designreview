@@ -1,5 +1,40 @@
 # Changes
 
+## 2026-10-12 — Catalogue fingerprint, platform-safe reads, pre-flight, re-captured fixtures (integration Phase 4)
+
+### Why
+
+The fixtures recorded tool *names* only, so nothing could tell that the seat's catalogue had changed (it had:
+302 → 323 tools since 2026-09-30). The pack read lists with a 50-row cap, a server-side sort the platform
+doesn't validate, and filters it never re-checked. Running the new live pre-flight then exposed two transport
+bugs that made a second tenant unusable on any machine whose `.env` holds the runner's `AGENTSWITCH_TOKEN`.
+
+### Changed (before → after)
+
+| What | Before | After | Where |
+|---|---|---|---|
+| Catalogue | `seat_catalog()` dict | + `ToolCatalog` (fingerprint, required args, readOnlyHint, requirement check); `catalog()` on `SeatRpcClient` and `SimPlatform` | `agentkit/transport/catalog.py` (new), `seat_rpc.py`, `sim/sim_platform.py` |
+| Run record | — | `taskrun.tool_catalog = {fingerprint, count, problems}` | `agentkit/record/run_record.py`, `agentkit/harness/run_one.py` |
+| List reads | 50 rows, server sort, filters trusted | `safe_reads.read_all`: exact safe filters only, paged to the end, sorted in code, every filter re-checked (`ne:` done right) | `agentkit/transport/safe_reads.py` (new), `packs/designreview/actions.py`, `handoffs.py` (`list_milestones`) |
+| Pack requirements | implicit | `REQUIRED_TOOLS` → `extras["required_tools"]`; `SAFE_SERVER_FILTERS` | `packs/designreview/actions.py` |
+| Pre-flight | none | `python -m agentkit.harness.preflight --tenant t`: required tools + fingerprint vs fixture (read-only) | `agentkit/harness/preflight.py` (new) |
+| Fixtures | names only, captured 2026-09-30 | + `tool_defs`, `tools_fingerprint`; **re-captured live 2026-10-12** (both tenants, 323 tools, fingerprint `fbadee4421f15020`) | `agentkit/sim/fixture.py`, `packs/designreview/fixtures/*.json` |
+| Token per tenant | `SeatSession` used `AGENTSWITCH_TOKEN` for every tenant → 401 on the other one | only for the tenant `tenant_login` resolved without a password | `agentkit/transport/seat_rpc.py` |
+| Error bodies | `HTTPError.read()` crashed on the platform's mis-framed 401 (`IncompleteRead`) | `read_error_body` tolerates it, so the 401 reaches the re-login | `agentkit/transport/wire.py` |
+
+Because the fixtures were re-captured on 2026-10-12, offline replays now answer as of that day: t08's past-due
+list includes "PPAP level 3 submission" (due 2026-10-03) as well as "DFM review closed".
+
+### Results
+
+| Run | Result |
+|---|---|
+| Pre-flight, both tenants (live) | required tools ok; fingerprint `fbadee4421f15020` = fixtures |
+| Offline batch on the new fixtures, `--repeat 3` | **9 of 9 tasks pass on every run**; `--check` identical; calibration OK |
+| Live dry-run batch, template answers | **9 of 9** pass; calibration OK; every run records the fixture's fingerprint, no problems |
+| `tests_local` offline (`AGENTKIT_OFFLINE=1`) | 598 passed, plus 4 new transport regression tests |
+| `tests_local` live read-only | 29 passed, 3 xfailed — **only with `AGENTSWITCH_*` blanked**: with the Release 8.1 runner variables in `.env`, `tenant_login("suryodaya")` returns no password and `tests/conftest.py`'s password login gets 401 (26 errors). Pre-existing since the 8.1 runner change; not fixed here |
+
 ## 2026-10-12 — Offline means offline; test hygiene (integration Phase 3)
 
 ### Why

@@ -48,6 +48,10 @@ class SeatFixture(BaseModel):
     captured_at: str
     note: str = ""
     tools: List[str] = Field(default_factory=list)
+    # Full tools/list definitions (inputSchema, annotations) and their
+    # ToolCatalog fingerprint; empty in fixtures captured before 2026-10-12.
+    tool_defs: List[Dict[str, Any]] = Field(default_factory=list)
+    tools_fingerprint: str = ""
     calls: List[RecordedCall] = Field(default_factory=list)
 
     def index(self) -> Dict[tuple, RecordedCall]:
@@ -117,14 +121,18 @@ def capture_fixture(tasks: List[Any], tenant: str, *, note: str = "") -> SeatFix
     from agentkit.registry import load_pack
     from agentkit.transport import RestReader, SeatRpcClient
 
+    from agentkit.transport.catalog import ToolCatalog
+
     rec = _Recorder()
     tools: set = set()
+    defs: Dict[str, Dict[str, Any]] = {}
     with tempfile.TemporaryDirectory() as tmp:
         for task in tasks:
             registry = load_pack(task.pack)
             agent = SeatRpcClient.for_tenant(tenant, extra_read_only=registry.read_only)
             agent.initialize()
             tools |= set(agent.seat_catalog())
+            defs.update(agent.seat_catalog())
             run_task(task, tenant, Path(tmp) / task.id, task.id, skip_llm=True, registry=registry,
                      client=RecordingSeat(agent, rec))
             harness_mcp = SeatRpcClient.for_tenant(tenant, client_name="agentkit-harness")
@@ -132,5 +140,8 @@ def capture_fixture(tasks: List[Any], tenant: str, *, note: str = "") -> SeatFix
             reader = GroundTruthReader(rest=RecordingRest(RestReader.for_tenant(tenant), rec),
                                        mcp=RecordingSeat(harness_mcp, rec))
             capture(registry, reader, keys_for(task.verifiers, registry))
+    tool_defs = [defs[n] for n in sorted(defs)]
     return SeatFixture(tenant=tenant, captured_at=dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
-                       note=note, tools=sorted(tools), calls=list(rec.calls.values()))
+                       note=note, tools=sorted(tools), tool_defs=tool_defs,
+                       tools_fingerprint=ToolCatalog.from_tools(tool_defs).fingerprint(),
+                       calls=list(rec.calls.values()))

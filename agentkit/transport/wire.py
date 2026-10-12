@@ -86,6 +86,17 @@ def read_body(resp) -> bytes:
         return short.partial
 
 
+def read_error_body(err: urllib.error.HTTPError) -> bytes:
+    """An error response's body, with the same framing tolerance as read_body:
+    the platform's 401 also declares chunked encoding and sends plain JSON
+    (seen 2026-10-12), which made e.read() raise instead of returning a 401."""
+    fp = getattr(err, "fp", None)
+    try:
+        return (read_body(fp) if fp is not None and hasattr(fp, "read") else err.read()) or b""
+    except (http.client.HTTPException, OSError, ValueError):
+        return b""
+
+
 def _tls_context() -> ssl.SSLContext:
     # Opt-out exists only for broken corporate proxies; the platform's
     # certificates verify fine (checked 2026-09-28).
@@ -117,7 +128,7 @@ class UrllibWire:
                 with urllib.request.urlopen(req, timeout=self.timeout, context=self._ctx) as resp:
                     return WireReply(resp.status, read_body(resp), dict(resp.headers.items()))
             except urllib.error.HTTPError as e:
-                reply = WireReply(e.code, e.read() or b"", dict(e.headers.items()) if e.headers else {})
+                reply = WireReply(e.code, read_error_body(e), dict(e.headers.items()) if e.headers else {})
                 if e.code in RETRYABLE_GATEWAY_STATUSES and attempt < attempts - 1:
                     time.sleep(self.backoff_s * (attempt + 1))
                     continue

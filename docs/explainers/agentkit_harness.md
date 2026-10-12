@@ -73,6 +73,7 @@ allow_writes, description`. Unknown keys, unknown verifiers, missing plans and d
 | `python -m agentkit.harness.grade <batch-dir or run-dirs>` | grade saved runs (exit 1 on any fail) |
 | `python -m agentkit.harness.grade --check <batch-dir>` | re-grade in memory, compare with saved scores, write nothing (exit 1 on a difference) |
 | `python -m agentkit.harness.mutants [batch-dir]` | calibrate (exit 1 on MISSED/UNEXERCISED) |
+| `python -m agentkit.harness.preflight [--tenant t] [--fixture f]` | live, read-only: the pack's required tools are offered; catalogue fingerprint vs the fixture's |
 | `python -m agentkit.harness.run_one --task t.toml --run-dir d --run-id id [--write]` | one task, one folder |
 
 ## Key types

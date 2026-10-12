@@ -16,6 +16,7 @@ from typing import Any, Dict
 from agentkit.graph import RESOLVED, RunEnv, declined
 from agentkit.registry import Registry
 from agentkit.retrieval import EvidenceIndex, chunk_by_topic, plain_text
+from agentkit.transport.safe_reads import read_all, sort_rows
 
 # Computed endpoints this pack calls that are reads despite not ending in
 # .list/.get -- the journal and the dry-run policy check rely on this list.
@@ -27,11 +28,29 @@ READ_ONLY_ENDPOINTS = (
     "endpoint.designreview.supplier_response_sla",
 )
 
-LIST_LIMIT = 50
+# Filters the platform applies exactly (one scalar value, no operator). Lists
+# are read in full through agentkit.transport.safe_reads.read_all, which pages
+# past any page cap, sorts in code (the server's sort_order isn't validated)
+# and re-checks every filter on the rows it gets back.
+SAFE_SERVER_FILTERS = ("file_id", "project_id", "overall_result")
+
+# The tools this pack's actions and probes depend on, with the arguments they
+# send; recorded per run (taskrun.tool_catalog) and checked by
+# `python -m agentkit.harness.preflight`. Write tools are listed separately.
+REQUIRED_TOOLS = {
+    "DesignFile.get": ["id"],
+    "DesignVersion.list": ["file_id", "limit", "offset"],
+    "endpoint.designreview.release_readiness": ["file_id"],
+    "DesignFeedback.list": ["file_id", "limit", "offset"],
+    "DesignChecklistResult.list": ["file_id", "overall_result", "limit", "offset"],
+    "DesignStandard.list": ["limit", "offset"],
+    "DesignMilestone.list": ["project_id", "limit", "offset"],
+}
 
 
 def register_actions(reg: Registry) -> None:
     reg.declare_read_only(READ_ONLY_ENDPOINTS)
+    reg.extras["required_tools"] = dict(REQUIRED_TOOLS)
 
     @reg.action("load_design_file", retries=2, description="DesignFile.get for one file.")
     def load_design_file(env: RunEnv, args: Dict[str, Any], results) -> Any:
@@ -40,9 +59,9 @@ def register_actions(reg: Registry) -> None:
     @reg.action("list_revisions", retries=2,
                 description="Every DesignVersion of a file, oldest first, with commit messages.")
     def list_revisions(env: RunEnv, args: Dict[str, Any], results) -> Any:
-        return env.client.invoke_tool("DesignVersion.list", {
-            "file_id": args["file_id"], "sort_by": "version_number", "sort_order": "asc",
-            "limit": args.get("limit", LIST_LIMIT)})
+        page = read_all(env.client, "DesignVersion.list", {"file_id": args["file_id"]},
+                        safe_keys=SAFE_SERVER_FILTERS)
+        return {**page, "data": sort_rows(page["data"], "version_number")}
 
     @reg.action("read_release_gate", retries=2,
                 description="Aggregated release-readiness evidence (ready, reason codes, blockers).")
@@ -51,14 +70,14 @@ def register_actions(reg: Registry) -> None:
 
     @reg.action("list_feedback", retries=2, description="DesignFeedback rows for a file.")
     def list_feedback(env: RunEnv, args: Dict[str, Any], results) -> Any:
-        return env.client.invoke_tool("DesignFeedback.list", {"file_id": args["file_id"],
-                                                              "limit": args.get("limit", LIST_LIMIT)})
+        return read_all(env.client, "DesignFeedback.list", {"file_id": args["file_id"]},
+                        safe_keys=SAFE_SERVER_FILTERS)
 
     @reg.action("list_failed_checklists", retries=2,
                 description="DesignChecklistResult rows for a file whose overall result is fail.")
     def list_failed_checklists(env: RunEnv, args: Dict[str, Any], results) -> Any:
-        return env.client.invoke_tool("DesignChecklistResult.list", {
-            "file_id": args["file_id"], "overall_result": "fail", "limit": args.get("limit", LIST_LIMIT)})
+        return read_all(env.client, "DesignChecklistResult.list",
+                        {"file_id": args["file_id"], "overall_result": "fail"}, safe_keys=SAFE_SERVER_FILTERS)
 
     @reg.action("probe_tool_offered",
                 description="Refuse up front when the tool a request needs is not in this seat's catalogue.")

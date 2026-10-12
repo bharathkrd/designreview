@@ -8,7 +8,7 @@
 
 | Part | File | Role |
 |---|---|---|
-| Actions | `actions.py` | the allowlist: `load_design_file`, `list_revisions`, `read_release_gate`, `list_feedback`, `list_failed_checklists`, `gather_dfm_standards`, `probe_tool_offered`, `decline` — all reads |
+| Actions | `actions.py` | lists are read in full via `agentkit.transport.safe_reads.read_all` (exact filters on `SAFE_SERVER_FILTERS`, paged, sorted in code, filters re-checked; before 2026-10-12: 50 rows, server sort); `REQUIRED_TOOLS` → `extras["required_tools"]` (checked by pre-flight, recorded per run). The allowlist: `load_design_file`, `list_revisions`, `read_release_gate`, `list_feedback`, `list_failed_checklists`, `gather_dfm_standards`, `probe_tool_offered`, `decline` — all reads |
 | Hand-off actions | `handoffs.py` | `list_milestones`, `find_cross_seat_dependencies` (reads) and `raise_handoffs` — the pack's only **write** action: a dry run previews the session and `escalations.raise` each hand-off would make; a write run files them (see Hand-offs) |
 | Hand-off topics | `handoffs.toml` | which owner (manufacturing / quality / purchasing) takes which kind of problem, matched on whole words in open serious item titles; validated by pydantic |
 | Read-only endpoints | `actions.py` | `endpoint.designreview.release_readiness`, `release_impact(.get)`, `parts_search`, `supplier_response_sla` |

@@ -28,6 +28,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 from agentkit.sim.fixture import SeatFixture, canonical
 from agentkit.transport import KINDS, NOT_IN_SEAT, UNCLASSIFIED, SeatCallFailure
+from agentkit.transport.catalog import ToolCatalog
 
 FAULT_KINDS = ("drop_tool", "fail_once", "fail_always", "edit_text")
 
@@ -95,7 +96,11 @@ class SimPlatform:
         return {"protocolVersion": "sim", "serverInfo": {"name": "SimPlatform", "tenant": self.fixture.tenant}}
 
     def seat_catalog(self, refresh: bool = False) -> Dict[str, dict]:
-        return {t: {} for t in self.fixture.tools if t not in self.dropped}
+        defs = {d.get("name"): d for d in self.fixture.tool_defs if isinstance(d, dict)}
+        return {t: defs.get(t, {"name": t}) for t in self.fixture.tools if t not in self.dropped}
+
+    def catalog(self, refresh: bool = False) -> ToolCatalog:
+        return ToolCatalog.from_tools(self.seat_catalog().values())
 
     def offers(self, tool: str) -> bool:
         return tool in self.seat_catalog()

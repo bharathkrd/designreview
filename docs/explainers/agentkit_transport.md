@@ -30,6 +30,21 @@ GET-only REST client for the verifiers; `journal.py` records every tool call a r
 - **A live framing fault is absorbed.** On 2026-09-28 every `/api/mcp` response declared
   `Transfer-Encoding: chunked` but sent a plain JSON body, which standard clients reject. `read_body()` detects
   a body that isn't really chunked and reads to end-of-stream (the server also sends `Connection: close`).
+- **The catalogue is one comparable value (since 2026-10-12).** `catalog.py: ToolCatalog` wraps tools/list:
+  `fingerprint()` (16 hex chars of SHA-256 over sorted names + input schemas), `required_args`,
+  `read_only_hint` (the server's annotation, or `None` when unknown), `check_requirements({tool: args we
+  send})`. `SeatRpcClient.catalog()` / `SimPlatform.catalog()` return one; every run records
+  `taskrun.tool_catalog = {fingerprint, count, problems}` against the pack's `required_tools`.
+- **Don't trust server filters, sorts or page caps.** `safe_reads.py: read_all(client, tool, filters,
+  safe_keys)` sends only exact, comma-free, operator-free values on keys the pack declares safe, pages to the
+  end through `invoke_tool` (so every page is journaled), re-checks every filter on the rows it gets back
+  (`recheck`: a row without the field is kept, a mismatch dropped, `ne:` applied correctly in code), and
+  `sort_rows` sorts in code. *Before:* the pack asked for 50 rows sorted server-side and trusted the filter.
+- **A token belongs to one tenant.** `SeatSession` starts from `AGENTSWITCH_TOKEN` only when
+  `tenant_login` resolved the tenant without a password (the runner's own tenant); a password tenant always
+  logs in itself. *Before:* every tenant started from that token and got 401 on the wrong one.
+- **Error bodies get the same framing tolerance.** `read_error_body` reads a 4xx/5xx body like `read_body`
+  does, so the platform's mis-framed 401 is a 401 (and triggers the re-login), not an `IncompleteRead` crash.
 - **The verifiers get their own path.** `RestReader` logs in separately and only GETs, so a bug in how the
   agent reads the platform can't pass its own check.
 - **The journal is the evidence.** `JournaledSeatClient` appends one line per call (seq, tool, args, read or

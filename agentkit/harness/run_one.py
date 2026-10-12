@@ -35,6 +35,17 @@ GRAPH_FILE = "graph.json"
 LEDGER_FILE = "llm_ledger.json"
 
 
+def describe_catalog(client: Any, registry: Registry) -> Optional[dict]:
+    """The seat catalogue's fingerprint and any problem with the tools the pack
+    depends on (registry.extras["required_tools"]); None if the client has no
+    catalogue (a hand-made test double)."""
+    catalog = getattr(client, "catalog", None)
+    if not callable(catalog):
+        return None
+    cat = catalog()
+    return {**cat.summary(), "problems": cat.check_requirements(registry.extras.get("required_tools") or {})}
+
+
 def run_task(task: TaskDef, tenant: str, run_dir: Path, run_id: str, *, skip_llm: bool = False,
              registry: Optional[Registry] = None, client: Any = None, gateway: Any = None,
              retry_backoff_s: float = 1.0, write: bool = False) -> TaskRun:
@@ -52,6 +63,7 @@ def run_task(task: TaskDef, tenant: str, run_dir: Path, run_id: str, *, skip_llm
         if client is None:
             client = SeatRpcClient.for_tenant(tenant, extra_read_only=registry.read_only)
             client.initialize()
+        run.tool_catalog = describe_catalog(client, registry)
         journaled = JournaledSeatClient(client, run_dir / JOURNAL_FILE, extra_read_only=tuple(registry.read_only))
         if gateway is None and not skip_llm:
             gateway = LLMGateway()
