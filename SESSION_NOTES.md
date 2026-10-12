@@ -41,7 +41,7 @@ Retrieved via `GET /api/bug-report/mine`:
 ## 🏛️ 3. Architecture & Modular Codebase Structure
 
 The project uses pure Python foundation libraries (`networkx`, `httpx`, `pyyaml`) --
-zero LangChain, LangGraph, or CrewAI. `core/` was upgraded from a first-draft
+no agent or workflow frameworks. `core/` was upgraded from a first-draft
 version (static task list, prose-keyword scoring, fixed-order gateway fallback)
 to patterns ported from the user's own prior EAGv3 coursework under
 `D:\sjk\eagv3` -- each module's docstring names its source. See the plan at

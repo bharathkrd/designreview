@@ -106,8 +106,8 @@ task against its own tenant's fixture (all nine tasks in about a second),
 with faults such as `drop_tool:…`, `fail_once:…:flaky`, or `edit_text:old=>new` (another team edits a
 record during the run → graded `drift`).
 
-**Constraints.** No agent/workflow frameworks (no LangChain, LangGraph, LlamaIndex, CrewAI, AutoGen,
-n8n …): the loop, graph, planner, retrieval and harness are plain Python. Dependencies: `httpx`,
+**Constraints.** No agent or workflow frameworks of any kind: the loop, graph, planner, retrieval,
+harness and telemetry are plain Python. Dependencies: `httpx`,
 `pydantic` (validates config/plan/task/fixture files), `python-dotenv`, `pytest`; config is TOML read by
 the standard library's `tomllib`.
 
