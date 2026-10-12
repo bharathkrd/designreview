@@ -292,14 +292,31 @@ Found while building and testing (see [`GAP_REPORT.md`](GAP_REPORT.md) and `plat
 
 ## 🛡️ Security & Secret Hygiene
 
-To ensure zero credential exposure, the repository's entire Git commit history is audited against API key patterns, seat tokens, and private `.env` files using [Gitleaks](https://github.com/gitleaks/gitleaks):
+Two independent scanners check the whole Git history on every push and pull request (`.github/workflows/ci.yaml`):
 
 ```bash
-gitleaks detect --source . --verbose
+python scripts/secret_scan.py --history     # stdlib scanner: AgentSwitch JWTs, LLM provider keys, literal passwords, committed .env
+python scripts/secret_scan.py               # the same rules over every tracked file
+gitleaks git . --config .gitleaks.toml --redact --verbose   # gitleaks 8.30.1 (SHA-256-pinned in CI), default rules + ours
 ```
 
-* **Status**: Passed ✅ (`0 leaks found` across all 28 commits).
+* **Status (2026-10-12)**: both clean across all commits on every branch.
+* **Findings never print the secret**: only the rule, file, line and the value's first four characters and length.
+* **Exceptions** go only in `.gitleaks.toml` with a reason; inline `gitleaks:allow` is ignored in CI and a
+  `.gitleaksignore` file fails the job.
 * **Policy**: Environment files (`.env`, `secrets.local.txt`) and private test artifacts (`tests_local/`, `proofs/`) are strictly git-ignored.
+
+## ✅ Continuous integration
+
+`.github/workflows/ci.yaml` runs on pushes and pull requests to `main`, fully offline (no secrets, no `.env`,
+`AGENTKIT_OFFLINE=1`), on Ubuntu and Windows with Python 3.11 and 3.13:
+
+1. the hand-written suite: `pytest tests -m "not live and not agent and not gateway_live and not writes"`;
+2. every task 3 times on the captured fixtures with template answers, then the gate
+   `**9 of 9 tasks pass on every run.**`;
+3. `grade --check` (re-grading the saved runs must give identical scores);
+4. `agentkit.harness.mutants` (every planted fault must be caught);
+5. the two secret scans above. Actions are pinned by commit SHA.
 
 ---
 

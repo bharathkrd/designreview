@@ -1,0 +1,155 @@
+# CI for designreview: hand-written unit tests, the offline harness gates, and two secret scans.
+# Everything runs offline: captured platform fixtures (agentkit.sim), template answers (--skip-llm),
+# no secrets, no .env. AGENTKIT_OFFLINE=1 makes any real network call fail loudly.
+# The offline batch freezes each task's clock to its fixture's capture time, so results don't
+# depend on the day CI runs.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]   # PRs from forks run too, with a read-only token and no secrets
+  workflow_dispatch:
+
+# Least privilege: every job can only read the repo.
+permissions:
+  contents: read
+
+# A newer push to the same PR cancels the older run; runs on main are never cancelled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# bash on every OS, so Windows runs the same commands (with pipefail).
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  tests:
+    name: tests (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false   # finish every leg, so all failures show at once
+      matrix:
+        os: [ubuntu-24.04, windows-2025]   # the team develops on Windows
+        python: ["3.11", "3.13"]           # 3.11 is the floor (tomllib); 3.13 is the dev version
+    env:
+      EXPECTED_TASKS: "9"   # change on purpose when a task is added or removed
+      REPEAT: "3"           # pass^k: every task must pass on every run
+      AGENTKIT_OFFLINE: "1"
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Unit tests (hand-written suite, offline)
+        run: python -m pytest tests -m "not live and not agent and not gateway_live and not writes"
+
+      - name: Run every task (captured fixtures, template answers)
+        run: |
+          python -m agentkit.harness.batch --sim packs/designreview/fixtures --skip-llm \
+            --batch-id ci --repeat "$REPEAT" --grade
+
+      # The batch exits 0 even if a task file is deleted or skipped, so check the count.
+      - name: Check that all tasks ran and passed
+        run: |
+          grep -F "**${EXPECTED_TASKS} of ${EXPECTED_TASKS} tasks pass on every run.**" runs/batches/ci/report.md || {
+            echo "::error::Expected ${EXPECTED_TASKS} of ${EXPECTED_TASKS} tasks to pass on every run. See runs/batches/ci/report.md."
+            exit 1
+          }
+
+      - name: Re-grade from the run files (must be identical)
+        run: python -m agentkit.harness.grade --check runs/batches/ci
+
+      - name: Calibrate the verifiers (every planted fault must be caught)
+        run: python -m agentkit.harness.mutants runs/batches/ci
+
+      - name: Add the score report to the job summary
+        if: always()
+        run: |
+          if [ -f runs/batches/ci/report.md ]; then cat runs/batches/ci/report.md >> "$GITHUB_STEP_SUMMARY"; fi
+
+      # On failure, upload the run folders to see what went wrong. The repo is public, so
+      # scan them for credentials first; they come from fixtures, never the live platform.
+      - name: Check the run files before upload
+        id: scan-runs
+        if: failure()
+        run: python scripts/secret_scan.py runs
+
+      - name: Upload the run folders
+        if: failure() && steps.scan-runs.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: runs-${{ matrix.os }}-py${{ matrix.python }}
+          path: runs/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  secret-scan:
+    name: secret scan (full history)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0   # every commit; the default (1) would scan only the last one
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Scan every commit on every branch
+        run: |
+          [ "$(git rev-parse --is-shallow-repository)" = false ] || { echo "::error::Shallow clone. Set fetch-depth: 0."; exit 1; }
+          python scripts/secret_scan.py --history
+          python scripts/secret_scan.py
+
+  gitleaks:
+    name: gitleaks (full history)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GITLEAKS_VERSION: "8.30.1"
+      # SHA-256 of gitleaks_8.30.1_linux_x64.tar.gz from gitleaks_8.30.1_checksums.txt
+      # (verified 2026-10-12). Change the version and the hash together.
+      GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install gitleaks (pinned version, SHA-256 checked)
+        run: |
+          cd "$RUNNER_TEMP"
+          tarball="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL --retry 3 -o "$tarball" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${tarball}"
+          echo "${GITLEAKS_SHA256}  ${tarball}" | sha256sum --check --strict
+          tar -xzf "$tarball" gitleaks
+          ./gitleaks version
+
+      # Reviewed exceptions go only in .gitleaks.toml: inline "gitleaks:allow" comments are
+      # ignored and a .gitleaksignore file fails the job. Without .gitleaks.toml the scan fails.
+      - name: Scan every commit with the repo's .gitleaks.toml
+        run: |
+          [ "$(git rev-parse --is-shallow-repository)" = false ] || { echo "::error::Shallow clone. Set fetch-depth: 0."; exit 1; }
+          if [ -e .gitleaksignore ]; then
+            echo "::error::.gitleaksignore is not used here. Put reviewed exceptions in .gitleaks.toml."
+            exit 1
+          fi
+          "$RUNNER_TEMP/gitleaks" git . --config .gitleaks.toml --ignore-gitleaks-allow \
+            --redact --no-banner --no-color --verbose --exit-code 1

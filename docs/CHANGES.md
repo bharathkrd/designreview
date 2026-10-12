@@ -1,5 +1,35 @@
 # Changes
 
+## 2026-10-12 — CI and secret scanning (integration Phase 2)
+
+### Why
+
+The project had no CI: every guarantee (9/9 offline, deterministic grading, calibrated verifiers, no
+committed credentials) held only when someone remembered to run it. The workflow drafted in the session notes
+would not have worked as written: it replayed one tenant's fixture (so the three Keystone tasks fail), used a
+`--batch-id` flag and a report line that didn't exist yet (added in Phase 1), and "re-scored" by overwriting
+rather than comparing.
+
+### Added (before → after)
+
+| What | Before | After | Where |
+|---|---|---|---|
+| CI | none | 4 legs (ubuntu-24.04 / windows-2025 × py3.11 / 3.13): `tests/` offline, offline batch on the fixtures **folder** ×3 with the `9 of 9 tasks pass on every run` gate, `grade --check`, calibration; job summary; run folders uploaded on failure only after they pass the secret scan. Read-only token, actions pinned by commit SHA (checked against their tags), `AGENTKIT_OFFLINE=1` | `.github/workflows/ci.yaml` |
+| Secret scan (ours) | none | stdlib scanner: AgentSwitch JWT, Anthropic / OpenAI / OpenRouter / Gemini / Groq / NVIDIA / Cerebras keys, UPPER_CASE secret variables or quoted password/secret/token/api_key with a literal value (letters + digits), committed `.env`; tracked files, given paths, or `--history` (every added line, every ref); never prints a value | `scripts/secret_scan.py` |
+| gitleaks | run by hand with default rules (README) | CI job, v8.30.1 tarball SHA-256-checked (checksum fetched and verified 2026-10-12); default rules + AgentSwitch JWT, NVIDIA, Cerebras, Groq, `AS_*_PASSWORD`; `.gitleaksignore` fails the job, inline allows ignored | `.gitleaks.toml`, `ci.yaml` |
+| README | gitleaks command, "28 commits" | both scanners, CI section | `README.md` |
+
+### Results
+
+| Run | Result |
+|---|---|
+| CI steps replayed in a clean worktree (no `.env`, no `tests_local/`) | `tests/` 35 passed; 9 of 9 tasks pass on every run (×3); `--check` identical; calibration OK; secret scans clean |
+| `secret_scan.py --history` / tracked files | clean (first draft flagged 3 false positives — `TOKEN_EXPIRED = "token_expired"`, `os.environ[...]`, a `Dict[...]` annotation — fixed by excluding brackets and requiring letters + digits in assignment values) |
+| `gitleaks git . --config .gitleaks.toml` | no leaks (31 commits); a planted NVIDIA key and `AS_*_PASSWORD` are both caught |
+| `tests_local/test_secret_scan_ci.py` | 19 passed |
+
+Not verified here: the workflow itself on GitHub (needs a push; see the verification list in the plan).
+
 ## 2026-10-12 — Evals you can gate on: frozen clock, pass^k, checkable re-grading (integration Phase 1)
 
 ### Why
