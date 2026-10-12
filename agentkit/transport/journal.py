@@ -58,11 +58,11 @@ def summarise_result(payload: Any) -> Any:
 
 
 class JournaledSeatClient:
-    def __init__(self, client: Any, path: Path, extra_read_only: tuple = ()):
+    def __init__(self, client: Any, path: Path, extra_read_only: tuple = (), start_seq: int = 1):
         self._client = client
         self.path = Path(path)
         self._log = JsonlAppender(self.path)
-        self._seq = itertools.count(1)
+        self._seq = itertools.count(start_seq)  # a replay continues after the calls it copied
         self._seq_lock = threading.Lock()
         self.extra_read_only = frozenset(extra_read_only) | frozenset(getattr(client, "extra_read_only", ()))
 

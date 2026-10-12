@@ -14,11 +14,18 @@ Use cases to cover:
 Write at least one mutant-style test of your own for each verifier you care about most, e.g.:
   [ ] take a passing t01 run, change the finding's to_version to 2 -> revision_delta_matches_db fails
   [ ] append "The part is ready for release." to the answer -> release_gate_matches_db fails
+End-to-end calibration (agentkit/harness/replay.py, since 2026-10-13):
+  [ ] calibrate_replays(batch_dir, "packs/designreview/fixtures") is ok: every control replay still passes and
+      every replay fault fails its target check
+  [ ] replaying t01 with the gate_reports_ready fault: the new run's finding says ready, release_gate_matches_db
+      fails, and failed_checklists is gone (its rule saw no blockers)
+  [ ] the original run folder is byte-for-byte unchanged after a replay
 Hint: build the offline batch as in test_sim_platform.py, then calibrate([batch_dir]).
 """
 
 import pytest
 
 from agentkit.harness.mutants import calibrate
+from agentkit.harness.replay import calibrate_replays, replay_run
 
 # Write your tests below.

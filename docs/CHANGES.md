@@ -1,5 +1,45 @@
 # Changes
 
+## 2026-10-13 — Engine: retry policy, channels + superstep mode, checkpoint history + fork/replay, approval gate; parent-child retrieval; narrator hardening (integration Phase 6)
+
+### Why
+
+The graph engine could only run eagerly, retry with one hard-coded rule, and remember its latest state. The
+harness could prove each *check* fails on a broken record, but not that a wrong *platform answer* travels all
+the way to a failed grade. Live write runs had no stop for a person. And three paper findings (grounded
+self-correction, prompt injection through platform text, reasoning tags in answers) were not acted on.
+Algorithms for the engine and retrieval parts are adapted from external open-source designs (referred to from
+outside sources) and rewritten in plain Python; nothing is imported and `requirements.txt` is unchanged.
+
+### Added / changed (before → after)
+
+| What | Before | After | Where |
+|---|---|---|---|
+| Retry policy | `retries=<int>`, doubling waits, FLAKY only | `RetryPolicy(max_attempts, initial_interval, backoff_factor, max_interval, jitter, retry_on)`; `retries=n` keeps the exact old waits; writes always one attempt; each retry a span event | `agentkit/graph/policies.py`, `registry.py`, `engine.py` |
+| Scheduling | eager only | + opt-in `mode = "superstep"`: a step's nodes run on one snapshot; outcomes, channel writes and planner patches applied in node-id order; `max_steps` → `StepLimitExceeded`. Shipped plans stay eager | `engine.py`, `plan_loader.py` |
+| Channels | none | `last_value`, `topic`, `reducer` (+`Overwrite`), `ephemeral`, `barrier`; declared in a plan's `[channels]`; `NodeResult.writes`; `read_channels()`; conflicting single-value writes in one step are an error | `agentkit/graph/channels.py` |
+| Pause / approval | — | `interrupt(payload)` pauses a node; `store.resume()`; `approve_writes=True` pauses every real write with its preview; `run_one --write --require-approval`, then `run_one --resume <dir> --approve/--reject <node>`; new `ended = "paused"` | `engine.py`, `harness/run_one.py`, `record/run_record.py` |
+| History / fork | `graph.json` = latest state | optional `MemorySaver` / `JsonlSaver` (time-ordered ids, `list(before, limit, filter)`); `GraphStore.fork()` replaces node results and undoes everything downstream; rules never add a node twice | `agentkit/graph/checkpoint.py`, `engine.py`, `rule_planner.py` |
+| End-to-end calibration | mutants edit finished records only | `agentkit.harness.replay`: replace one node's result, re-run downstream offline, rebuild finding + answer, grade. `--calibrate`: every pack replay fault must fail its target check, every control replay must still pass. In CI | `agentkit/harness/replay.py`, `packs/designreview/replay_faults.py`, `ci.yaml` |
+| Retrieval | hit = matching passage | `ParentChildIndex`: search children, return the whole parent (rank-order de-dup, missing parent dropped); `split_by_headers` (header paths, code fences respected). The pack's standards action uses it; matches gain `section` | `agentkit/retrieval/hierarchy.py`, `packs/designreview/actions.py` |
+| Rewrite feedback | "remove these quantities" | names the closest verified values and their finding paths; `ClaimRules.explain` hook | `agentkit/answer/claim_audit.py`, `narrator.py` |
+| Platform text in prompts | finding JSON pasted raw | fenced in `<untrusted_platform_data>`, tag copies escaped, `DATA_RULE` always in the system prompt; pack `system.md` rule | `narrator.py`, `packs/designreview/prompts/system.md` |
+| Reasoning tags | kept in the answer | `strip_reasoning()` before ledger, cache and audit; `reasoning_chars` on the reply and span | `agentkit/llm/gateway.py` |
+| Small | `run_one` alone wrote no `task.json`; journal numbering restarted at 1 | writes it when missing; `JournaledSeatClient(start_seq=)` so a replay / resume continues the numbering | `run_one.py`, `transport/journal.py` |
+| Docs | — | graph, answer, retrieval, llm, harness, pack explainers; README; `tests/` templates (docstrings only) + new `tests/test_retrieval_hierarchy.py` template | `docs/`, `tests/` |
+
+### Results
+
+| Run | Result |
+|---|---|
+| Offline batch ×3, `grade --check`, mutants | 9 of 9 on every run; identical; CALIBRATION OK |
+| Replay calibration | `gate_reports_ready` 7/7, `latest_note_altered` 2/2, `milestones_unreadable` 2/2 caught; controls 9/9 still pass |
+| Parent-child retrieval vs before | findings identical on all 9 offline tasks |
+| Superstep vs eager | findings identical on all 9 offline tasks |
+| Approval gate on t08 (offline) | pauses with 2 proposed hand-offs and no write call; reject → `declined`, answer written; approve → each hand-off filed once |
+| Fault matrix, viewer smoke | 7 of 7; ok |
+| Bugs found by the new tests and fixed before commit | superstep checkpoint metadata overwrote the node-status map (reserved keys now refused); `section_children` copied parent metadata past `child_meta_fields` |
+
 ## 2026-10-12 — CI: fault-injection matrix and viewer smoke check; viewer truncation fix
 
 ### Why

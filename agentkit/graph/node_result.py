@@ -6,6 +6,10 @@ A refusal (DECLINED) or a hand-off to a person (HANDED_OFF) is a normal
 Only an unexpected problem is FAILED, and it keeps the transport's error
 kind so the run record says why. BYPASSED means the node never ran because
 a dependency it required did not resolve.
+
+`writes` (optional) is what the node puts into the run's shared channels
+(agentkit.graph.channels): {channel name: value}. Left out of the saved form
+when empty, so graph.json is unchanged for nodes that write nothing.
 """
 
 from __future__ import annotations
@@ -27,6 +31,7 @@ class NodeResult:
     data: Any = None
     reason: Optional[str] = None
     error_kind: Optional[str] = None
+    writes: Optional[Dict[str, Any]] = None
 
     def __post_init__(self) -> None:
         if self.verdict not in VERDICTS:
@@ -41,7 +46,10 @@ class NodeResult:
         return value if isinstance(value, NodeResult) else cls(RESOLVED, data=value)
 
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        d = asdict(self)
+        if not d["writes"]:
+            d.pop("writes")
+        return d
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "NodeResult":

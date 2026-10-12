@@ -77,6 +77,12 @@ jobs:
       - name: Calibrate the verifiers (every planted fault must be caught)
         run: python -m agentkit.harness.mutants runs/batches/ci
 
+      # End to end: replace one node's result in a saved graph, re-run everything downstream
+      # offline, rebuild finding + answer, grade. Each pack replay fault must fail its target
+      # check; a control replay (same result) must still pass. Writes replay_calibration.json.
+      - name: Replay calibration (node fault -> finding -> answer -> check)
+        run: python -m agentkit.harness.replay --calibrate runs/batches/ci --sim packs/designreview/fixtures
+
       # Replays tasks with platform faults (edited record, flaky read, missing tool, unreadable
       # endpoint) and checks the agent never crashes and the grader says exactly what it should.
       # Scenarios: packs/designreview/ci_faults.toml. Writes its table to the job summary.

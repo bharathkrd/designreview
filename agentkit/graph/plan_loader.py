@@ -13,6 +13,12 @@ with no condition are errors at load time).
     after = []                              # optional
     requires = "resolved"                   # optional: resolved | settled
 
+    mode = "eager"                          # optional: eager | superstep (engine.py)
+    [channels]                              # optional shared state (channels.py)
+    warnings = "topic"
+    gate = "last_value"
+    evidence = { kind = "barrier", names = ["revisions", "feedback"] }
+
     [[rules]]                               # see rule_planner.py
     name = "follow_up_when_blocked"
     [rules.when]
@@ -38,6 +44,7 @@ from typing import Any, Dict, List, Literal, Optional, Union
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from agentkit.config import ConfigError, read_config, validation_message
+from agentkit.graph.channels import make_channel
 from agentkit.graph.engine import TaskSpec
 
 _WHOLE = re.compile(r"^\{([A-Za-z_][A-Za-z0-9_]*)\}$")
@@ -111,8 +118,19 @@ class RuleModel(_Strict):
 class PlanModel(_Strict):
     name: str
     params: List[str] = Field(default_factory=list)
+    mode: Literal["eager", "superstep"] = "eager"
+    channels: Dict[str, Union[str, Dict[str, Any]]] = Field(default_factory=dict)
     nodes: List[NodeModel] = Field(min_length=1)
     rules: List[RuleModel] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _channels_build(self) -> "PlanModel":
+        for name, spec in self.channels.items():
+            try:
+                make_channel(spec)
+            except (KeyError, TypeError, ValueError) as e:
+                raise ValueError(f"channel {name!r}: {e}") from None
+        return self
 
 
 def node_from_dict(d: Dict[str, Any], params: Dict[str, Any], added_by: str = "plan") -> TaskSpec:
@@ -130,6 +148,8 @@ class Plan:
         self.params = list(model.params)
         self.nodes = [n.model_dump() for n in model.nodes]
         self.rules = [r.model_dump(exclude_none=True) for r in model.rules]
+        self.mode = model.mode
+        self.channels = dict(model.channels)
         self.source = source
 
     def initial_tasks(self, params: Dict[str, Any]) -> List[TaskSpec]:

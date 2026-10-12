@@ -1,7 +1,7 @@
 # `agentkit/harness/` — tasks, ground truth, grading, self-test
 
 *Reading order: **7th**. Files: `tasks.py`, `ground_truth.py`, `run_one.py`, `batch.py`, `checks.py`,
-`grade.py`, `mutants.py`, `cleanup.py` (+ `agentkit/clock.py`). Domain checks live in `packs/designreview/checks.py`.*
+`grade.py`, `mutants.py`, `replay.py`, `cleanup.py` (+ `agentkit/clock.py`). Domain checks live in `packs/designreview/checks.py`.*
 
 ## 10,000-ft view
 
@@ -12,6 +12,7 @@ task.toml ──► ground truth BEFORE (harness's own login)
           ──► write runs only: the pack's clean-up undoes what was filed ──► cleanup.json
           ──► grade (files only) ──► score.json per run; batch_score.json + report.md per batch (pass^k)
           ──► mutants (prove every check can fail) ──► calibration.json
+          ──► replay --calibrate (node fault → re-run downstream → grade) ──► replay_calibration.json
 ```
 
 ## Why it's written this way
@@ -57,6 +58,18 @@ task.toml ──► ground truth BEFORE (harness's own login)
 - **Calibration.** `mutants.py` applies each mutant (3 built-in + the pack's) to copies of passing runs and
   requires its target check to fail. A mutant that slips through (MISSED) or a check nothing can make fail
   (UNEXERCISED) fails calibration. Failing runs are skipped; run folders are never modified.
+- **End-to-end calibration (since 2026-10-13, `replay.py`).** A mutant edits a finished record, so it tests
+  the checks alone. A *replay fault* (`@registry.replay_fault(name, node=, target=)`) replaces what one node
+  returned; `GraphStore.fork` undoes everything downstream, the plan's executor re-runs it offline against the
+  tenant's fixture (clock frozen to its capture time), the pack rebuilds the finding and answer, and the new
+  folder is graded. The target check must fail. Per passing run (first repeat) a **control** replay at the
+  plan's first node with its own result must still pass — proof the replay itself is faithful. Output goes
+  to `<batch>/replays/<run>--<fault>/` (the usual run files + `replay.json`; the journal is the original
+  calls followed by the replayed ones); the original run is never touched.
+- **Approval gate (since 2026-10-13).** `run_one --write --require-approval` pauses before every real write
+  with the write's preview (`ended = "paused"`, no answer yet; a paused run fails `run_completed`).
+  `run_one --resume <run_dir> --approve <node>` / `--reject <node>` finishes the same folder: approved writes
+  run, rejected ones end `declined`. `run_one` now also writes `task.json` when it runs standalone.
 
 ## Task files
 
@@ -73,8 +86,11 @@ allow_writes, description`. Unknown keys, unknown verifiers, missing plans and d
 | `python -m agentkit.harness.grade <batch-dir or run-dirs>` | grade saved runs (exit 1 on any fail) |
 | `python -m agentkit.harness.grade --check <batch-dir>` | re-grade in memory, compare with saved scores, write nothing (exit 1 on a difference) |
 | `python -m agentkit.harness.mutants [batch-dir]` | calibrate (exit 1 on MISSED/UNEXERCISED) |
+| `python -m agentkit.harness.replay --calibrate <batch-dir> --sim <fixtures>` | end-to-end calibration (exit 1 on a missed fault or a failing control) |
+| `python -m agentkit.harness.replay <run-dir> (--fault name \| --node id --result file.json) [--sim f] [--out d] [--llm]` | one replay, graded |
 | `python -m agentkit.harness.preflight [--tenant t] [--fixture f]` | live, read-only: the pack's required tools are offered; catalogue fingerprint vs the fixture's |
-| `python -m agentkit.harness.run_one --task t.toml --run-dir d --run-id id [--write]` | one task, one folder |
+| `python -m agentkit.harness.run_one --task t.toml --run-dir d --run-id id [--write [--require-approval]]` | one task, one folder |
+| `python -m agentkit.harness.run_one --resume d --approve node [--reject node]` | finish a paused run |
 
 ## Key types
 

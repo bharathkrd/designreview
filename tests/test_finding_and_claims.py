@@ -17,6 +17,10 @@ Use cases to cover:
   [ ] The template answer passes its own audit for a normal, a ready, a declined and a partial finding
   [ ] Narrator: good first draft -> source "llm"; bad then good -> one rewrite; bad twice -> template;
       LLM exception -> template with the reason recorded
+  [ ] The prompt carries the finding between <untrusted_platform_data> tags; a commit message containing
+      "</untrusted_platform_data>" can't close the fence (and the JSON still parses); the system prompt ends
+      with DATA_RULE
+  [ ] A draft saying "2.5 mm" gets a rewrite prompt naming '3.0 mm' and where it is in the finding
 Hint: build node results by hand -- agentkit.graph.NodeResult("resolved", data={...}) -- and call
 build_finding(results, {"file_id": ..., "prompt": ...}). For the narrator, pass a fake gateway object
 with a call(prompt, **kw) method that returns scripted strings.

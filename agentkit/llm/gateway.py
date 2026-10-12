@@ -9,6 +9,10 @@ What a caller can rely on:
   input/output tokens, normalised stop_reason, latency).
 - stop_reason is normalised to: end_turn | max_tokens | refusal | other.
   A truncated (max_tokens) or refused reply is returned but never cached.
+- Reasoning a model writes into its answer text (<think>...</think>, as some
+  open reasoning models do) is removed before anything else sees the reply:
+  the claim audit, the cache, the ledger. reply.reasoning_chars says how much
+  was removed. A reply that is only reasoning counts as empty.
 - Errors are classified. Retryable (429, 408, 409, 5xx, 529 overloaded,
   network/timeout, empty reply) -> capped exponential backoff on the same
   provider, then a cooldown and the next provider. Not retryable (400, 401,
@@ -123,6 +127,7 @@ class LLMReply:
     output_tokens: Optional[int] = None
     latency_s: float = 0.0
     cached: bool = False
+    reasoning_chars: int = 0  # reasoning removed from the text (strip_reasoning)
 
     @property
     def complete(self) -> bool:
@@ -183,6 +188,33 @@ class ResponseCache:
             self._store.move_to_end(key)
             while len(self._store) > self.maxsize:
                 self._store.popitem(last=False)
+
+
+_REASONING_TAGS = r"(?:think|thinking|reasoning)"
+_REASONING_BLOCK = re.compile(r"<(" + _REASONING_TAGS + r")>.*?</\1>\s*", re.S | re.I)
+_REASONING_OPEN = re.compile(r"<" + _REASONING_TAGS + r">", re.I)
+_REASONING_CLOSE = re.compile(r"</" + _REASONING_TAGS + r">", re.I)
+
+
+def strip_reasoning(text: str) -> Tuple[str, int]:
+    """(answer, chars removed). Removes <think>...</think> blocks (and
+    <thinking>, <reasoning>); an unclosed opening tag means the reply was cut
+    off mid-reasoning, so everything from it on goes; a closing tag with no
+    opening one (some servers drop the opener) means everything before it was
+    reasoning."""
+    if not text or "<" not in text:
+        return text, 0
+    out = _REASONING_BLOCK.sub("", text)
+    m = _REASONING_OPEN.search(out)
+    if m:
+        out = out[:m.start()]
+    m = _REASONING_CLOSE.search(out)
+    if m:
+        out = out[m.end():]
+    if out == text:
+        return text, 0
+    out = out.strip()
+    return out, len(text) - len(out)
 
 
 def _norm_stop(raw: Any) -> str:
@@ -288,7 +320,7 @@ class LLMGateway:
             reply = self._call_detailed(prompt, system_prompt, temperature, max_tokens, json_mode, tier)
             s.set(provider=reply.provider, model=reply.model, input_tokens=reply.input_tokens,
                   output_tokens=reply.output_tokens, stop_reason=reply.stop_reason, cached=reply.cached,
-                  latency_s=reply.latency_s, ok=reply.complete)
+                  latency_s=reply.latency_s, reasoning_chars=reply.reasoning_chars, ok=reply.complete)
             return reply
 
     def _call_detailed(self, prompt: str, system_prompt: Optional[str], temperature: float, max_tokens: int,
@@ -331,6 +363,7 @@ class LLMGateway:
                         state.cool_down(FAILURE_COOLDOWN_S)
                     break
                 reply.latency_s = round(time.time() - t0, 3)
+                reply.text, reply.reasoning_chars = strip_reasoning(reply.text)
                 self.ledger.record(provider, model, prompt, reply.text, reply.latency_s,
                                    input_tokens=reply.input_tokens, output_tokens=reply.output_tokens,
                                    stop_reason=reply.stop_reason)

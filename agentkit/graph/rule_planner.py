@@ -19,6 +19,10 @@ A rule fires at most once per run, when the node it watches finishes:
 
 Paths are dotted keys into the watched node's result data. Placeholders are
 filled from the run parameters, as in plan files.
+
+A rule never adds a node that already exists (and never links into one that
+has started): after a fork re-runs part of a graph, a rule may fire again
+and must not collide with what is already there.
 """
 
 from __future__ import annotations
@@ -85,6 +89,10 @@ class RulePlanner:
             if not condition_holds(when, spec.result.data):
                 continue
             self.fired.append(name)
-            patch.add += [node_from_dict(n, self.params, added_by="planner") for n in rule.get("add") or []]
-            patch.link += [tuple(fill(pair, self.params)) for pair in rule.get("link") or []]
+            patch.add += [node_from_dict(n, self.params, added_by="planner") for n in rule.get("add") or []
+                          if store is None or fill(n["id"], self.params) not in store]
+            for dep, node_id in (tuple(fill(pair, self.params)) for pair in rule.get("link") or []):
+                target = store.get(node_id) if store is not None else None
+                if target is None or target.state == "pending":
+                    patch.link.append((dep, node_id))
         return patch if (patch.add or patch.link) else None
