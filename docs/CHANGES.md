@@ -26,7 +26,7 @@ rather than comparing.
 | CI steps replayed in a clean worktree (no `.env`, no `tests_local/`) | `tests/` 35 passed; 9 of 9 tasks pass on every run (×3); `--check` identical; calibration OK; secret scans clean |
 | `secret_scan.py --history` / tracked files | clean (first draft flagged 3 false positives — `TOKEN_EXPIRED = "token_expired"`, `os.environ[...]`, a `Dict[...]` annotation — fixed by excluding brackets and requiring letters + digits in assignment values) |
 | `gitleaks git . --config .gitleaks.toml` | no leaks (31 commits); a planted NVIDIA key and `AS_*_PASSWORD` are both caught |
-| `tests_local/test_secret_scan_ci.py` | 19 passed |
+| `tests_local/test_secret_scan_ci.py` | 16 passed |
 
 Not verified here: the workflow itself on GitHub (needs a push; see the verification list in the plan).
 
