@@ -77,6 +77,18 @@ jobs:
       - name: Calibrate the verifiers (every planted fault must be caught)
         run: python -m agentkit.harness.mutants runs/batches/ci
 
+      # Replays tasks with platform faults (edited record, flaky read, missing tool, unreadable
+      # endpoint) and checks the agent never crashes and the grader says exactly what it should.
+      # Scenarios: packs/designreview/ci_faults.toml. Writes its table to the job summary.
+      - name: Fault-injection matrix (each fault must be graded as expected)
+        run: python scripts/ci_fault_matrix.py
+
+      # Starts the run viewer on the CI batch (its own process, 127.0.0.1) and opens every run:
+      # page + static files, batch, report, calibration, each run's records and telemetry tree;
+      # also checks it stays read-only (POST -> 405) and confined (path traversal -> 404).
+      - name: Viewer smoke check (serve the batch, open every run)
+        run: python scripts/ci_viewer_smoke.py runs/batches/ci
+
       - name: Add the score report to the job summary
         if: always()
         run: |

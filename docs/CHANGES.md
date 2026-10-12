@@ -1,5 +1,30 @@
 # Changes
 
+## 2026-10-12 — CI: fault-injection matrix and viewer smoke check; viewer truncation fix
+
+### Why
+
+CI proved the happy path (9 of 9, identical re-grading, calibration). It didn't prove that the system
+degrades safely when the platform misbehaves, or that the viewer people use to explain runs actually works.
+
+### Added / fixed (before → after)
+
+| What | Before | After | Where |
+|---|---|---|---|
+| Fault matrix | faults only tried by hand | 7 scenarios replayed in CI: each must finish the agent run and be graded exactly as declared (overall grade + named checks). Table in the job summary | `scripts/ci_fault_matrix.py`, `packs/designreview/ci_faults.toml`, `.github/workflows/ci.yaml` |
+| Viewer smoke | not checked | CI starts the viewer as its own process on the CI batch and opens the page, static files, batch, report, calibration and every run (records + telemetry tree); POST must give 405 and path traversal 404 | `scripts/ci_viewer_smoke.py`, `ci.yaml` |
+| **Viewer bug** | each response body sent with one `wfile.write()`: on Windows loopback 1-4 % of large (~130 KB) run pages stopped at ~64 KB and the client hung | body written in 64 KB pieces: 300 of 300 large responses complete | `agentkit/viewer/server.py` |
+| Docs | — | README CI list; sim and viewer explainers | `README.md`, `docs/explainers/` |
+
+### Results
+
+| Run | Result |
+|---|---|
+| Fault matrix | 7 of 7 as expected; a deliberately wrong expectation is reported as MISMATCH (exit 1) |
+| Viewer smoke | ok 5 of 5 runs; a run with its telemetry deleted is reported (exit 1) |
+| Viewer stress, one 130 KB run page | before: 96-97 of 100 complete; after: 300 of 300 |
+| Isolation of the cause | same 130 KB body, single write vs 64 KB writes, 200 fetches each: 197 / 200 vs 200 / 200 |
+
 ## 2026-10-12 — Telemetry: a run tree per run (integration Phase 5)
 
 ### Why

@@ -47,6 +47,8 @@ SECURITY_HEADERS = {
     "Referrer-Policy": "no-referrer",
     "Cache-Control": "no-store",
 }
+WRITE_CHUNK = 64 * 1024
+
 RUN_FILES = {"task": "task.json", "taskrun": "taskrun.json", "score": "score.json", "graph": "graph.json",
              "before": "ground_truth_before.json", "after": "ground_truth_after.json", "ledger": "llm_ledger.json",
              "telemetry": "telemetry.json"}
@@ -207,7 +209,11 @@ def make_handler(app: ViewerApp):
                 self.send_header("Allow", "GET, HEAD")
             self.end_headers()
             if not head_only:
-                self.wfile.write(body)
+                # In 64 KB pieces: one large write intermittently truncated responses at ~64 KB on
+                # Windows loopback (about 1-4 % of 130 KB run pages, found 2026-10-12 by the CI
+                # viewer smoke check); chunked writes delivered every byte in the same test.
+                for start in range(0, len(body), WRITE_CHUNK):
+                    self.wfile.write(body[start:start + WRITE_CHUNK])
 
         def do_GET(self) -> None:  # noqa: N802
             self._send(*app.handle(self.path))

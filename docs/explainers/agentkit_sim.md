@@ -32,6 +32,16 @@ for both the agent and the harness, with injectable faults.
   captured_at>)`, so date-dependent answers (past-due milestones) match the day the fixture was captured, on
   any day. `AGENTKIT_FROZEN_NOW` overrides it.
 
+## Fault-injection matrix (CI)
+
+`scripts/ci_fault_matrix.py` runs the scenarios in `packs/designreview/ci_faults.toml`. Each one replays one
+task with faults, grades it, and states the expected overall grade and, where it matters, the exact checks.
+Every scenario must also finish the agent run (`ended = "done"`): a fault may lower the grade, never crash
+the agent. Today's seven: an edit during the run gives `drift`; a flaky read is retried (`pass`); a removed
+feedback tool degrades to a partial answer (`pass`); an unreadable release gate or schedule gives `fail` on
+`release_gate_matches_db` / `schedule_matches_db`; a refusal survives a flaky or broken read (`pass`). The
+script is domain-free; the scenarios are pack data.
+
 ## Per-tenant fixtures
 
 A fixture holds one tenant's platform. `python -m agentkit.sim.capture --tenant <t>` runs only the tasks

@@ -316,7 +316,13 @@ gitleaks git . --config .gitleaks.toml --redact --verbose   # gitleaks 8.30.1 (S
    `**9 of 9 tasks pass on every run.**`;
 3. `grade --check` (re-grading the saved runs must give identical scores);
 4. `agentkit.harness.mutants` (every planted fault must be caught);
-5. the two secret scans above. Actions are pinned by commit SHA.
+5. a fault-injection matrix, `scripts/ci_fault_matrix.py`: tasks replayed with platform faults (a record
+   edited mid-run, a flaky read, a tool removed from the seat, an endpoint that never answers). The agent
+   must never crash and every run must be graded exactly as `packs/designreview/ci_faults.toml` says
+   (`drift`, `pass` or `fail`, down to the check);
+6. a viewer smoke check, `scripts/ci_viewer_smoke.py`: the run viewer is started on the CI batch and every
+   run, the report, the calibration and each telemetry tree are opened; it must stay read-only and confined;
+7. the two secret scans above. Actions are pinned by commit SHA.
 
 ---
 
