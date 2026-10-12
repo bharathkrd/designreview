@@ -14,8 +14,19 @@ Use cases to cover:
   [ ] batch --write refuses --sim; --keep-writes needs --write
   [ ] Grading the same saved run folder twice gives identical score.json (deterministic)
   [ ] overall_status: any fail/error -> fail; only drift -> drift; else pass
+  [ ] agentkit.clock.now_utc() returns AGENTKIT_FROZEN_NOW when set; a value with no timezone raises ValueError
+  [ ] frozen_now(iso) pins the clock inside the block and restores it afterwards
+  [ ] run_batch(..., batch_id="ci") refuses a second batch with the same id; "../x" is rejected
+  [ ] run_batch(..., repeat=2) gives run ids ending -r1 / -r2 and manifest expected_runs == tasks x tenants x 2
+  [ ] score_batch(): a task with one failed (or missing) repeat has pass_all False
+  [ ] report.md carries "**P of T tasks pass on every run.**"
+  [ ] rescore_check(batch_dir) is (True, []) right after grading, and reports a hand-edited score.json
+  [ ] run_task creates an empty tool_journal.jsonl even when the run makes no tool call
 Hint: use pytest's tmp_path as the run folder; write taskrun.json / tool_journal.jsonl /
 ground_truth_after.json yourself, then call agentkit.harness.grade.grade_run(tmp_path).
+For batch-level cases, run the offline batch: SimSession("packs/designreview/fixtures", [], reg.read_only)
+-> run_batch(tasks, runs_dir=tmp_path, reader_factory=sim.reader_for, agent_runner=sim.run_agent,
+fresh_reader_per_task=True, skip_llm=True, batch_id=..., repeat=...) -> grade_batch(batch_dir).
 """
 
 import pytest

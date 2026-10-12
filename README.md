@@ -167,6 +167,10 @@ python capstone_evals.py --skip-llm         # template answers, no LLM cost
 # Re-grade the newest batch from its saved files (free)
 python rescore.py
 
+# The CI gate, offline: every task 3 times (pass^k), then prove re-grading is identical
+python -m agentkit.harness.batch --sim packs/designreview/fixtures --skip-llm --batch-id ci --repeat 3 --grade
+python -m agentkit.harness.grade --check runs/batches/ci
+
 # Prove the verifiers catch a misbehaving agent
 python -m agentkit.harness.mutants
 

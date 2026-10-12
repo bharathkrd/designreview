@@ -1,5 +1,48 @@
 # Changes
 
+## 2026-10-12 — Evals you can gate on: frozen clock, pass^k, checkable re-grading (integration Phase 1)
+
+### Why
+
+A CI gate has to give the same verdict on any machine and any day, and it has to *prove* that grading is
+deterministic rather than assume it. Three things stood in the way:
+
+- The finding's `snapshot_at` came from the wall clock, so t08/t09's past-due milestones changed as real dates
+  passed (a reference test started failing on 2026-10-03, when "PPAP level 3 submission" fell due).
+- `dfm_standards` built its search query from the change notes **plus the release blockers "if the gate had
+  answered by then"**, so the cited standards depended on which thread finished first. Found by the new
+  determinism test: two identical offline runs in one process cited different standards. Live runs had the
+  same race.
+- There was no way to run each task several times, no batch-level pass/fail line, and re-grading just
+  overwrote the scores.
+
+### Changed (before → after)
+
+| What | Before | After | Where |
+|---|---|---|---|
+| Time source | `datetime.now()` in the finding and the ground-truth capture | `agentkit.clock.now_utc()`; `AGENTKIT_FROZEN_NOW` (ISO-8601 with timezone) overrides it; `frozen_now(iso)` pins it for a block | `agentkit/clock.py` (new), `packs/designreview/finding.py`, `agentkit/harness/ground_truth.py` |
+| Offline replays | answered "as of today" | each task runs frozen at its tenant fixture's `captured_at` (suryodaya 2026-09-30T15:45:09Z, keystone 2026-09-30T15:46:03Z) | `agentkit/harness/batch.py` (`SimSession.run_agent`) |
+| Standards query | `dfm_standards` waited for `revisions` only; blockers added if the gate happened to be done | waits for `revisions` **and** `release_gate`; the query always carries the blocker titles. If the gate read fails, the standards section is now bypassed rather than searched with a thinner query | `packs/designreview/plans/rev_diff_dfm.toml` |
+| Batch id | always a timestamp | `--batch-id <id>` (pattern `^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$`, never reuses an existing batch; CLI error exit 2) | `agentkit/harness/batch.py` |
+| Repeats | one run per task × tenant | `--repeat N`; run ids get `-r1..-rN` (unchanged for N=1); manifest records `repeat`, `expected_runs`, `expected` per task | `agentkit/harness/batch.py` |
+| Batch verdict | per-run table only | pass^k: a task passes only if every run passed and none is missing. `report.md` states `**P of T tasks pass on every run.**`; `batch_score.json` (no timestamps) holds the numbers; a "Runs that never happened" section lists expected runs missing from the manifest | `agentkit/harness/grade.py` |
+| Re-grading | overwrote `score.json` | `grade --check <batch>` / `rescore_check()`: re-grade in memory, write nothing, compare with saved `score.json` + `batch_score.json`; exit 1 on any difference or an ungraded batch | `agentkit/harness/grade.py` |
+| Tool journal | created on the first tool call (t03 had none) | created empty before any work | `agentkit/harness/run_one.py` |
+| Docs | — | harness, sim, evals and pack explainers; README CI recipe; `tests/test_harness.py` to-do list (docstring only) | `docs/explainers/`, `README.md`, `tests/` |
+
+Unchanged on purpose: run ids when `--repeat` is 1, `score.json` format, `report.md` table, check statuses,
+and every existing CLI flag.
+
+### Results
+
+| Run | Result |
+|---|---|
+| Offline CI recipe: `batch --sim packs/designreview/fixtures --skip-llm --batch-id ci --repeat 3 --grade` | **9 of 9 tasks pass on every run** (27 runs) |
+| `grade --check runs/batches/ci` | identical |
+| Calibration on that batch | OK: no mutant missed, no check unexercised |
+| `tests_local` offline | 553 passed, 2 failed (both `.env` `AGENTSWITCH_TOKEN` leaking into `SeatSession` tests; fixed in Phase 3), 31 skipped (later phases) |
+| `tests/` | 35 passed, 1 failed (`test_retrieval.py`, hand-written, in progress) |
+
 ## 2026-09-30 — Write mode: hand-offs filed as escalations, verified, withdrawn (Part 3)
 
 ### Why

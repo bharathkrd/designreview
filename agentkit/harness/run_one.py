@@ -4,8 +4,8 @@ Run ONE task into ONE run folder -- the agent side of the harness.
     python -m agentkit.harness.run_one --task <task.toml> --tenant <tenant> \
         --run-dir runs/<run_id> --run-id <run_id> [--skip-llm] [--write]
 
-Writes, in order: taskrun.json (ended="running", before any work), then
-tool_journal.jsonl and graph.json as the plan runs, then taskrun.json again
+Writes, in order: taskrun.json (ended="running", before any work) and an
+empty tool_journal.jsonl, then journal lines and graph.json as the plan runs, then taskrun.json again
 with the finding, answer and ended=done|error, and llm_ledger.json.
 The batch runner starts this in a subprocess, so an agent crash can never
 take the harness down with it; the running-record is the evidence either way.
@@ -43,6 +43,9 @@ def run_task(task: TaskDef, tenant: str, run_dir: Path, run_id: str, *, skip_llm
     run = TaskRun(task_id=task.id, prompt=task.prompt, run_id=run_id, tenant=tenant, dry_run=dry_run,
                   harness_task=task.id, pack=task.pack)
     run.open_in(run_dir)  # on disk before any work
+    # An empty journal from the start: "made no tool call" (a catalogue-only
+    # refusal) must look different from "the journal was lost".
+    (run_dir / JOURNAL_FILE).touch()
     t0 = time.time()
     try:
         registry = registry or load_pack(task.pack)

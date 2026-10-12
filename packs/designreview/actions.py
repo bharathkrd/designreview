@@ -100,7 +100,8 @@ def _all_rows(client, tool: str, args: Dict[str, Any], page: int = STANDARDS_PAG
 
 def standards_query(results) -> str:
     """What to look standards up by: the change notes being reviewed plus the
-    release blockers' titles (when the gate has already answered)."""
+    release blockers' titles. The plan makes this node wait for both reads,
+    so the query never depends on which one finished first."""
     parts = []
     rev = results.get("revisions")
     if rev is not None and rev.verdict == RESOLVED and isinstance(rev.data, dict):

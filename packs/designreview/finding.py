@@ -30,10 +30,10 @@ only come from the engineers' own version notes -- and the finding says so.
 
 from __future__ import annotations
 
-import datetime as dt
 import re
 from typing import Any, Dict, List, Optional
 
+from agentkit.clock import now_utc
 from agentkit.graph import DECLINED, FAILED, RESOLVED, NodeResult
 from packs.designreview.handoffs import milestone_view
 
@@ -232,7 +232,7 @@ def build_finding(results: Dict[str, NodeResult], params: Dict[str, Any], *, run
                 for node, r in results.items() if r.verdict == DECLINED]
     finding: Dict[str, Any] = {
         "schema": FINDING_SCHEMA, "run_id": run_id, "dry_run": dry_run,
-        "snapshot_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+        "snapshot_at": now_utc().isoformat(timespec="seconds"),
         "question": prompt, "file_id": params.get("file_id"), "declines": declines,
     }
     file_state = _section_state(results, "design_file")

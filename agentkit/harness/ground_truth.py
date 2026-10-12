@@ -14,11 +14,11 @@ GroundTruthReader bundles two fresh sessions for the probes to use:
 
 from __future__ import annotations
 
-import datetime as dt
 import time
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterable, List
 
+from agentkit.clock import now_utc
 from agentkit.registry import Registry
 from agentkit.transport import FLAKY, RestReader, SeatCallFailure, SeatRpcClient
 
@@ -58,7 +58,7 @@ def observe(registry: Registry, reader: Any, key: str, sleep: Callable[[float], 
 
 def capture(registry: Registry, reader: Any, keys: Iterable[str],
             sleep: Callable[[float], None] = time.sleep) -> Dict[str, Any]:
-    return {"observed_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+    return {"observed_at": now_utc().isoformat(timespec="seconds"),
             "observations": {k: observe(registry, reader, k, sleep) for k in keys}}
 
 
