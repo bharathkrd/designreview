@@ -1,6 +1,6 @@
 # `capstone_agent.py` — the Design Review agent
 
-*Reading order: **10th**. Wires `agentkit` + the design-review pack. Always a dry run.*
+*Reading order: **12th**. Wires `agentkit` + the design-review pack. Always a dry run.*
 
 ## 10,000-ft view
 

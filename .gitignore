@@ -20,6 +20,8 @@ tests_local/
 # Local-only notes: where designs came from, and the merge plan that names reference projects
 PROVENANCE.local.md
 REFCODE_MERGE_PLAN.md
+docs/IMPLEMENTATION_PLAN_*.md
+docs/SESSION_NOTES_*.md
 
 runs/
 proofs/

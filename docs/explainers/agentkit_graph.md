@@ -11,6 +11,10 @@ the whole graph is checkpointed after every step.
 
 ## Why it's written this way
 
+- **Traced (since 2026-10-12).** Each executed node is a `node` span (action, verdict, attempts, queue wait)
+  and each planner call a `step` span; the engine submits work with `agentkit.telemetry.bind_context` so spans
+  opened in pool threads nest under the run's task span. Retries are span events. See `agentkit_telemetry.md`.
+
 - **Verdicts, not success/failure.** `resolved`, `declined` (a refusal — normal, not a crash), `handed_off`,
   `failed`, `bypassed` (never ran because a dependency it required didn't resolve). A refusal therefore doesn't
   take the answer down with it.

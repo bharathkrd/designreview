@@ -8,8 +8,8 @@ Use cases to cover:
   [ ] No file under agentkit/ mentions a design-review name: "designreview", "DesignFile",
       "DesignVersion", "release_readiness", a Battery Tray id ... (agentkit must stay domain-free)
   [ ] No file under agentkit/ imports from packs/
-  [ ] requirements.txt names none of: langchain, langgraph, llama-index / llama_index, crewai, autogen,
-      semantic-kernel, haystack, dspy, pydantic-ai, smolagents, agno, n8n, flowise, dify
+  [ ] requirements.txt names no agent or workflow framework (keep your banned-package list in the test;
+      the course brief names the frameworks that are not allowed)
   [ ] No .py file under agentkit/ or packs/ imports any of those packages
   [ ] A second, tiny pack (actions + one plan + one task, written in tmp_path) runs through
       agentkit.harness.run_one.run_task with ZERO changes to agentkit/ -- proof the framework is reusable

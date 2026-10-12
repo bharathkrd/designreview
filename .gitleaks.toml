@@ -1,0 +1,55 @@
+# gitleaks configuration for this repository (used by the CI "gitleaks" job and locally:
+#   gitleaks git . --config .gitleaks.toml --redact --verbose).
+#
+# It extends gitleaks' default rules and adds the credentials this project handles that the
+# defaults may not name. Deleting this file does not switch the CI scan off: the job passes
+# --config .gitleaks.toml and fails if the file is missing.
+#
+# Reviewed exceptions go here only, as [[allowlists]] entries with a reason. Inline
+# "gitleaks:allow" comments are ignored in CI (--ignore-gitleaks-allow) and a .gitleaksignore
+# file fails the job.
+
+title = "designreview"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "agentswitch-bearer-jwt"
+description = "AgentSwitch seat bearer token (JWT)"
+regex = '''\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{20,}'''
+keywords = ["eyj"]
+
+[[rules]]
+id = "nvidia-api-key"
+description = "NVIDIA API key"
+regex = '''\bnvapi-[A-Za-z0-9_-]{20,}'''
+keywords = ["nvapi-"]
+
+[[rules]]
+id = "cerebras-api-key"
+description = "Cerebras API key"
+regex = '''\bcsk-[A-Za-z0-9]{20,}'''
+keywords = ["csk-"]
+
+[[rules]]
+id = "groq-api-key"
+description = "Groq API key"
+regex = '''\bgsk_[A-Za-z0-9]{20,}'''
+keywords = ["gsk_"]
+
+[[rules]]
+id = "agentswitch-password-env"
+description = "AgentSwitch tenant password given a literal value (AS_<TENANT>_PASSWORD=...)"
+regex = '''\bAS_[A-Z0-9_]*PASSWORD\s*[:=]\s*["']?([^\s"'<>$]{8,})'''
+secretGroup = 1
+keywords = ["_password"]
+
+# Reviewed 2026-10-12: platform tool definitions in the captured fixtures carry
+# "_meta.agentswitch.script_key", a server-side script path such as
+# "scheduling/birthdays" -- a name, not a credential. Only that exact field
+# shape (a lowercase path) is allowed.
+[[allowlists]]
+description = "AgentSwitch tool metadata: script_key is a script path, not a key"
+regexTarget = "line"
+regexes = ['''^\s*"script_key":\s*"[a-z0-9_./-]+",?\s*$''']

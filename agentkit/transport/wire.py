@@ -18,11 +18,27 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Protocol
 
+from agentkit.config import OFFLINE_ENV, offline_mode
+
 RETRYABLE_GATEWAY_STATUSES = frozenset({502, 503, 504})
 
 
 class WireUnreachable(Exception):
     """No HTTP response at all: DNS, refused connection, TLS failure, timeout."""
+
+
+class OfflineViolation(RuntimeError):
+    """A real network call while AGENTKIT_OFFLINE is set. Deliberately NOT a
+    WireUnreachable: that maps to FLAKY, which is retried and can end as a
+    polite refusal -- an offline run that leaks onto the network must fail."""
+
+
+def refuse_if_offline(what: str) -> None:
+    if offline_mode():
+        raise OfflineViolation(f"{what}: refused, {OFFLINE_ENV} is set (offline run)")
+
+
+_STDLIB_URLOPEN = urllib.request.urlopen  # what "a real connection" means for UrllibWire
 
 
 @dataclass
@@ -70,6 +86,17 @@ def read_body(resp) -> bytes:
         return short.partial
 
 
+def read_error_body(err: urllib.error.HTTPError) -> bytes:
+    """An error response's body, with the same framing tolerance as read_body:
+    the platform's 401 also declares chunked encoding and sends plain JSON
+    (seen 2026-10-12), which made e.read() raise instead of returning a 401."""
+    fp = getattr(err, "fp", None)
+    try:
+        return (read_body(fp) if fp is not None and hasattr(fp, "read") else err.read()) or b""
+    except (http.client.HTTPException, OSError, ValueError):
+        return b""
+
+
 def _tls_context() -> ssl.SSLContext:
     # Opt-out exists only for broken corporate proxies; the platform's
     # certificates verify fine (checked 2026-09-28).
@@ -91,6 +118,8 @@ class UrllibWire:
 
     def send(self, method: str, url: str, headers: Dict[str, str], body: Optional[bytes],
              *, safe_to_repeat: bool) -> WireReply:
+        if urllib.request.urlopen is _STDLIB_URLOPEN:  # a test's stand-in opener is not the network
+            refuse_if_offline(f"{method} {url}")
         attempts = self.read_attempts if safe_to_repeat else 1
         last_error: Optional[Exception] = None
         for attempt in range(attempts):
@@ -99,7 +128,7 @@ class UrllibWire:
                 with urllib.request.urlopen(req, timeout=self.timeout, context=self._ctx) as resp:
                     return WireReply(resp.status, read_body(resp), dict(resp.headers.items()))
             except urllib.error.HTTPError as e:
-                reply = WireReply(e.code, e.read() or b"", dict(e.headers.items()) if e.headers else {})
+                reply = WireReply(e.code, read_error_body(e), dict(e.headers.items()) if e.headers else {})
                 if e.code in RETRYABLE_GATEWAY_STATUSES and attempt < attempts - 1:
                     time.sleep(self.backoff_s * (attempt + 1))
                     continue

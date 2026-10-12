@@ -69,6 +69,9 @@ class TaskRun:
     finding: Optional[Dict[str, Any]] = None  # the gradable, code-computed result
     answer_source: Optional[str] = None  # "llm" | "template"
     warnings: List[str] = field(default_factory=list)
+    # {fingerprint, count, problems}: the seat's tools/list when the run started
+    # (agentkit.transport.catalog); None when the client can't describe it.
+    tool_catalog: Optional[Dict[str, Any]] = None
 
     def add_step(self, kind: str, target: str, ok: bool, detail: Any = None, **extra: Any) -> Step:
         step = Step(kind=kind, target=target, ok=ok, detail=detail,

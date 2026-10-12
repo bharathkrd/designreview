@@ -4,6 +4,7 @@ The harness loop: run every task, write everything to disk, score nothing.
     python -m agentkit.harness.batch [--pack packs.<name>] [--only t01,t02]
                                      [--tenant <tenant>] [--skip-llm] [--grade]
                                      [--write [--keep-writes]]
+                                     [--batch-id <id>] [--repeat N]
 
 For each task x tenant:
   1. write runs/<run_id>/task.json
@@ -24,8 +25,13 @@ a captured fixture can't accept writes.
 Grading is a separate step over those files (agentkit.harness.grade); pass
 --grade to run it right after.
 
+--batch-id names the batch (CI uses "ci"); an existing batch folder is never
+reused. --repeat N runs every task N times (run ids get -r1..-rN), and the
+grader counts a task as passing only if every one of its runs passed.
+
 Offline: `--sim <fixture.json>` replays a captured platform (agentkit.sim)
-for both the agent and the ground-truth reads, running each task in-process;
+for both the agent and the ground-truth reads, running each task in-process
+with the clock frozen at the fixture's capture time (agentkit.clock);
 `--fault <spec>` (repeatable) injects faults into the agent's run, and
 edit_text faults are applied after the agent finishes -- a scripted "another
 team edited the record during the run".
@@ -36,12 +42,14 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import os
+import re
 import subprocess
 import sys
 import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+from agentkit.clock import frozen_now
 from agentkit.config import PROJECT_ROOT, default_pack
 from agentkit.harness.checks import BUILTIN_CHECKS
 from agentkit.harness.ground_truth import GroundTruthReader, capture, keys_for
@@ -50,6 +58,7 @@ from agentkit.record import dump_record
 from agentkit.registry import load_pack
 
 RUNS_DIR = PROJECT_ROOT / "runs"
+BATCH_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 AGENT_TIMEOUT_S = 900
 
 
@@ -120,8 +129,13 @@ class SimSession:
 
         platform = self.current
         platform.armed = True
+        # A replay answers as of the moment its fixture was captured, so the
+        # result (e.g. which milestones are past due) is the same on any day.
+        # AGENTKIT_FROZEN_NOW, if set, still wins (agentkit.clock).
         try:
-            run = run_task(task, tenant, run_dir, run_id, skip_llm=skip_llm, client=platform, retry_backoff_s=0)
+            with frozen_now(platform.fixture.captured_at):
+                run = run_task(task, tenant, run_dir, run_id, skip_llm=skip_llm, client=platform,
+                               retry_backoff_s=0)
         finally:
             platform.armed = False
             platform.apply_edits()
@@ -130,25 +144,47 @@ class SimSession:
         return {"exit_code": 0 if run.ended == "done" else 1, "seconds": run.seconds}
 
 
+def claim_batch_id(batch_id: str, runs_dir: Path = RUNS_DIR) -> str:
+    """Claim a caller-chosen batch id (e.g. "ci"): it must be a plain folder
+    name, and a batch that already exists is never overwritten."""
+    if not BATCH_ID_RE.match(batch_id or ""):
+        raise ValueError(f"batch id {batch_id!r} must match {BATCH_ID_RE.pattern}")
+    (runs_dir / "batches").mkdir(parents=True, exist_ok=True)
+    try:
+        (runs_dir / "batches" / batch_id).mkdir()
+    except FileExistsError:
+        raise FileExistsError(f"batch {batch_id!r} already exists in {runs_dir / 'batches'}; "
+                              "pick another id or delete the old batch") from None
+    return batch_id
+
+
 def run_batch(tasks: List[TaskDef], *, tenant_override: Optional[str] = None, skip_llm: bool = False,
               runs_dir: Path = RUNS_DIR, reader_factory: Callable[[str], Any] = GroundTruthReader.for_tenant,
               agent_runner: Callable[..., Dict[str, Any]] = run_agent_subprocess,
               batch_id: Optional[str] = None, fresh_reader_per_task: bool = False, write: bool = False,
-              keep_writes: bool = False) -> Path:
-    batch_id = batch_id or new_batch_id(runs_dir)
+              keep_writes: bool = False, repeat: int = 1) -> Path:
+    """Run every task x tenant `repeat` times (pass^k: grading wants every
+    repeat to pass). With repeat=1 run ids stay <batch>-<task>-<tenant>;
+    otherwise each gets a -r<n> suffix."""
+    if repeat < 1:
+        raise ValueError(f"repeat must be >= 1, got {repeat}")
+    batch_id = new_batch_id(runs_dir) if batch_id is None else claim_batch_id(batch_id, runs_dir)
     batch_dir = runs_dir / "batches" / batch_id
+    tenants_of = {task.id: ([tenant_override] if tenant_override else task.tenants) for task in tasks}
     manifest: Dict[str, Any] = {"batch_id": batch_id, "started_at": dt.datetime.now().isoformat(timespec="seconds"),
-                                "write": write, "skip_llm": skip_llm, "runs": []}
+                                "write": write, "skip_llm": skip_llm, "repeat": repeat,
+                                "expected_runs": repeat * sum(len(t) for t in tenants_of.values()),
+                                "expected": {tid: repeat * len(t) for tid, t in tenants_of.items()}, "runs": []}
     dump_record(batch_dir / "manifest.json", manifest)
     readers: Dict[str, Any] = {}
     for task in tasks:
         registry = load_pack(task.pack)
         validate_task(task, registry, BUILTIN_CHECKS)
         keys = keys_for(task.verifiers, registry)
-        for tenant in ([tenant_override] if tenant_override else task.tenants):
-            run_id = f"{batch_id}-{task.id}-{tenant}"
+        for tenant, n in ((t, n) for t in tenants_of[task.id] for n in range(1, repeat + 1)):
+            run_id = f"{batch_id}-{task.id}-{tenant}" + (f"-r{n}" if repeat > 1 else "")
             run_dir = runs_dir / run_id
-            entry: Dict[str, Any] = {"task_id": task.id, "tenant": tenant, "run_id": run_id}
+            entry: Dict[str, Any] = {"task_id": task.id, "tenant": tenant, "run_id": run_id, "repeat_index": n}
             try:
                 if fresh_reader_per_task:
                     readers.pop(tenant, None)
@@ -165,7 +201,7 @@ def run_batch(tasks: List[TaskDef], *, tenant_override: Optional[str] = None, sk
                 entry.update(status="harness_error", reason=f"{type(e).__name__}: {e}"[:300])
             manifest["runs"].append(entry)
             dump_record(batch_dir / "manifest.json", manifest)
-            print(f"  - {task.id} [{tenant}]: {entry['status']} "
+            print(f"  - {task.id} [{tenant}]{f' #{n}' if repeat > 1 else ''}: {entry['status']} "
                   f"{('exit ' + str(entry.get('exit_code')) + ' in ' + str(entry.get('seconds')) + 's') if entry['status'] == 'ran' else entry.get('reason', '')}")
     manifest["finished_at"] = dt.datetime.now().isoformat(timespec="seconds")
     dump_record(batch_dir / "manifest.json", manifest)
@@ -196,6 +232,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--sim", type=Path, default=None, help="replay a fixture file, or a folder of <tenant>.json fixtures, instead of the live platform")
     ap.add_argument("--fault", action="append", default=[], help="inject a fault (sim only), e.g. drop_tool:X.get")
     ap.add_argument("--runs-dir", type=Path, default=RUNS_DIR)
+    ap.add_argument("--batch-id", default=None,
+                    help="name the batch (e.g. ci); refuses to reuse an existing batch folder")
+    ap.add_argument("--repeat", type=int, default=1,
+                    help="run every task N times; a task passes only if every run passes (pass^k)")
     ap.add_argument("--write", action="store_true",
                     help="LIVE WRITES: tasks with allow_writes = true may write to the platform")
     ap.add_argument("--keep-writes", action="store_true",
@@ -207,6 +247,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         ap.error("--write is live only: a captured fixture can't accept writes")
     if args.keep_writes and not args.write:
         ap.error("--keep-writes needs --write")
+    if args.repeat < 1:
+        ap.error("--repeat must be at least 1")
+    if args.batch_id is not None:
+        if not BATCH_ID_RE.match(args.batch_id):
+            ap.error(f"--batch-id must match {BATCH_ID_RE.pattern}")
+        if (args.runs_dir / "batches" / args.batch_id).exists():
+            ap.error(f"batch {args.batch_id!r} already exists in {args.runs_dir / 'batches'}; "
+                     "pick another id or delete the old batch")
 
     registry = load_pack(args.pack or default_pack())
     tasks = load_tasks(args.tasks or [Path(registry.extras["tasks_dir"])])
@@ -223,10 +271,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.sim:
         sim = SimSession(args.sim, args.fault, registry.read_only)
         batch_dir = run_batch(tasks, tenant_override=args.tenant, skip_llm=args.skip_llm, runs_dir=args.runs_dir,
-                              reader_factory=sim.reader_for, agent_runner=sim.run_agent, fresh_reader_per_task=True)
+                              reader_factory=sim.reader_for, agent_runner=sim.run_agent, fresh_reader_per_task=True,
+                              batch_id=args.batch_id, repeat=args.repeat)
     else:
         batch_dir = run_batch(tasks, tenant_override=args.tenant, skip_llm=args.skip_llm, runs_dir=args.runs_dir,
-                              write=args.write, keep_writes=args.keep_writes)
+                              write=args.write, keep_writes=args.keep_writes, batch_id=args.batch_id,
+                              repeat=args.repeat)
     print(f"[manifest: {batch_dir / 'manifest.json'}]")
     if args.grade:
         from agentkit.harness.grade import main as grade_main

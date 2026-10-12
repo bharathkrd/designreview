@@ -35,6 +35,8 @@ from agentkit.graph import FAILED, RESOLVED, NodeResult, RunEnv, declined
 from agentkit.record import load_record
 from agentkit.registry import Registry
 from agentkit.transport import SeatCallFailure
+from agentkit.transport.safe_reads import read_all, sort_rows
+from packs.designreview.actions import SAFE_SERVER_FILTERS
 
 HANDOFFS_PATH = Path(__file__).resolve().parent / "handoffs.toml"
 CLOSED_FEEDBACK = {"resolved", "closed", "rejected", "wont_fix", "won't_fix", "cancelled", "duplicate"}
@@ -299,8 +301,9 @@ def register_handoffs(reg: Registry, table: Optional[HandoffTable] = None) -> No
         project_id = args.get("project_id") or (_resolved(results, "design_file") or {}).get("project_id")
         if not project_id:
             return declined("the design file has no project, so there is no schedule to read")
-        return env.client.invoke_tool("DesignMilestone.list", {"project_id": project_id, "sort_by": "due_date",
-                                                                 "sort_order": "asc", "limit": 100})
+        page = read_all(env.client, "DesignMilestone.list", {"project_id": project_id},
+                        safe_keys=SAFE_SERVER_FILTERS)
+        return {**page, "data": sort_rows(page["data"], "due_date")}
 
     @reg.action("find_cross_seat_dependencies",
                 description="Open serious items on the file that another team must act on (handoffs.toml).")

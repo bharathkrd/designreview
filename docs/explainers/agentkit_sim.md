@@ -23,6 +23,24 @@ for both the agent and the harness, with injectable faults.
   Call faults fire only while `armed`; the harness arms them around the agent's run so its own ground-truth
   reads stay undisturbed.
 - **Validated fixtures.** `SeatFixture` is a pydantic model (format, tenant, captured_at, tools, calls).
+- **Fixtures carry the catalogue.** Since 2026-10-12 a capture stores the full tool definitions
+  (`tool_defs`) and their `tools_fingerprint`; `SimPlatform.seat_catalog()` serves them. `python -m
+  agentkit.harness.preflight --tenant <t>` (read-only) compares the live fingerprint with the fixture's and
+  checks the pack's `required_tools`: a changed catalogue is a warning to re-capture, a missing or changed
+  required tool is a problem (exit 1).
+- **Replays run at capture time.** `SimSession` runs each task inside `agentkit.clock.frozen_now(<fixture
+  captured_at>)`, so date-dependent answers (past-due milestones) match the day the fixture was captured, on
+  any day. `AGENTKIT_FROZEN_NOW` overrides it.
+
+## Fault-injection matrix (CI)
+
+`scripts/ci_fault_matrix.py` runs the scenarios in `packs/designreview/ci_faults.toml`. Each one replays one
+task with faults, grades it, and states the expected overall grade and, where it matters, the exact checks.
+Every scenario must also finish the agent run (`ended = "done"`): a fault may lower the grade, never crash
+the agent. Today's seven: an edit during the run gives `drift`; a flaky read is retried (`pass`); a removed
+feedback tool degrades to a partial answer (`pass`); an unreadable release gate or schedule gives `fail` on
+`release_gate_matches_db` / `schedule_matches_db`; a refusal survives a flaky or broken read (`pass`). The
+script is domain-free; the scenarios are pack data.
 
 ## Per-tenant fixtures
 

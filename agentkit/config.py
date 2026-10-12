@@ -53,6 +53,17 @@ def load_env(path: Optional[Path] = None) -> None:
         _env_loaded = True
 
 
+OFFLINE_ENV = "AGENTKIT_OFFLINE"
+
+
+def offline_mode() -> bool:
+    """True when AGENTKIT_OFFLINE is 1/true/yes: the real network seams
+    (agentkit.transport.wire.UrllibWire, agentkit.llm.LLMGateway) then refuse
+    with OfflineViolation instead of connecting. CI sets it, so an offline
+    run that tries to reach the platform or an LLM fails loudly."""
+    return os.getenv(OFFLINE_ENV, "").strip().lower() in ("1", "true", "yes")
+
+
 def read_config(path: Path) -> Dict[str, Any]:
     """Read a .toml or .json file into a dict. A missing file is an error."""
     path = Path(path)

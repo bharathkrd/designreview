@@ -1,7 +1,7 @@
 # `agentkit/harness/` — tasks, ground truth, grading, self-test
 
 *Reading order: **7th**. Files: `tasks.py`, `ground_truth.py`, `run_one.py`, `batch.py`, `checks.py`,
-`grade.py`, `mutants.py`, `cleanup.py`. Domain checks live in `packs/designreview/checks.py`.*
+`grade.py`, `mutants.py`, `cleanup.py` (+ `agentkit/clock.py`). Domain checks live in `packs/designreview/checks.py`.*
 
 ## 10,000-ft view
 
@@ -10,7 +10,7 @@ task.toml ──► ground truth BEFORE (harness's own login)
           ──► agent run in a subprocess (dry run, or write run with --write) ──► runs/<run_id>/{taskrun.json, tool_journal.jsonl, graph.json, llm_ledger.json}
           ──► ground truth AFTER
           ──► write runs only: the pack's clean-up undoes what was filed ──► cleanup.json
-          ──► grade (files only) ──► score.json per run, report.md per batch
+          ──► grade (files only) ──► score.json per run; batch_score.json + report.md per batch (pass^k)
           ──► mutants (prove every check can fail) ──► calibration.json
 ```
 
@@ -37,6 +37,23 @@ task.toml ──► ground truth BEFORE (harness's own login)
 - **Subprocess per task** so an agent crash can't take the batch down; the running-record is the evidence.
 - **Unique batch ids.** The batch folder is claimed with an exclusive `mkdir`; a same-second collision gets
   `-2`, `-3`… (two batches once overwrote each other before this).
+- **pass^k (since 2026-10-12).** `--repeat N` runs every task N times (run ids `<batch>-<task>-<tenant>-r<n>`;
+  unchanged when N=1). A task counts as passing only if **every** run of it passed — every tenant, every
+  repeat. A crashed run, a missing `taskrun.json`, a harness error or a run the manifest expected but never
+  recorded (`manifest.expected`) is a failed run. `report.md` says `**P of T tasks pass on every run.**`
+  (the line CI checks); `batch_score.json` holds the same numbers without timestamps.
+  *Before:* one run per task; `report.md` had only the per-run table, so "all tasks ran and passed" could not
+  be checked mechanically.
+- **Re-grading is checkable.** `grade --check <batch>` re-grades in memory, writes nothing, and compares
+  with the saved `score.json` files and `batch_score.json` (exit 1 on any difference or an ungraded batch).
+  *Before:* re-grading simply overwrote the scores; determinism was assumed, not tested.
+- **Named batches.** `--batch-id ci` claims `runs/batches/ci` with an exclusive mkdir; an existing batch is
+  never reused (CLI error, exit 2). Ids must match `^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$`.
+- **One clock.** Anything date-dependent reads `agentkit.clock.now_utc()`. The offline batch freezes it to
+  each tenant fixture's `captured_at`, so a replay gives the same answer on any day (t08's past-due list used
+  to grow as real dates passed). `AGENTKIT_FROZEN_NOW=<ISO with tz>` overrides it for a whole process.
+- **The journal always exists.** `run_one` creates an empty `tool_journal.jsonl` before any work, so "made no
+  tool call" (t03 refuses from the catalogue alone) is distinguishable from "journal lost".
 - **Calibration.** `mutants.py` applies each mutant (3 built-in + the pack's) to copies of passing runs and
   requires its target check to fail. A mutant that slips through (MISSED) or a check nothing can make fail
   (UNEXERCISED) fails calibration. Failing runs are skipped; run folders are never modified.
@@ -50,11 +67,13 @@ allow_writes, description`. Unknown keys, unknown verifiers, missing plans and d
 
 | Command | What |
 |---|---|
-| `python -m agentkit.harness.batch [--only ids] [--skip-llm] [--grade] [--sim fixtures-dir-or-file --fault spec]` | run tasks (each on its own tenant) |
+| `python -m agentkit.harness.batch [--only ids] [--skip-llm] [--grade] [--sim fixtures-dir-or-file --fault spec] [--batch-id id] [--repeat N]` | run tasks (each on its own tenant), N times each |
 | `python -m agentkit.harness.batch --write [--keep-writes] [--only ids] [--grade]` | **live writes** for tasks with `allow_writes = true`, cleaned up after capture unless `--keep-writes` |
 | `python -m agentkit.harness.cleanup --tenant t [--dry-run]` or `--run-dir runs/<id>` | undo what write runs left behind (the pack decides what is "ours") |
 | `python -m agentkit.harness.grade <batch-dir or run-dirs>` | grade saved runs (exit 1 on any fail) |
+| `python -m agentkit.harness.grade --check <batch-dir>` | re-grade in memory, compare with saved scores, write nothing (exit 1 on a difference) |
 | `python -m agentkit.harness.mutants [batch-dir]` | calibrate (exit 1 on MISSED/UNEXERCISED) |
+| `python -m agentkit.harness.preflight [--tenant t] [--fixture f]` | live, read-only: the pack's required tools are offered; catalogue fingerprint vs the fixture's |
 | `python -m agentkit.harness.run_one --task t.toml --run-dir d --run-id id [--write]` | one task, one folder |
 
 ## Key types

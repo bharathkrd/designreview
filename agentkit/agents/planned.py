@@ -19,6 +19,7 @@ from agentkit.graph.plan_loader import Plan
 from agentkit.graph.rule_planner import RulePlanner
 from agentkit.record.run_record import TaskRun
 from agentkit.registry import Registry
+from agentkit.telemetry import span
 
 
 def run_plan(env: RunEnv, registry: Registry, plan: Plan, *, checkpoint_path: Optional[Path] = None,
@@ -49,15 +50,19 @@ def answer_with_pack(run: TaskRun, store: GraphStore, env: RunEnv, registry: Reg
     finding_builder, claim_rules, template, system_prompt, narration_instructions."""
     x = registry.extras
     t0 = time.time()
-    finding = x["finding_builder"](store.results(), env.params, run_id=env.run_id, dry_run=env.dry_run)
+    with span("step", "build_finding") as s:
+        finding = x["finding_builder"](store.results(), env.params, run_id=env.run_id, dry_run=env.dry_run)
+        s.set(outcome=finding.get("outcome"))
     run.finding = finding
     run.add_step(kind="build_finding", target="finding", ok=True, status=RESOLVED,
                  reason=f"outcome={finding.get('outcome')}", seconds=round(time.time() - t0, 3))
 
     t0 = time.time()
-    answer = compose_answer(query, finding, gateway=env.gateway, rules=x["claim_rules"], template=x["template"],
-                            system_prompt=x.get("system_prompt", ""),
-                            instructions=x.get("narration_instructions", ""))
+    with span("step", "narrate") as s:
+        answer = compose_answer(query, finding, gateway=env.gateway, rules=x["claim_rules"], template=x["template"],
+                                system_prompt=x.get("system_prompt", ""),
+                                instructions=x.get("narration_instructions", ""))
+        s.set(source=answer["source"], audit_ok=answer["audit"]["ok"], attempts=len(answer["attempts"]))
     run.claimed_answer = answer["text"]
     run.answer_source = answer["source"]
     if answer.get("fallback_reason"):

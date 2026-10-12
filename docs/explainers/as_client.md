@@ -1,6 +1,6 @@
 # `as_client.py` — the compatibility client
 
-*Reading order: **12th** (only if you use it directly). New code uses `agentkit/transport`.*
+*Reading order: **14th** (only if you use it directly). New code uses `agentkit/transport`.*
 
 Kept so existing scripts (`file_platform_bugs.py`, the graded `tests/conftest.py`) keep working:
 

@@ -1,6 +1,6 @@
 # `agentkit/viewer/` — the read-only run viewer
 
-*Reading order: **9th**. Domain-free: it shows whatever the harness wrote, for any pack.*
+*Reading order: **10th**. Domain-free: it shows whatever the harness wrote, for any pack.*
 
 ## 10,000-ft view
 
@@ -27,6 +27,14 @@ graded run or finding out why a check failed.
 | **Run → Cost** | LLM calls: provider, model, tokens, cost, latency, stop reason, reported vs estimated usage |
 
 ## Why it's written this way
+
+- **Bodies are written in 64 KB pieces (since 2026-10-12).** One large `wfile.write()` intermittently
+  truncated responses at ~64 KB on Windows loopback (1-4 % of 130 KB run pages; the browser then hung).
+  Found by the CI smoke check; a stock `http.server`, which copies in chunks, never showed it. CI now
+  serves every run of the CI batch through the real viewer (`scripts/ci_viewer_smoke.py`).
+- **Timeline tab (since 2026-10-12).** Renders `telemetry.json`: the run tree (task → node → tool / llm /
+  step) as indented rows with bars on the run's own clock, per-kind p50/p95 above it. Runs from before
+  telemetry existed show a note instead. `telemetry` was added to the run API's file list.
 
 - **No framework, no build, no new dependency.** The server is the standard library's `http.server`; the
   page is one HTML file, one script and one stylesheet. This keeps the "no agentic frameworks" rule easy to

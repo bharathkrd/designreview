@@ -1,6 +1,6 @@
 # `packs/designreview/` — the design-review domain
 
-*Reading order: **9th**. Everything that knows what a DesignFile is lives here; `agentkit/` knows none of it.*
+*Reading order: **11th**. Everything that knows what a DesignFile is lives here; `agentkit/` knows none of it.*
 
 ## 10,000-ft view
 
@@ -8,11 +8,11 @@
 
 | Part | File | Role |
 |---|---|---|
-| Actions | `actions.py` | the allowlist: `load_design_file`, `list_revisions`, `read_release_gate`, `list_feedback`, `list_failed_checklists`, `gather_dfm_standards`, `probe_tool_offered`, `decline` — all reads |
+| Actions | `actions.py` | lists are read in full via `agentkit.transport.safe_reads.read_all` (exact filters on `SAFE_SERVER_FILTERS`, paged, sorted in code, filters re-checked; before 2026-10-12: 50 rows, server sort); `REQUIRED_TOOLS` → `extras["required_tools"]` (checked by pre-flight, recorded per run). The allowlist: `load_design_file`, `list_revisions`, `read_release_gate`, `list_feedback`, `list_failed_checklists`, `gather_dfm_standards`, `probe_tool_offered`, `decline` — all reads |
 | Hand-off actions | `handoffs.py` | `list_milestones`, `find_cross_seat_dependencies` (reads) and `raise_handoffs` — the pack's only **write** action: a dry run previews the session and `escalations.raise` each hand-off would make; a write run files them (see Hand-offs) |
 | Hand-off topics | `handoffs.toml` | which owner (manufacturing / quality / purchasing) takes which kind of problem, matched on whole words in open serious item titles; validated by pydantic |
 | Read-only endpoints | `actions.py` | `endpoint.designreview.release_readiness`, `release_impact(.get)`, `parts_search`, `supplier_response_sla` |
-| Plans | `plans/rev_diff_dfm.toml`, `plans/tool_refusal.toml`, `plans/release_handoff.toml` | evidence graph + follow-up rule; tool-check-first refusal; release gate + feedback + milestones → cross-seat match → (rule) previewed hand-offs |
+| Plans | `plans/rev_diff_dfm.toml`, `plans/tool_refusal.toml`, `plans/release_handoff.toml` | evidence graph (`dfm_standards` waits for `revisions` **and** `release_gate`, so its query — change notes + blocker titles — never depends on thread timing; before 2026-10-12 it waited for `revisions` only) + follow-up rule; tool-check-first refusal; release gate + feedback + milestones → cross-seat match → (rule) previewed hand-offs |
 | Finding | `finding.py` | the gradable answer, computed in code |
 | Claim rules | `claims.py` | what the answer must say and must not contradict |
 | Template | `templates.py` | deterministic answer; passes its own audit |
@@ -30,7 +30,9 @@
 `geometry_compared = false`), `release_gate` (ready, reasons, critical_open, blockers), `dfm_signals` (open
 high/critical feedback, failed checklists or why they weren't read, recalled standards), `declines`.
 When the plan reads them: `schedule` (the project's milestones; `past_due` is computed from the snapshot date,
-because the platform leaves a late milestone at `in_progress`) and `handoffs` (`proposed`: one per owner, citing
+because the platform leaves a late milestone at `in_progress`; `snapshot_at` comes from `agentkit.clock.now_utc()`,
+so an offline replay is pinned to its fixture's capture time — before 2026-10-12 it was the wall clock and t08's
+past-due list grew as real dates passed) and `handoffs` (`proposed`: one per owner, citing
 the open serious items behind it; `would_file`: the escalation each would make; `filed`: false in a dry run).
 A section whose node isn't in the plan is left out, and `outcome` only counts the sections present.
 

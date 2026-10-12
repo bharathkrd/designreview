@@ -1,0 +1,64 @@
+# Fault-injection matrix for CI (scripts/ci_fault_matrix.py).
+#
+# Each scenario replays one task on the captured fixtures with faults injected by the
+# simulated platform (agentkit/sim), grades it, and states what the grader must say.
+# Every scenario also requires the agent run itself to finish (ended = "done"): a fault may
+# lower the grade, but it must never crash the agent.
+#
+#   expect         overall grade of the run: pass | drift | fail
+#   expect_checks  checks that must end with exactly this status (others may pass or skip)
+#
+# Fault syntax (agentkit/sim/sim_platform.py): drop_tool:<tool>, fail_once:<tool>:<kind>,
+# fail_always:<tool>:<kind>, edit_text:<old>=><new> (applied after the agent finishes).
+
+[[scenario]]
+name = "record edited during the run"
+task = "t01_battery_tray_rev_diff"
+faults = ["edit_text:Blank length grows 4.2 mm=>Blank length grows 5.5 mm"]
+expect = "drift"
+why = "the answer matched the platform before the run, not after: another team's edit is drift, not an agent error"
+expect_checks = { revision_delta_matches_db = "drift", answer_states_change = "drift" }
+
+[[scenario]]
+name = "flaky read is retried"
+task = "t01_battery_tray_rev_diff"
+faults = ["fail_once:DesignVersion.list:flaky"]
+expect = "pass"
+why = "a transient read failure is retried by the engine; the answer is unaffected"
+
+[[scenario]]
+name = "tool removed from the seat"
+task = "t01_battery_tray_rev_diff"
+faults = ["drop_tool:DesignFeedback.list"]
+expect = "pass"
+why = "the feedback section is declined, the answer degrades to partial without inventing feedback"
+
+[[scenario]]
+name = "release gate never readable"
+task = "t01_battery_tray_rev_diff"
+faults = ["fail_always:endpoint.designreview.release_readiness:flaky"]
+expect = "fail"
+why = "without the release verdict the task can't be answered; the grader must not pass it"
+expect_checks = { release_gate_matches_db = "fail" }
+
+[[scenario]]
+name = "flaky read before a refusal"
+task = "t02_unknown_file_refusal"
+faults = ["fail_once:DesignFile.get:flaky"]
+expect = "pass"
+why = "after the retry the platform says the file doesn't exist; the refusal still stands"
+
+[[scenario]]
+name = "schedule never readable"
+task = "t08_battery_tray_handoff"
+faults = ["fail_always:DesignMilestone.list:flaky"]
+expect = "fail"
+why = "the task must name the late milestones; an unreadable schedule can't pass as answered"
+expect_checks = { schedule_matches_db = "fail", answer_states_handoffs = "fail" }
+
+[[scenario]]
+name = "refusal needs no platform read"
+task = "t03_ai_review_refusal"
+faults = ["fail_always:DesignFile.get:flaky"]
+expect = "pass"
+why = "the tool check refuses before any record is read, so a broken read can't change the answer"

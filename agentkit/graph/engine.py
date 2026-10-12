@@ -39,6 +39,7 @@ from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple
 from agentkit.graph.node_result import (BYPASSED, DECLINED, FAILED, HANDED_OFF, RESOLVED, NodeResult)
 from agentkit.record.durable_io import dump_record, load_record
 from agentkit.registry import Registry
+from agentkit.telemetry import add_event, bind_context, span
 from agentkit.transport.seat_rpc import DENIED, FLAKY, MISSING, NOT_IN_SEAT, SeatCallFailure
 
 logger = logging.getLogger("agentkit.graph")
@@ -289,7 +290,8 @@ class LiveGraphExecutor:
             running: Dict[Future, TaskSpec] = {}
             while True:
                 for spec in store.claim_ready():
-                    running[pool.submit(self._execute, spec, store)] = spec
+                    # bind_context: the worker's spans nest under this run's current span
+                    running[pool.submit(bind_context(self._execute_traced), spec, store)] = spec
                 if not running:
                     break
                 done, _ = wait(running, return_when=FIRST_COMPLETED)
@@ -297,13 +299,23 @@ class LiveGraphExecutor:
                     spec = running.pop(fut)
                     store.record(spec, fut.result())
                     if self.planner:
-                        patch = self.planner.on_outcome(store, spec)
+                        with span("step", "planner", after=spec.id) as step:
+                            patch = self.planner.on_outcome(store, spec)
+                            step.set(added=[n.id for n in (patch.add if patch else [])])
                         if patch and (patch.add or patch.link):
                             for new in patch.add:
                                 new.added_by = "planner"
                             store.apply(patch)
         store.checkpoint()
         return store
+
+    def _execute_traced(self, spec: TaskSpec, store: GraphStore) -> NodeResult:
+        queued_ms = round((time.time() - spec.started_at) * 1000, 3) if spec.started_at else None
+        with span("node", spec.id, action=spec.action, added_by=spec.added_by, queue_wait_ms=queued_ms) as s:
+            result = self._execute(spec, store)
+            s.set(verdict=result.verdict, attempts=spec.attempts, error_kind=result.error_kind,
+                  ok=result.verdict != FAILED)
+            return result
 
     def _execute(self, spec: TaskSpec, store: GraphStore) -> NodeResult:
         action = self.registry.get_action(spec.action)
@@ -316,6 +328,7 @@ class LiveGraphExecutor:
                 return NodeResult.of(action.fn(self.env, spec.args, store.results()))
             except SeatCallFailure as e:
                 if e.kind == FLAKY and not action.writes and spec.attempts <= action.retries:
+                    add_event("retry", attempt=spec.attempts, error_kind=e.kind)
                     self._sleep(self.retry_backoff_s * 2 ** (spec.attempts - 1))
                     continue
                 if e.kind in _DECLINE_KINDS:

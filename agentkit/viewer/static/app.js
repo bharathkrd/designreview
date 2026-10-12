@@ -4,9 +4,9 @@
 "use strict";
 
 const app = document.getElementById("app");
-const TABS = ["answer", "finding", "checks", "evidence", "tools", "truth", "cost"];
+const TABS = ["answer", "finding", "checks", "evidence", "timeline", "tools", "truth", "cost"];
 const TAB_LABELS = { answer: "Answer", finding: "Finding", checks: "Checks", evidence: "Evidence",
-  tools: "Tool calls", truth: "Ground truth", cost: "Cost" };
+  timeline: "Timeline", tools: "Tool calls", truth: "Ground truth", cost: "Cost" };
 
 function el(tag, attrs, ...children) {
   const node = document.createElement(tag);
@@ -104,7 +104,7 @@ async function runPage(id, tab) {
     tr.error ? el("p", { class: "err" }, "Error: ", tr.error) : null,
     el("nav", { class: "tabs" }, TABS.map((t) => el("a", { href: `#/run/${encodeURIComponent(id)}/${t}`, class: t === tab ? "active" : null }, TAB_LABELS[t])))];
   const body = { answer: answerTab, finding: findingTab, checks: checksTab, evidence: evidenceTab,
-    tools: toolsTab, truth: truthTab, cost: costTab }[tab](r);
+    timeline: timelineTab, tools: toolsTab, truth: truthTab, cost: costTab }[tab](r);
   render(...head, body);
 }
 
@@ -175,6 +175,42 @@ function evidenceTab(r) {
           el("span", { class: "muted" }, `${fmt(n.finished_at - n.started_at)} s @ ${fmt(n.started_at - t0)} s`)) : "not run"),
         el("td", {}, res.reason || res.error_kind || ""));
     })))), el("p", { class: "muted" }, `Graph format ${(r.graph || {}).format || "—"}; bars are placed on the run's own clock.`));
+}
+
+// The run tree from telemetry.json: task -> node -> tool / llm / step, each a bar on the run's clock.
+function timelineTab(r) {
+  const tel = r.telemetry;
+  if (!tel || !(tel.tree || []).length) return el("p", { class: "muted" }, "No telemetry recorded for this run (runs before 2026-10-12 have none).");
+  const rows = [];
+  const visit = (node, depth) => { rows.push([node, depth]); (node.children || []).forEach((c) => visit(c, depth + 1)); };
+  tel.tree.forEach((n) => visit(n, 0));
+  const t0 = Math.min(...rows.map(([n]) => n.start_ms || 0));
+  const t1 = Math.max(...rows.map(([n]) => (n.end_ms === null || n.end_ms === undefined) ? (n.start_ms || 0) : n.end_ms));
+  const total = Math.max(1e-6, t1 - t0);
+  const detail = (n) => {
+    const a = n.attrs || {};
+    const keys = { node: ["action", "verdict", "attempts", "queue_wait_ms"], tool: ["ok", "rows", "error_kind", "http_status"],
+      llm: ["provider", "model", "input_tokens", "output_tokens", "stop_reason", "cached"], task: ["ended", "outcome", "answer_source"],
+      step: ["outcome", "source", "audit_ok", "added"] }[n.kind] || [];
+    const bits = keys.filter((k) => a[k] !== undefined && a[k] !== null).map((k) => `${k}=${Array.isArray(a[k]) ? a[k].join(",") : a[k]}`);
+    return bits.concat((n.events || []).map((e) => `event:${e.name}`)).join("  ");
+  };
+  const s = (tel.summary || {}).by_kind || {};
+  const summary = Object.entries(s).map(([k, v]) => `${k}: ${v.count} (p50 ${fmt(v.p50_ms, 0)} ms, p95 ${fmt(v.p95_ms, 0)} ms${v.errors ? `, ${v.errors} error(s)` : ""})`).join(" · ");
+  return el("div", {}, el("p", { class: "muted" }, summary),
+    el("div", { class: "table-wrap" }, el("table", { class: "timeline" },
+      el("thead", {}, el("tr", {}, ["Span", "Kind", "Status", "Time", "Detail"].map((h) => el("th", {}, h)))),
+      el("tbody", {}, rows.map(([n, depth]) => {
+        const left = (((n.start_ms || 0) - t0) / total) * 100;
+        const width = Math.max(0.5, ((n.duration_ms || 0) / total) * 100);
+        return el("tr", {},
+          el("td", {}, el("span", { class: "muted" }, "\u00a0\u00a0".repeat(depth)), n.name),
+          el("td", {}, n.kind), el("td", {}, badge(n.status)),
+          el("td", { class: "bar-cell" }, el("div", {}, el("div", { class: "bar", style_width: Math.min(width, 100 - left) + "%", style_left: left + "%" }),
+            el("span", { class: "muted" }, `${fmt(n.duration_ms, 1)} ms @ ${fmt((n.start_ms || 0) - t0, 1)} ms`))),
+          el("td", {}, detail(n), n.error ? el("span", { class: "err" }, " ", n.error) : null));
+      })))),
+    el("p", { class: "muted" }, `Telemetry ${tel.format || "—"}; never graded. Bars are placed on the run's own clock.`));
 }
 
 function toolsTab(r) {

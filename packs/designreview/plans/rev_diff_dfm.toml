@@ -34,11 +34,13 @@ after = ["design_file"]
 args = { file_id = "{file_id}" }
 
 # Recall the company's DesignStandard records relevant to the change notes
-# (and the release blockers, if the gate has answered by then).
+# and the release blockers. It waits for BOTH reads: the query used to take the
+# blockers only "if the gate had answered by then", so which standards were
+# cited depended on thread timing.
 [[nodes]]
 id = "dfm_standards"
 action = "gather_dfm_standards"
-after = ["revisions"]
+after = ["revisions", "release_gate"]
 
 [[rules]]
 name = "failed_checklists_when_gate_blocked"

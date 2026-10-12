@@ -30,6 +30,8 @@ import threading
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from agentkit.config import TenantLogin, tenant_login
+from agentkit.telemetry.spans import add_event, annotate
+from agentkit.transport.catalog import ToolCatalog
 from agentkit.transport.wire import UrllibWire, Wire, WireReply, WireUnreachable
 
 PROTOCOL_VERSION = "2025-11-25"
@@ -121,7 +123,12 @@ class SeatSession:
         self.base_url = login.base_url.rstrip("/")
         self.wire: Wire = wire or UrllibWire()
         self._lock = threading.Lock()
-        self.token: Optional[str] = token or os.getenv("AGENTSWITCH_TOKEN")
+        # AGENTSWITCH_TOKEN belongs to the tenant the runner targets; tenant_login()
+        # signals that tenant by returning no password. A password login (any other
+        # tenant) must not start from someone else's token -- it would 401 on the
+        # wrong tenant (seen 2026-10-12: a second tenant's preflight sent the first one's token).
+        env_token = os.getenv("AGENTSWITCH_TOKEN") if not login.password else None
+        self.token: Optional[str] = token or env_token
         self.login_count = 0
 
     @classmethod
@@ -208,6 +215,7 @@ class SeatRpcClient:
                 json.dumps(envelope).encode(), safe_to_repeat=safe)
         except WireUnreachable as e:
             raise SeatCallFailure(f"{label}: {e}", FLAKY, tool=label) from e
+        annotate(http_status=reply.status, response_bytes=len(reply.body or b""))
 
         if reply.status == 401:
             raise SeatCallFailure(f"{label}: HTTP 401", TOKEN_EXPIRED, tool=label, http_status=401)
@@ -239,6 +247,7 @@ class SeatRpcClient:
         except SeatCallFailure as e:
             if e.kind != TOKEN_EXPIRED:
                 raise
+            add_event("re-login", after=label)
             self.session.renew(stale)
             return self._post_once(method, params, label, safe=safe, notification=notification)
 
@@ -279,6 +288,10 @@ class SeatRpcClient:
 
     def offers(self, tool: str) -> bool:
         return tool in self.seat_catalog()
+
+    def catalog(self, refresh: bool = False) -> ToolCatalog:
+        """The cached tools/list as a ToolCatalog (fingerprint, required args, readOnlyHint)."""
+        return ToolCatalog.from_tools(self.seat_catalog(refresh).values())
 
     def invoke_tool(self, name: str, arguments: Optional[Dict[str, Any]] = None) -> Any:
         safe = is_read_tool(name, self.extra_read_only)

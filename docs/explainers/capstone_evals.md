@@ -1,6 +1,6 @@
 # `capstone_evals.py` and `rescore.py` — run and re-grade the benchmark
 
-*Reading order: **11th**. Thin wrappers over `agentkit/harness`.*
+*Reading order: **13th**. Thin wrappers over `agentkit/harness`.*
 
 ```bash
 python capstone_evals.py [--skip-llm] [--only t01_battery_tray_rev_diff] [--sim packs/designreview/fixtures]   # run + grade
@@ -12,6 +12,10 @@ python rescore.py [runs/batches/<id> | runs/<run_id> ...]                       
   batch is graded into `score.json` files and `report.md`.
 - `rescore.py` = `python -m agentkit.harness.grade` on the newest batch (or the paths given). No network, no
   LLM: fixing a check and re-grading never costs an agent run.
+- Both pass through the batch flags `--batch-id <id>` and `--repeat N` (pass^k: a task passes only if every
+  run passed; `report.md` ends its header with `**P of T tasks pass on every run.**`).
+  `python -m agentkit.harness.grade --check runs/batches/<id>` proves a re-grade gives the same scores
+  without writing anything.
 
 ## What replaced the first draft's axes
 
