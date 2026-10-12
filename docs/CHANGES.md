@@ -1,5 +1,38 @@
 # Changes
 
+## 2026-10-12 — Telemetry: a run tree per run (integration Phase 5)
+
+### Why
+
+A run's timings were spread over three files (node times in `graph.json`, `seconds` per journal line, LLM
+latency in `llm_ledger.json`) with nothing linking a tool call to the node that made it or showing whether
+the parallel reads really ran in parallel. The session notes asked for end-to-end tracing, latency profiling
+and token accounting **without** an external SDK.
+
+### Added (before → after)
+
+| What | Before | After | Where |
+|---|---|---|---|
+| Span engine | none | `Tracer`, `span()`, `traced`, `use_tracer`, `bind_context`, `annotate`, `add_event`; `trace_id` / `dotted_order` / `run_type` run-tree fields; start / end / error callback handlers. No-op without a tracer | `agentkit/telemetry/spans.py` (new) |
+| Tree, metrics, export | none | `build_tree`, nearest-rank `percentile`, `summarize`; `runs/<run_id>/telemetry.json` (`agentkit-telemetry-v1`) | `runtree.py`, `metrics.py`, `exporter.py` (new) |
+| Instrumentation | — | task (run_one), node + planner (engine, context bound into the pool), tool (journal), wire status/bytes + re-login (seat_rpc), llm (gateway), build_finding + narrate (agents) | `agentkit/harness/run_one.py`, `graph/engine.py`, `transport/journal.py`, `transport/seat_rpc.py`, `llm/gateway.py`, `agents/planned.py` |
+| Batch report | status table | + `## Performance` (run ms, nodes, tool calls, tool p50/p95, LLM calls, tokens, cost) — report only, never in `batch_score.json` | `agentkit/harness/grade.py` |
+| Viewer | 7 tabs | + Timeline tab over `telemetry.json` | `agentkit/viewer/server.py`, `static/app.js` |
+| Docs | — | new `agentkit_telemetry.md`; graph / LLM / viewer explainers; `EXPLAINERS.md` reading order; `tests/test_telemetry.py` to-do list (docstring only) | `docs/`, `tests/` |
+
+Provenance: the run-tree design (dotted ordering, context-variable propagation, start / end / error
+callbacks) is adapted from an external open-source tracing approach, referred to from outside sources and
+rebuilt in plain Python with no third-party dependency.
+
+### Results
+
+| Run | Result |
+|---|---|
+| `tests_local/test_telemetry.py` | 18 passed (spans, threads, tree, metrics, export, handlers, dotted order, batch integration, LLM span) |
+| `tests_local` offline (`AGENTKIT_OFFLINE=1`) | all green |
+| Offline batch | 9/9; every run has one `task` root, node spans = executed nodes, tool spans = journal lines |
+| Viewer Timeline (Chrome, t01) | renders, no console errors; shows `revisions`, `release_gate`, `feedback` starting within 0.5 ms of each other after `design_file` — the 3-way parallel superstep, measured |
+
 ## 2026-10-12 — Catalogue fingerprint, platform-safe reads, pre-flight, re-captured fixtures (integration Phase 4)
 
 ### Why

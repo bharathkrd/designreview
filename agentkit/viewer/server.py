@@ -48,7 +48,8 @@ SECURITY_HEADERS = {
     "Cache-Control": "no-store",
 }
 RUN_FILES = {"task": "task.json", "taskrun": "taskrun.json", "score": "score.json", "graph": "graph.json",
-             "before": "ground_truth_before.json", "after": "ground_truth_after.json", "ledger": "llm_ledger.json"}
+             "before": "ground_truth_before.json", "after": "ground_truth_after.json", "ledger": "llm_ledger.json",
+             "telemetry": "telemetry.json"}
 
 Response = Tuple[int, str, bytes]
 

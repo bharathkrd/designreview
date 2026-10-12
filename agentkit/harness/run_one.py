@@ -5,7 +5,9 @@ Run ONE task into ONE run folder -- the agent side of the harness.
         --run-dir runs/<run_id> --run-id <run_id> [--skip-llm] [--write]
 
 Writes, in order: taskrun.json (ended="running", before any work) and an
-empty tool_journal.jsonl, then journal lines and graph.json as the plan runs, then taskrun.json again
+empty tool_journal.jsonl, then journal lines and graph.json as the plan runs,
+and finally telemetry.json (the run tree: task -> node -> tool / llm spans;
+agentkit.telemetry -- never graded), then taskrun.json again
 with the finding, answer and ended=done|error, and llm_ledger.json.
 The batch runner starts this in a subprocess, so an agent crash can never
 take the harness down with it; the running-record is the evidence either way.
@@ -29,6 +31,7 @@ from agentkit.llm import LLMGateway
 from agentkit.record import TaskRun, dump_record
 from agentkit.registry import Registry, load_pack
 from agentkit.transport import SeatRpcClient
+from agentkit.telemetry import Tracer, export_run, span, use_tracer
 from agentkit.transport.journal import JOURNAL_FILE, JournaledSeatClient
 
 GRAPH_FILE = "graph.json"
@@ -58,31 +61,43 @@ def run_task(task: TaskDef, tenant: str, run_dir: Path, run_id: str, *, skip_llm
     # refusal) must look different from "the journal was lost".
     (run_dir / JOURNAL_FILE).touch()
     t0 = time.time()
+    tracer = Tracer(run_id)
     try:
-        registry = registry or load_pack(task.pack)
-        if client is None:
-            client = SeatRpcClient.for_tenant(tenant, extra_read_only=registry.read_only)
-            client.initialize()
-        run.tool_catalog = describe_catalog(client, registry)
-        journaled = JournaledSeatClient(client, run_dir / JOURNAL_FILE, extra_read_only=tuple(registry.read_only))
-        if gateway is None and not skip_llm:
-            gateway = LLMGateway()
-        env = RunEnv(client=journaled, run_id=run_id, params=task.plan_params(), dry_run=dry_run, tenant=tenant,
-                     gateway=None if skip_llm else gateway)
-        plan = load_plan(Path(registry.extras["plans_dir"]) / f"{task.plan}.toml")
-        store = run_plan(env, registry, plan, checkpoint_path=run_dir / GRAPH_FILE, retry_backoff_s=retry_backoff_s)
-        record_steps(run, store)
-        answer_with_pack(run, store, env, registry, task.prompt)
-        if skip_llm:
-            run.warnings.append("LLM skipped (--skip-llm): template answer")
-        run.finish(run_dir)
-    except Exception as e:  # recorded, never swallowed silently
-        run.finish(run_dir, error=f"{type(e).__name__}: {e}")
+        with use_tracer(tracer), span("task", task.id, tenant=tenant, dry_run=dry_run, pack=task.pack,
+                                      plan=task.plan) as root:
+            try:
+                registry = registry or load_pack(task.pack)
+                if client is None:
+                    client = SeatRpcClient.for_tenant(tenant, extra_read_only=registry.read_only)
+                    client.initialize()
+                run.tool_catalog = describe_catalog(client, registry)
+                journaled = JournaledSeatClient(client, run_dir / JOURNAL_FILE,
+                                                extra_read_only=tuple(registry.read_only))
+                if gateway is None and not skip_llm:
+                    gateway = LLMGateway()
+                env = RunEnv(client=journaled, run_id=run_id, params=task.plan_params(), dry_run=dry_run,
+                             tenant=tenant, gateway=None if skip_llm else gateway)
+                plan = load_plan(Path(registry.extras["plans_dir"]) / f"{task.plan}.toml")
+                store = run_plan(env, registry, plan, checkpoint_path=run_dir / GRAPH_FILE,
+                                 retry_backoff_s=retry_backoff_s)
+                record_steps(run, store)
+                answer_with_pack(run, store, env, registry, task.prompt)
+                if skip_llm:
+                    run.warnings.append("LLM skipped (--skip-llm): template answer")
+                run.finish(run_dir)
+            except Exception as e:  # recorded, never swallowed silently
+                run.finish(run_dir, error=f"{type(e).__name__}: {e}")
+            root.set(ended=run.ended, ok=run.ended == "done", outcome=(run.finding or {}).get("outcome"),
+                     answer_source=run.answer_source, tool_catalog=(run.tool_catalog or {}).get("fingerprint"))
     finally:
         ledger = getattr(gateway, "ledger", None)
         if ledger is not None:
             dump_record(run_dir / LEDGER_FILE, {"summary": ledger.summary(),
                                                "calls": [e.__dict__ for e in ledger.entries]})
+        try:
+            export_run(tracer, run_dir)
+        except Exception as e:  # telemetry is never graded and must never fail a run
+            run.warnings.append(f"telemetry not written: {type(e).__name__}: {e}")
     run.seconds = round(time.time() - t0, 2)
     return run
 

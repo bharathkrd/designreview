@@ -23,6 +23,7 @@ how to test it (the matching hand-written test template in `tests/` has the deta
             │  harness/  ground truth (own login) before/after ─► run folder ─► checks ─► score / report
             │            mutants ─► prove every check can fail    │
             │  sim/      captured platform, offline, with faults  │
+            │  telemetry/ run tree per run (never graded)          │
             │  viewer/   read-only browser page over run folders  │
             └─────────────────────────────────────────────────────┘
    packs/designreview/: actions · plans · finding · claims · template · prompts · probes · checks · mutants · tasks · fixtures
@@ -42,12 +43,13 @@ and grading compares the result with the platform — read separately, saved to 
 6. [`agentkit_record.md`](explainers/agentkit_record.md) — crash-safe run record
 7. [`agentkit_harness.md`](explainers/agentkit_harness.md) — tasks, ground truth, grading, calibration
 8. [`agentkit_sim.md`](explainers/agentkit_sim.md) — fixtures, offline platform, faults
-9. [`agentkit_viewer.md`](explainers/agentkit_viewer.md) — read-only browser page over batches and runs
-10. [`packs_designreview.md`](explainers/packs_designreview.md) — the domain: finding, verifiers, tasks
-11. [`capstone_agent.md`](explainers/capstone_agent.md) — the agent entry point
-12. [`capstone_evals.md`](explainers/capstone_evals.md) — run and re-grade the benchmark
-13. [`as_client.md`](explainers/as_client.md) — the compatibility client
-14. [`core_legacy.md`](explainers/core_legacy.md) — what's left in `core/` and why
+9. [`agentkit_telemetry.md`](explainers/agentkit_telemetry.md) — run tree: spans, timings, tokens, retries (telemetry.json, report Performance, viewer Timeline)
+10. [`agentkit_viewer.md`](explainers/agentkit_viewer.md) — read-only browser page over batches and runs
+11. [`packs_designreview.md`](explainers/packs_designreview.md) — the domain: finding, verifiers, tasks
+12. [`capstone_agent.md`](explainers/capstone_agent.md) — the agent entry point
+13. [`capstone_evals.md`](explainers/capstone_evals.md) — run and re-grade the benchmark
+14. [`as_client.md`](explainers/as_client.md) — the compatibility client
+15. [`core_legacy.md`](explainers/core_legacy.md) — what's left in `core/` and why
 
 ## Cross-cutting decisions
 
@@ -59,6 +61,8 @@ and grading compares the result with the platform — read separately, saved to 
   `declined`, and the answer says so — graded as a pass when the platform confirms it.
 - **Evidence before judgement.** The run record is written as `running` before work starts; the tool journal,
   graph checkpoint and ground truth are on disk before any check reads them; checks never touch the network.
+- **Observable, not graded.** Every run writes `telemetry.json` (task → node → tool / llm spans); timings
+  feed `report.md` and the viewer, never a score, so re-grading stays byte-identical (`grade --check`).
 - **Honest about the platform.** This build has no CAD kernel, so revision changes come from commit messages
   and the answer never claims a geometry comparison.
 

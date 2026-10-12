@@ -1,6 +1,6 @@
 # `capstone_evals.py` and `rescore.py` — run and re-grade the benchmark
 
-*Reading order: **11th**. Thin wrappers over `agentkit/harness`.*
+*Reading order: **13th**. Thin wrappers over `agentkit/harness`.*
 
 ```bash
 python capstone_evals.py [--skip-llm] [--only t01_battery_tray_rev_diff] [--sim packs/designreview/fixtures]   # run + grade

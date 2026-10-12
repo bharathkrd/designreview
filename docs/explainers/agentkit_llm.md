@@ -17,6 +17,8 @@ input/output tokens, normalised `stop_reason`, latency) for the narrator. No SDK
   replies are retried with capped backoff (0.5, 1, 2, 4, 4 … s), then the provider cools down and the next is
   tried. 400/404/422 go straight to the next provider. 401/402/403 (bad key, no quota) cool the provider down
   for 5 minutes — they won't fix themselves mid-run.
+- **One `llm` span per call (since 2026-10-12).** `call_detailed` records provider, model, real token counts,
+  stop_reason and cache hits on a telemetry span (never the prompt or a key); retries are span events.
 - **Offline guard (since 2026-10-12).** With `AGENTKIT_OFFLINE=1`, `call_detailed` on a gateway that would use
   the real network raises `OfflineViolation`; the narrator re-raises it instead of falling back to the template,
   so the run ends `error`, not with a quiet template answer. A gateway built with `transport=` (tests) is exempt.

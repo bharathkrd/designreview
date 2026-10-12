@@ -7,6 +7,9 @@ kind), a small result summary, timing. This is the verifiers' source for
 "which tools did the run actually touch" (e.g. "a dry run made no write
 call"), so that claim never rests on the agent's report of itself.
 
+Each call is also a "tool" span in the run's telemetry (agentkit.telemetry),
+so the run tree and the journal always agree on how many calls were made.
+
 Only tool arguments are logged -- never the bearer token, login body or
 headers. Long argument strings are truncated.
 """
@@ -20,6 +23,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from agentkit.record.durable_io import JsonlAppender, read_jsonl
+from agentkit.telemetry import span
 from agentkit.transport.seat_rpc import SeatCallFailure, is_read_tool
 
 JOURNAL_FILE = "tool_journal.jsonl"
@@ -75,19 +79,24 @@ class JournaledSeatClient:
         entry = {"seq": seq, "tool": name, "args": _clip(arguments or {}),
                  "read": is_read_tool(name, self.extra_read_only), "started_at": time.time()}
         t0 = time.time()
-        try:
-            result = self._client.invoke_tool(name, arguments)
-        except SeatCallFailure as e:
-            self._log.append({**entry, "ok": False, "error_kind": e.kind, "error": str(e)[:300],
+        with span("tool", name, seq=seq, read=entry["read"]) as s:
+            try:
+                result = self._client.invoke_tool(name, arguments)
+            except SeatCallFailure as e:
+                self._log.append({**entry, "ok": False, "error_kind": e.kind, "error": str(e)[:300],
+                                  "seconds": round(time.time() - t0, 3)})
+                s.set(ok=False, error_kind=e.kind, http_status=e.http_status)
+                raise
+            except Exception as e:
+                self._log.append({**entry, "ok": False, "error_kind": "internal",
+                                  "error": f"{type(e).__name__}: {e}"[:300], "seconds": round(time.time() - t0, 3)})
+                s.set(ok=False, error_kind="internal")
+                raise
+            summary = summarise_result(result)
+            self._log.append({**entry, "ok": True, "error_kind": None, "result": summary,
                               "seconds": round(time.time() - t0, 3)})
-            raise
-        except Exception as e:
-            self._log.append({**entry, "ok": False, "error_kind": "internal",
-                              "error": f"{type(e).__name__}: {e}"[:300], "seconds": round(time.time() - t0, 3)})
-            raise
-        self._log.append({**entry, "ok": True, "error_kind": None, "result": summarise_result(result),
-                          "seconds": round(time.time() - t0, 3)})
-        return result
+            s.set(ok=True, rows=summary.get("count") if isinstance(summary, dict) else None)
+            return result
 
 
 def read_journal(run_dir_or_file: Path) -> list:

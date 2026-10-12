@@ -38,6 +38,7 @@ from agentkit.harness.checks import CheckOutcome, RunBundle, check_run
 from agentkit.config import default_pack
 from agentkit.record.durable_io import dump_record, durable_write_text, load_record
 from agentkit.registry import Registry, load_pack
+from agentkit.telemetry import load_telemetry
 
 SCORER_VERSION = "agentkit-grade-v1"
 BATCH_SCORE_FILE = "batch_score.json"
@@ -108,6 +109,7 @@ def render_batch_report(batch_dir: Path, manifest: Dict, results: List[Tuple[Dic
                 if c["status"] not in ("pass", "skip"):
                     lines.append(f"- **{c['status']}** `{c['check']}` / {c['name']}: {c['detail']}")
             lines.append("")
+    lines += _performance_section(batch_dir, manifest, results)
     unrun = {t: e for t, e in batch_score["tasks"].items() if e["missing"]}
     if unrun:
         lines += ["", "## Runs that never happened", ""]
@@ -116,6 +118,38 @@ def render_batch_report(batch_dir: Path, manifest: Dict, results: List[Tuple[Dic
     path = batch_dir / "report.md"
     durable_write_text(path, "\n".join(lines) + "\n")
     return path
+
+
+def _ms(v: Optional[float]) -> str:
+    return "—" if v is None else f"{v:.0f}"
+
+
+def _performance_section(batch_dir: Path, manifest: Dict, results: List[Tuple[Dict, Optional[Dict]]]) -> List[str]:
+    """Timings, calls and tokens per run from telemetry.json / llm_ledger.json.
+    Report-only: timings differ run to run, so none of this is in batch_score.json."""
+    runs_root = batch_dir.parent.parent
+    rows: List[str] = []
+    for entry, _ in results:
+        run_dir = runs_root / str(entry.get("run_id"))
+        tel = load_telemetry(run_dir) if run_dir.exists() else None
+        if not tel:
+            continue
+        by_kind = tel["summary"]["by_kind"]
+        tool, node = by_kind.get("tool") or {}, by_kind.get("node") or {}
+        root = (tel.get("tree") or [{}])[0]
+        llm = tel["summary"]["llm"]
+        ledger = load_record(run_dir / "llm_ledger.json") if (run_dir / "llm_ledger.json").exists() else {}
+        cost = (ledger.get("summary") or {}).get("cost_usd_estimated")
+        rows.append(f"| `{entry.get('task_id')}` | {entry.get('tenant')}{_repeat_label(entry, manifest)} | "
+                    f"{_ms(root.get('duration_ms'))} | {node.get('count', 0)} | {tool.get('count', 0)} | "
+                    f"{_ms(tool.get('p50_ms'))} / {_ms(tool.get('p95_ms'))} | {llm['calls']} | "
+                    f"{llm['input_tokens']} / {llm['output_tokens']} | {'—' if cost is None else f'{cost:.4f}'} |")
+    if not rows:
+        return []
+    return ["", "## Performance", "",
+            "From each run's telemetry.json (not graded; timings vary between runs).", "",
+            "| Task | Tenant | Run ms | Nodes | Tool calls | Tool p50 / p95 ms | LLM calls | Tokens in / out | Cost $ |",
+            "|---|---|---|---|---|---|---|---|---|", *rows]
 
 
 def _repeat_label(entry: Dict, manifest: Dict) -> str:

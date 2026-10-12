@@ -1,6 +1,6 @@
 # `packs/designreview/` — the design-review domain
 
-*Reading order: **9th**. Everything that knows what a DesignFile is lives here; `agentkit/` knows none of it.*
+*Reading order: **11th**. Everything that knows what a DesignFile is lives here; `agentkit/` knows none of it.*
 
 ## 10,000-ft view
 

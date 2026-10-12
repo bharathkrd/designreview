@@ -30,6 +30,7 @@ import threading
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from agentkit.config import TenantLogin, tenant_login
+from agentkit.telemetry.spans import add_event, annotate
 from agentkit.transport.catalog import ToolCatalog
 from agentkit.transport.wire import UrllibWire, Wire, WireReply, WireUnreachable
 
@@ -214,6 +215,7 @@ class SeatRpcClient:
                 json.dumps(envelope).encode(), safe_to_repeat=safe)
         except WireUnreachable as e:
             raise SeatCallFailure(f"{label}: {e}", FLAKY, tool=label) from e
+        annotate(http_status=reply.status, response_bytes=len(reply.body or b""))
 
         if reply.status == 401:
             raise SeatCallFailure(f"{label}: HTTP 401", TOKEN_EXPIRED, tool=label, http_status=401)
@@ -245,6 +247,7 @@ class SeatRpcClient:
         except SeatCallFailure as e:
             if e.kind != TOKEN_EXPIRED:
                 raise
+            add_event("re-login", after=label)
             self.session.renew(stale)
             return self._post_once(method, params, label, safe=safe, notification=notification)
 

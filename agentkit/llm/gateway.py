@@ -42,6 +42,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 
 from agentkit.config import CONFIG_DIR, ConfigError, load_env, read_config, validation_message
 from agentkit.llm.economics import CostLedger
+from agentkit.telemetry.spans import add_event, span
 from agentkit.transport.wire import refuse_if_offline
 
 logger = logging.getLogger("agentkit.llm.gateway")
@@ -281,6 +282,17 @@ class LLMGateway:
 
     def call_detailed(self, prompt: str, system_prompt: Optional[str] = None, temperature: float = 0.1,
                       max_tokens: int = 4096, json_mode: bool = False, tier: str = "default") -> LLMReply:
+        """One "llm" telemetry span per call: provider, model, real token counts,
+        stop_reason, cache hit -- never the prompt or a key."""
+        with span("llm", tier, tier=tier, json_mode=json_mode, max_tokens=max_tokens) as s:
+            reply = self._call_detailed(prompt, system_prompt, temperature, max_tokens, json_mode, tier)
+            s.set(provider=reply.provider, model=reply.model, input_tokens=reply.input_tokens,
+                  output_tokens=reply.output_tokens, stop_reason=reply.stop_reason, cached=reply.cached,
+                  latency_s=reply.latency_s, ok=reply.complete)
+            return reply
+
+    def _call_detailed(self, prompt: str, system_prompt: Optional[str], temperature: float, max_tokens: int,
+                       json_mode: bool, tier: str) -> LLMReply:
         if self._real_network:  # an injected transport (tests) is not the network
             refuse_if_offline("LLM call")
         ckey = ResponseCache.key(prompt=prompt, system=system_prompt, temperature=temperature,
@@ -309,6 +321,7 @@ class LLMGateway:
                 except ProviderFault as fault:
                     msg = self._scrub(str(fault))
                     if fault.retryable and attempt < self.max_attempts - 1:
+                        add_event("retry", provider=provider, attempt=attempt + 1, status=fault.status)
                         self._sleep(min(0.5 * 2 ** attempt, MAX_BACKOFF_S))
                         continue
                     errors.append(msg)
