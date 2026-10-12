@@ -16,6 +16,9 @@ Use cases to cover:
   [ ] fetch_every_page de-duplicates rows by id and stops at `total` / a short page
   [ ] RestReader: HTTP 404 -> MISSING; list_all pages until total
   [ ] JournaledSeatClient writes one line per call (seq, tool, read, ok, error_kind), never the token
+  [ ] With AGENTKIT_OFFLINE=1, UrllibWire().send(...) raises OfflineViolation (and opens no socket);
+      OfflineViolation is not a WireUnreachable, so SeatRpcClient does not turn it into FLAKY
+  [ ] agentkit.config.offline_mode() is True for 1 / true / yes and False for 0 or unset
 Hint: write a tiny fake Wire -- an object with
   send(method, url, headers, body, *, safe_to_repeat) -> agentkit.transport.WireReply(status, body_bytes)
 and build SeatRpcClient(SeatSession(TenantLogin("t", "https://x", "e", "p"), wire=fake)). No network.

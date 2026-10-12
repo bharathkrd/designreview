@@ -20,6 +20,7 @@ import json
 from typing import Any, Callable, Dict, List, Optional
 
 from agentkit.answer.claim_audit import ClaimRules, audit_narrative, correction_note
+from agentkit.transport.wire import OfflineViolation
 
 MAX_ATTEMPTS = 2  # first draft + one rewrite
 
@@ -55,6 +56,8 @@ def compose_answer(query: str, finding: Dict[str, Any], *, gateway: Any, rules: 
     for _ in range(max_attempts):
         try:
             text, stop = _ask(gateway, prompt, system_prompt, tier)
+        except OfflineViolation:
+            raise  # an offline run reached for an LLM: a bug to surface, not "LLM down"
         except Exception as e:  # every provider down, etc.
             return fallback(f"llm unavailable: {type(e).__name__}: {e}")
         if not text or stop in ("max_tokens", "length"):

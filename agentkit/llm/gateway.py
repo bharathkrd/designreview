@@ -42,6 +42,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 
 from agentkit.config import CONFIG_DIR, ConfigError, load_env, read_config, validation_message
 from agentkit.llm.economics import CostLedger
+from agentkit.transport.wire import refuse_if_offline
 
 logger = logging.getLogger("agentkit.llm.gateway")
 
@@ -209,6 +210,7 @@ class LLMGateway:
         # Verify TLS against the OS trust store, not httpx's bundled certifi list:
         # on machines behind a TLS-inspecting proxy only the OS store has the
         # issuing CA (seen on this workstation, 2026-09-28).
+        self._real_network = transport is None
         self._client = (httpx.Client(transport=transport, timeout=60.0) if transport
                         else httpx.Client(verify=ssl.create_default_context(), timeout=60.0))
         self.max_attempts = max(1, max_attempts)
@@ -279,6 +281,8 @@ class LLMGateway:
 
     def call_detailed(self, prompt: str, system_prompt: Optional[str] = None, temperature: float = 0.1,
                       max_tokens: int = 4096, json_mode: bool = False, tier: str = "default") -> LLMReply:
+        if self._real_network:  # an injected transport (tests) is not the network
+            refuse_if_offline("LLM call")
         ckey = ResponseCache.key(prompt=prompt, system=system_prompt, temperature=temperature,
                                  max_tokens=max_tokens, json_mode=json_mode, tier=tier)
         hit = self.cache.get(ckey)

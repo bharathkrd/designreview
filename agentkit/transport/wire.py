@@ -18,11 +18,27 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Protocol
 
+from agentkit.config import OFFLINE_ENV, offline_mode
+
 RETRYABLE_GATEWAY_STATUSES = frozenset({502, 503, 504})
 
 
 class WireUnreachable(Exception):
     """No HTTP response at all: DNS, refused connection, TLS failure, timeout."""
+
+
+class OfflineViolation(RuntimeError):
+    """A real network call while AGENTKIT_OFFLINE is set. Deliberately NOT a
+    WireUnreachable: that maps to FLAKY, which is retried and can end as a
+    polite refusal -- an offline run that leaks onto the network must fail."""
+
+
+def refuse_if_offline(what: str) -> None:
+    if offline_mode():
+        raise OfflineViolation(f"{what}: refused, {OFFLINE_ENV} is set (offline run)")
+
+
+_STDLIB_URLOPEN = urllib.request.urlopen  # what "a real connection" means for UrllibWire
 
 
 @dataclass
@@ -91,6 +107,8 @@ class UrllibWire:
 
     def send(self, method: str, url: str, headers: Dict[str, str], body: Optional[bytes],
              *, safe_to_repeat: bool) -> WireReply:
+        if urllib.request.urlopen is _STDLIB_URLOPEN:  # a test's stand-in opener is not the network
+            refuse_if_offline(f"{method} {url}")
         attempts = self.read_attempts if safe_to_repeat else 1
         last_error: Optional[Exception] = None
         for attempt in range(attempts):

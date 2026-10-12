@@ -21,6 +21,11 @@ GET-only REST client for the verifiers; `journal.py` records every tool call a r
   retried on connection errors and 502/503/504; a write gets exactly one attempt, because a gateway error can
   arrive after the server applied it. A 401 means the request was never processed, so it triggers one shared
   re-login and one resend — safe even for writes, and done once even when ten threads hit it together.
+- **Offline means offline (since 2026-10-12).** With `AGENTKIT_OFFLINE=1` (CI sets it) `UrllibWire.send`
+  raises `OfflineViolation` before opening a connection. It is deliberately *not* a `WireUnreachable`: that
+  would become `FLAKY`, be retried, and could end as a polite refusal that hides the leak. A test's stand-in
+  for `urlopen` is not the network and is left alone. *Before:* an offline run that reached for the platform
+  simply tried to connect.
 - **TLS verified by default.** The platform's certificates verify; `AS_INSECURE_TLS=1` is an explicit opt-out.
 - **A live framing fault is absorbed.** On 2026-09-28 every `/api/mcp` response declared
   `Transfer-Encoding: chunked` but sent a plain JSON body, which standard clients reject. `read_body()` detects

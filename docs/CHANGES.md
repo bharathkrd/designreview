@@ -1,5 +1,35 @@
 # Changes
 
+## 2026-10-12 — Offline means offline; test hygiene (integration Phase 3)
+
+### Why
+
+CI promises "100 % offline", but nothing enforced it: an offline run that reached for the platform or an LLM
+would just try to connect (and on a developer machine, succeed). Separately, a developer's `.env` leaked into
+offline reference tests: `AGENTSWITCH_TOKEN` (loaded process-wide when `as_client` is imported) made
+`SeatSession` skip its login, so two fake-wire login tests failed on any machine with that variable set.
+
+### Changed (before → after)
+
+| What | Before | After | Where |
+|---|---|---|---|
+| Offline switch | none | `offline_mode()` reads `AGENTKIT_OFFLINE` (1 / true / yes) | `agentkit/config.py` |
+| Platform wire | always connects | raises `OfflineViolation` (a `RuntimeError`, not a `WireUnreachable`, so it is never retried or turned into a refusal) when offline and `urlopen` is the real one | `agentkit/transport/wire.py` |
+| LLM gateway | always connects | same guard when using the real network (an injected `transport=` is exempt) | `agentkit/llm/gateway.py` |
+| Narrator | any LLM error → template fallback | `OfflineViolation` is re-raised, so the run ends `error` | `agentkit/answer/narrator.py` |
+| Reference tests | inherited `.env` | autouse fixture removes `AGENTSWITCH_*` for tests not marked live / agent / gateway_live | `tests_local/conftest.py` (git-ignored) |
+| Docs | — | transport + LLM explainers; `tests/test_seat_rpc.py` to-do list (docstring only) | `docs/explainers/`, `tests/` |
+
+### Results
+
+| Run | Result |
+|---|---|
+| `tests_local` offline | **579 passed**, 0 failed (was 2 failed: the `.env` leak) |
+| `tests_local` offline with `AGENTKIT_OFFLINE=1` | 579 passed — no offline test touches the network |
+| `tests/` with `AGENTKIT_OFFLINE=1` | 35 passed (+ the in-progress hand-written `test_retrieval.py`) |
+
+Not done (deferred, low value): `tests_local/conftest.py` still re-uses fixtures from `tests/conftest.py`.
+
 ## 2026-10-12 — CI and secret scanning (integration Phase 2)
 
 ### Why
