@@ -15,7 +15,7 @@ from typing import Any, Dict
 
 from agentkit.graph import RESOLVED, RunEnv, declined
 from agentkit.registry import Registry
-from agentkit.retrieval import EvidenceIndex, chunk_by_topic, plain_text
+from agentkit.retrieval import ParentChildIndex, ParentDoc, plain_text
 from agentkit.transport.safe_reads import read_all, sort_rows
 
 # Computed endpoints this pack calls that are reads despite not ending in
@@ -98,6 +98,7 @@ def register_actions(reg: Registry) -> None:
 STANDARDS_PAGE = 100
 STANDARDS_MAX_PAGES = 10
 STANDARDS_TOP_K = 5
+STANDARD_TEXT_CHARS = 300  # how much of each matched standard the action returns
 
 
 def _all_rows(client, tool: str, args: Dict[str, Any], page: int = STANDARDS_PAGE,
@@ -138,23 +139,28 @@ def register_retrieval(reg: Registry) -> None:
     @reg.action("gather_dfm_standards", retries=2,
                 description="Index the company's DesignStandard records and recall those relevant to the change.")
     def gather_dfm_standards(env: RunEnv, args: Dict[str, Any], results) -> Any:
+        """Search small, return whole: each standard record is a parent, its
+        sections/topic chunks are the children BM25 matches against, and a
+        match returns the whole record (agentkit.retrieval.ParentChildIndex)."""
         rows = _all_rows(env.client, "DesignStandard.list", {})
-        index = EvidenceIndex()
-        for r in rows:
+        docs = []
+        for i, r in enumerate(rows):
             body = "\n".join(x for x in (r.get("name") or "", plain_text(r.get("description") or "")) if x)
             meta = {k: r.get(k) for k in ("name", "category", "standard_body", "standard_number", "is_active")}
             # Active records first, so the per-name dedupe below keeps an active one when ranks tie.
             meta["_rank"] = 0 if r.get("is_active") in (1, True) else 1
-            index.add(chunk_by_topic(body, source_id=r.get("id") or "", source_entity="DesignStandard", meta=meta))
+            # Seed data repeats standard names across records; one hit per base name.
+            meta["base_name"] = (meta.get("name") or "").split("—")[0].strip().lower()
+            docs.append(ParentDoc(id=r.get("id") or f"row-{i}", text=body, meta=meta, entity="DesignStandard"))
+        index = ParentChildIndex()
+        index.add_documents(docs)
         query = args.get("query") or standards_query(results)
         categories = args.get("categories")
-        # Seed data repeats standard names across records; one hit per base name.
-        for p in index.passages:
-            p.meta["base_name"] = (p.meta.get("name") or "").split("—")[0].strip().lower()
-        hits = index.recall(query, k=args.get("k", STANDARDS_TOP_K),
-                            where={"category": categories} if categories else None, distinct_by="base_name")
-        return {"query": query, "indexed_records": len(rows), "indexed_passages": len(index),
-                "matches": [{"id": h.passage.source_id,
-                             **{k: v for k, v in h.passage.meta.items() if not k.startswith("_") and k != "base_name"},
-                             "score": h.score,
-                             "matched_terms": h.matched, "passage": h.passage.text[:300]} for h in hits]}
+        hits = index.recall_parents(query, k=args.get("k", STANDARDS_TOP_K),
+                                    where={"category": categories} if categories else None, distinct_by="base_name")
+        return {"query": query, "indexed_records": len(rows), "indexed_passages": len(index.index),
+                "matches": [{"id": h.parent.id,
+                             **{k: v for k, v in h.parent.meta.items() if not k.startswith("_") and k != "base_name"},
+                             "score": h.score, "matched_terms": h.matched,
+                             "section": h.children[0].passage.meta.get("header_path") or [],
+                             "passage": h.parent.text[:STANDARD_TEXT_CHARS]} for h in hits]}

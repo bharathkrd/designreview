@@ -59,7 +59,9 @@ GET-only REST client for the verifiers; `journal.py` records every tool call a r
    (`structuredContent` → JSON in `content[].text` → raw result); `fetch_every_page()` pages a `.list` tool and
    de-duplicates by id.
 3. `RestReader.get / list_all / raw` read REST with 404 → `missing`.
-4. `JournaledSeatClient(client, path)` wraps any client with `invoke_tool`.
+4. `JournaledSeatClient(client, path, start_seq=1)` wraps any client with `invoke_tool`. Since 2026-10-13
+   `start_seq` lets a resumed or replayed run continue an existing journal's numbering instead of restarting
+   at 1 (the journal of a replay is the original calls followed by the replayed ones).
 
 ## Key types
 

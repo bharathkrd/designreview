@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Optional
 
 from agentkit.answer import compose_answer
+from agentkit.graph.checkpoint import CheckpointSaver
 from agentkit.graph.engine import GraphStore, LiveGraphExecutor, RunEnv
 from agentkit.graph.node_result import HANDED_OFF, RESOLVED
 from agentkit.graph.plan_loader import Plan
@@ -22,11 +23,23 @@ from agentkit.registry import Registry
 from agentkit.telemetry import span
 
 
+def plan_executor(env: RunEnv, registry: Registry, plan: Plan, *, checkpoint_path: Optional[Path] = None,
+                  max_workers: int = 4, retry_backoff_s: float = 1.0, mode: Optional[str] = None,
+                  saver: Optional[CheckpointSaver] = None, approve_writes: bool = False) -> LiveGraphExecutor:
+    """The executor a plan runs on: its rules as the planner, its mode (unless
+    `mode` overrides it) and its channels."""
+    return LiveGraphExecutor(env, registry, planner=RulePlanner(plan.rules, env.params),
+                             max_workers=max_workers, checkpoint_path=checkpoint_path,
+                             retry_backoff_s=retry_backoff_s, mode=mode or plan.mode,
+                             channels=plan.channels or None, saver=saver, approve_writes=approve_writes)
+
+
 def run_plan(env: RunEnv, registry: Registry, plan: Plan, *, checkpoint_path: Optional[Path] = None,
-             max_workers: int = 4, retry_backoff_s: float = 1.0) -> GraphStore:
-    executor = LiveGraphExecutor(env, registry, planner=RulePlanner(plan.rules, env.params),
-                                 max_workers=max_workers, checkpoint_path=checkpoint_path,
-                                 retry_backoff_s=retry_backoff_s)
+             max_workers: int = 4, retry_backoff_s: float = 1.0, mode: Optional[str] = None,
+             saver: Optional[CheckpointSaver] = None, approve_writes: bool = False) -> GraphStore:
+    executor = plan_executor(env, registry, plan, checkpoint_path=checkpoint_path, max_workers=max_workers,
+                             retry_backoff_s=retry_backoff_s, mode=mode, saver=saver,
+                             approve_writes=approve_writes)
     return executor.run(env.run_id or plan.name, plan.initial_tasks(env.params))
 
 
@@ -35,6 +48,10 @@ def record_steps(run: TaskRun, store: GraphStore) -> None:
     specs = sorted(store.specs.values(), key=lambda s: (s.started_at is None, s.started_at or 0.0))
     for spec in specs:
         r = spec.result
+        if r is None and spec.state == "paused":  # waiting for a person (interrupt())
+            run.add_step(kind=spec.action, target=spec.id, ok=False, detail=spec.interrupt, status="paused",
+                         reason="waiting for a person's answer", attempts=spec.attempts, added_by=spec.added_by)
+            continue
         # A hand-off is a normal result, and its data (what a person would get) is the evidence.
         carries_data = bool(r and r.verdict in (RESOLVED, HANDED_OFF))
         run.add_step(kind=spec.action, target=spec.id, ok=carries_data,

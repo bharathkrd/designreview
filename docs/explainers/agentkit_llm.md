@@ -28,6 +28,13 @@ input/output tokens, normalised `stop_reason`, latency) for the narrator. No SDK
 - **`stop_reason` is normalised** to `end_turn | max_tokens | refusal | other`. A truncated or refused reply is
   never cached; a refusal or an empty reply moves to the next provider; the narrator treats `max_tokens` as
   unusable.
+- **Reasoning text is removed (since 2026-10-13).** Before: an open reasoning model that writes
+  `<think>…</think>` into its answer (DeepSeek-R1 style) passed that text to the claim audit (whose numbers
+  would then be "unsupported") and into the cache. Now `strip_reasoning()` removes `<think>`, `<thinking>` and
+  `<reasoning>` blocks right after the provider replies — before the ledger, the cache and the audit. An
+  unclosed opening tag (cut off mid-reasoning) drops the rest; a closing tag without an opener drops what
+  came before. A reply that was only reasoning is empty and moves to the next provider.
+  `LLMReply.reasoning_chars` and the `llm` span say how much was removed.
 - **Secrets stay out of logs.** The Gemini key is sent in the `x-goog-api-key` header, not the URL; every
   error message is scrubbed of key values.
 - **TLS against the OS trust store.** httpx's bundled `certifi` list rejects this workstation's certificate
@@ -43,7 +50,8 @@ input/output tokens, normalised `stop_reason`, latency) for the narrator. No SDK
 | Name | Purpose |
 |---|---|
 | `LLMGateway(routing_path, transport=, max_attempts=, sleep=, env=)` | the client; `transport` lets tests use `httpx.MockTransport` |
-| `LLMReply` | text + provider + model + tokens + stop_reason (`.complete`) |
+| `LLMReply` | text + provider + model + tokens + stop_reason (`.complete`) + `reasoning_chars` |
+| `strip_reasoning(text) -> (text, removed)` | the reasoning filter |
 | `ProviderFault(provider, status, retryable)` | internal classified failure |
 | `RoutingConfig` / `ProviderSpec` | pydantic models for `routing.toml` |
 | `RateState` | per-provider rpm window + cooldown (thread-safe) |

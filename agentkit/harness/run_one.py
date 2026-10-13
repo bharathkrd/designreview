@@ -13,6 +13,18 @@ The batch runner starts this in a subprocess, so an agent crash can never
 take the harness down with it; the running-record is the evidence either way.
 A dry run unless BOTH --write is given and the task sets allow_writes = true;
 a dry run never calls a write action (the engine records its preview instead).
+
+Approval gate (a write run only):
+    python -m agentkit.harness.run_one ... --write --require-approval
+stops before every real write: the node pauses with the write's preview,
+the run ends with ended="paused" (no answer yet), and graph.json keeps the
+paused state. A person reads the preview (taskrun.json steps, or the viewer)
+and then
+    python -m agentkit.harness.run_one --resume runs/<run_id> --approve <node> [--reject <node> ...]
+continues the same run folder: approved writes run, rejected ones end
+DECLINED ("a person did not approve this write"), and the run finishes with
+its finding and answer as usual. Resuming appends to the journal and
+rewrites taskrun.json and telemetry.json.
 """
 
 from __future__ import annotations
@@ -21,14 +33,15 @@ import argparse
 import sys
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
-from agentkit.agents import answer_with_pack, record_steps, run_plan
+from agentkit.agents import answer_with_pack, plan_executor, record_steps, run_plan
 from agentkit.config import default_tenant
-from agentkit.graph import RunEnv, load_plan
+from agentkit.graph import GraphStore, RunEnv, load_plan
 from agentkit.harness.tasks import TaskDef, load_task
 from agentkit.llm import LLMGateway
-from agentkit.record import TaskRun, dump_record
+from agentkit.record import TaskRun, dump_record, load_record
+from agentkit.record.durable_io import read_jsonl
 from agentkit.registry import Registry, load_pack
 from agentkit.transport import SeatRpcClient
 from agentkit.telemetry import Tracer, export_run, span, use_tracer
@@ -49,14 +62,34 @@ def describe_catalog(client: Any, registry: Registry) -> Optional[dict]:
     return {**cat.summary(), "problems": cat.check_requirements(registry.extras.get("required_tools") or {})}
 
 
+def _conclude(run: TaskRun, store: GraphStore, env: RunEnv, registry: Registry, task: TaskDef, run_dir: Path,
+              skip_llm: bool) -> None:
+    """Copy the graph onto the run; answer it, or stop as "paused" when a
+    node is waiting for a person."""
+    record_steps(run, store)
+    paused = store.paused()
+    if paused:
+        run.ended = "paused"
+        run.warnings.append("waiting for a person: " + ", ".join(s.id for s in paused)
+                            + " (python -m agentkit.harness.run_one --resume <run_dir> --approve/--reject <node>)")
+        run.finish(run_dir)
+        return
+    answer_with_pack(run, store, env, registry, task.prompt)
+    if skip_llm:
+        run.warnings.append("LLM skipped (--skip-llm): template answer")
+    run.finish(run_dir)
+
+
 def run_task(task: TaskDef, tenant: str, run_dir: Path, run_id: str, *, skip_llm: bool = False,
              registry: Optional[Registry] = None, client: Any = None, gateway: Any = None,
-             retry_backoff_s: float = 1.0, write: bool = False) -> TaskRun:
+             retry_backoff_s: float = 1.0, write: bool = False, require_approval: bool = False) -> TaskRun:
     run_dir = Path(run_dir)
     dry_run = not (write and task.allow_writes)
     run = TaskRun(task_id=task.id, prompt=task.prompt, run_id=run_id, tenant=tenant, dry_run=dry_run,
                   harness_task=task.id, pack=task.pack)
     run.open_in(run_dir)  # on disk before any work
+    if not (run_dir / "task.json").exists():  # the batch writes it; a standalone run needs it to resume / grade
+        dump_record(run_dir / "task.json", task.to_dict())
     # An empty journal from the start: "made no tool call" (a catalogue-only
     # refusal) must look different from "the journal was lost".
     (run_dir / JOURNAL_FILE).touch()
@@ -79,12 +112,8 @@ def run_task(task: TaskDef, tenant: str, run_dir: Path, run_id: str, *, skip_llm
                              tenant=tenant, gateway=None if skip_llm else gateway)
                 plan = load_plan(Path(registry.extras["plans_dir"]) / f"{task.plan}.toml")
                 store = run_plan(env, registry, plan, checkpoint_path=run_dir / GRAPH_FILE,
-                                 retry_backoff_s=retry_backoff_s)
-                record_steps(run, store)
-                answer_with_pack(run, store, env, registry, task.prompt)
-                if skip_llm:
-                    run.warnings.append("LLM skipped (--skip-llm): template answer")
-                run.finish(run_dir)
+                                 retry_backoff_s=retry_backoff_s, approve_writes=require_approval)
+                _conclude(run, store, env, registry, task, run_dir, skip_llm)
             except Exception as e:  # recorded, never swallowed silently
                 run.finish(run_dir, error=f"{type(e).__name__}: {e}")
             root.set(ended=run.ended, ok=run.ended == "done", outcome=(run.finding or {}).get("outcome"),
@@ -102,22 +131,97 @@ def run_task(task: TaskDef, tenant: str, run_dir: Path, run_id: str, *, skip_llm
     return run
 
 
+def resume_task(run_dir: Path, *, approve: Iterable[str] = (), reject: Iterable[str] = (), skip_llm: bool = False,
+                registry: Optional[Registry] = None, client: Any = None, gateway: Any = None,
+                retry_backoff_s: float = 1.0) -> TaskRun:
+    """Answer a paused run's waiting nodes and finish it in the same folder."""
+    run_dir = Path(run_dir)
+    task = TaskDef.from_dict(load_record(run_dir / "task.json"))
+    before = load_record(run_dir / "taskrun.json")
+    if before.get("ended") != "paused":
+        raise ValueError(f"{run_dir} is not paused (ended={before.get('ended')!r})")
+    registry = registry or load_pack(task.pack)
+    store = GraphStore.load(run_dir / GRAPH_FILE, registry)
+    waiting = {s.id for s in store.paused()}
+    answers = {**{n: {"approved": True} for n in approve}, **{n: {"approved": False, "note": "rejected"} for n in reject}}
+    unknown = sorted(set(answers) - waiting)
+    if unknown:
+        raise ValueError(f"not waiting for an answer: {unknown}; waiting: {sorted(waiting)}")
+    for node_id, answer in answers.items():
+        store.resume(node_id, answer)
+    run_id, tenant = before["run_id"], before.get("tenant") or default_tenant()
+    run = TaskRun(task_id=task.id, prompt=task.prompt, run_id=run_id, tenant=tenant, dry_run=before.get("dry_run", True),
+                  harness_task=task.id, pack=task.pack)
+    run.open_in(run_dir)
+    last_seq = max((e.get("seq") or 0 for e in read_jsonl(run_dir / JOURNAL_FILE)), default=0)
+    t0 = time.time()
+    tracer = Tracer(run_id)
+    try:
+        with use_tracer(tracer), span("task", task.id, tenant=tenant, dry_run=run.dry_run, pack=task.pack,
+                                      plan=task.plan, resumed=sorted(answers)) as root:
+            try:
+                if client is None:
+                    client = SeatRpcClient.for_tenant(tenant, extra_read_only=registry.read_only)
+                    client.initialize()
+                journaled = JournaledSeatClient(client, run_dir / JOURNAL_FILE,
+                                                extra_read_only=tuple(registry.read_only), start_seq=last_seq + 1)
+                if gateway is None and not skip_llm:
+                    gateway = LLMGateway()
+                env = RunEnv(client=journaled, run_id=run_id, params=task.plan_params(), dry_run=run.dry_run,
+                             tenant=tenant, gateway=None if skip_llm else gateway)
+                plan = load_plan(Path(registry.extras["plans_dir"]) / f"{task.plan}.toml")
+                plan_executor(env, registry, plan, checkpoint_path=run_dir / GRAPH_FILE,
+                              retry_backoff_s=retry_backoff_s, approve_writes=True).continue_from(store)
+                run.warnings.append("resumed after a person answered: " + ", ".join(
+                    f"{n}={'approved' if a['approved'] else 'rejected'}" for n, a in sorted(answers.items())))
+                _conclude(run, store, env, registry, task, run_dir, skip_llm)
+            except Exception as e:
+                run.finish(run_dir, error=f"{type(e).__name__}: {e}")
+            root.set(ended=run.ended, ok=run.ended == "done", outcome=(run.finding or {}).get("outcome"))
+    finally:
+        ledger = getattr(gateway, "ledger", None)
+        if ledger is not None:
+            dump_record(run_dir / LEDGER_FILE, {"summary": ledger.summary(),
+                                               "calls": [e.__dict__ for e in ledger.entries]})
+        try:
+            export_run(tracer, run_dir)
+        except Exception as e:
+            run.warnings.append(f"telemetry not written: {type(e).__name__}: {e}")
+    run.seconds = round(time.time() - t0, 2)
+    return run
+
+
 def main(argv: Optional[list] = None) -> int:
     ap = argparse.ArgumentParser(description="Run one harness task into one run folder.")
-    ap.add_argument("--task", required=True, type=Path)
+    ap.add_argument("--task", type=Path)
     ap.add_argument("--tenant", default=None, help="default: config/project.toml default_tenant")
-    ap.add_argument("--run-dir", required=True, type=Path)
-    ap.add_argument("--run-id", required=True)
+    ap.add_argument("--run-dir", type=Path)
+    ap.add_argument("--run-id")
     ap.add_argument("--skip-llm", action="store_true")
     ap.add_argument("--write", action="store_true", help="let a task with allow_writes = true write to the platform")
+    ap.add_argument("--require-approval", action="store_true",
+                    help="with --write: pause before every write until a person approves it (--resume)")
+    ap.add_argument("--resume", type=Path, metavar="RUN_DIR", help="continue a paused run")
+    ap.add_argument("--approve", action="append", default=[], metavar="NODE", help="with --resume (repeatable)")
+    ap.add_argument("--reject", action="append", default=[], metavar="NODE", help="with --resume (repeatable)")
     args = ap.parse_args(argv)
-    run = run_task(load_task(args.task), args.tenant or default_tenant(), args.run_dir, args.run_id,
-                   skip_llm=args.skip_llm, write=args.write)
+    if args.resume:
+        if not (args.approve or args.reject):
+            ap.error("--resume needs at least one --approve NODE or --reject NODE")
+        run = resume_task(args.resume, approve=args.approve, reject=args.reject, skip_llm=args.skip_llm)
+    else:
+        if not (args.task and args.run_dir and args.run_id):
+            ap.error("--task, --run-dir and --run-id are required (or --resume RUN_DIR)")
+        run = run_task(load_task(args.task), args.tenant or default_tenant(), args.run_dir, args.run_id,
+                       skip_llm=args.skip_llm, write=args.write, require_approval=args.require_approval)
     print(f"[{run.run_id}] ended={run.ended} {'dry run' if run.dry_run else 'WRITE'} source={run.answer_source} "
           f"outcome={(run.finding or {}).get('outcome')}")
     if run.error:
         print(f"ERROR: {run.error}")
-    return 0 if run.ended == "done" else 1
+    for step in run.steps:
+        if step.status == "paused":
+            print(f"PAUSED {step.target}: {step.detail}")
+    return 0 if run.ended in ("done", "paused") else 1
 
 
 if __name__ == "__main__":

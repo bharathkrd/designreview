@@ -14,13 +14,22 @@ Deterministic, no LLM. Four kinds of problem:
 The pack supplies a ClaimRules (what a quantity looks like, which facts are
 required, which contradictions to look for); this module holds no domain
 vocabulary.
+
+correction_note() is what the model gets back for its one rewrite. Given the
+finding it is grounded: for each unsupported quantity it names the closest
+verified values and where they sit in the FINDING ("'2.5 mm' is not in the
+FINDING; verified: '3.0 mm' at revision_delta.change_notes[1]"), so the
+rewrite has the right value to use instead of only being told what to drop.
+A pack can add its own lines through ClaimRules.explain(report, finding).
+(Self-correction works when the feedback comes from an outside check and
+says what is right, not only what is wrong; see docs/explainers/agentkit_answer.md.)
 """
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Pattern, Set
+from typing import Any, Callable, Dict, List, Optional, Pattern, Set, Tuple
 
 UUID_RE = re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", re.I)
 # Every number found in the finding (including inside strings) widens what the
@@ -49,6 +58,8 @@ class ClaimRules:
     required: Callable[[Dict[str, Any]], List[RequiredFact]] = lambda finding: []
     contradictions: Callable[[str, Dict[str, Any]], List[str]] = lambda text, finding: []
     ignore_ids: Set[str] = field(default_factory=set)
+    # Extra correction lines: explain(report, finding) -> [str]
+    explain: Optional[Callable[[Dict[str, Any], Dict[str, Any]], List[str]]] = None
 
 
 def known_numbers(obj: Any, out: Optional[Set[float]] = None) -> Set[float]:
@@ -101,17 +112,82 @@ def audit_narrative(text: str, finding: Dict[str, Any], rules: ClaimRules) -> Di
             "contradictions": contradictions, "missing": missing}
 
 
-def correction_note(report: Dict[str, Any]) -> str:
-    """The message sent back to the LLM for its one rewrite."""
+def finding_quantities(finding: Any, rules: ClaimRules) -> List[Tuple[str, str, float]]:
+    """Every quantity the finding states, as (path, text, value): quantities
+    with a unit found inside its strings (rules.quantity_re), then plain
+    numeric fields (text = the number)."""
+    with_unit: List[Tuple[str, str, float]] = []
+    plain: List[Tuple[str, str, float]] = []
+
+    def walk(obj: Any, path: str) -> None:
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                walk(v, f"{path}.{k}" if path else str(k))
+        elif isinstance(obj, (list, tuple)):
+            for i, v in enumerate(obj):
+                walk(v, f"{path}[{i}]")
+        elif isinstance(obj, str) and rules.quantity_re is not None:
+            for m in rules.quantity_re.finditer(obj):
+                try:
+                    with_unit.append((path, m.group(0).strip(), float(m.group(1))))
+                except (TypeError, ValueError):
+                    continue
+        elif isinstance(obj, (int, float)) and not isinstance(obj, bool):
+            plain.append((path, str(obj), float(obj)))
+
+    walk(finding, "")
+    return with_unit + plain
+
+
+def _unit(text: str, rules: ClaimRules) -> str:
+    m = rules.quantity_re.search(text) if rules.quantity_re is not None else None
+    return text[m.end(1):].strip().lower() if m else ""
+
+
+def nearest_verified(quantity: str, finding: Any, rules: ClaimRules, limit: int = 2) -> List[Tuple[str, str]]:
+    """The finding's closest quantities to an unsupported one, as (text, path):
+    same unit first, then nearest value; each distinct text once."""
+    m = rules.quantity_re.search(quantity) if rules.quantity_re is not None else None
+    if not m:
+        return []
+    try:
+        value = float(m.group(1))
+    except (TypeError, ValueError):
+        return []
+    unit = _unit(quantity, rules)
+    ranked = sorted(finding_quantities(finding, rules),
+                    key=lambda q: (_unit(q[1], rules) != unit if unit else False, abs(q[2] - value), q[0]))
+    out: List[Tuple[str, str]] = []
+    for path, text, _ in ranked:
+        if text not in {t for t, _ in out}:
+            out.append((text, path))
+        if len(out) >= limit:
+            break
+    return out
+
+
+def correction_note(report: Dict[str, Any], finding: Optional[Dict[str, Any]] = None,
+                    rules: Optional[ClaimRules] = None) -> str:
+    """The message sent back to the LLM for its one rewrite. With the finding
+    and rules, each unsupported quantity comes with the verified values to use."""
     lines = ["Your answer does not match the FINDING. Rewrite the whole answer from scratch, "
              "using only facts in the FINDING, and do not mention that it was corrected."]
     if report["unsupported_ids"]:
         lines.append("- These record ids are not in the FINDING; remove them: " + ", ".join(report["unsupported_ids"]))
-    if report["unsupported_quantities"]:
+    grounded = finding is not None and rules is not None and rules.quantity_re is not None
+    if report["unsupported_quantities"] and not grounded:
         lines.append("- These quantities are not in the FINDING; remove them or use the FINDING's exact values: "
                      + ", ".join(report["unsupported_quantities"]))
+    elif report["unsupported_quantities"]:
+        for q in report["unsupported_quantities"]:
+            near = nearest_verified(q, finding, rules)
+            lines.append(f"- '{q}' is not in the FINDING; remove it"
+                         + ("" if not near else ", or use a verified value: "
+                            + ", ".join(f"'{t}' (at {p})" for t, p in near)) + ".")
     for c in report["contradictions"]:
         lines.append(f"- Contradicts the FINDING: {c}")
     if report["missing"]:
         lines.append("- You must also state: " + "; ".join(report["missing"]) + ".")
+    if finding is not None and rules is not None and rules.explain is not None:
+        lines += [f"- {x}" for x in rules.explain(report, finding) if x]
     return "\n".join(lines)

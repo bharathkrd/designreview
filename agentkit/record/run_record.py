@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Optional, Protocol
 from agentkit.record.durable_io import dump_record, load_record
 
 TASKRUN_FILE = "taskrun.json"
-ENDED_STATES = ("running", "done", "error", "no_ready_nodes")
+ENDED_STATES = ("running", "done", "error", "no_ready_nodes", "paused")
 
 
 @dataclass
@@ -56,7 +56,7 @@ class TaskRun:
     prompt: str
     steps: List[Step] = field(default_factory=list)
     claimed_answer: Optional[str] = None
-    ended: str = "done"  # running | done | error | no_ready_nodes
+    ended: str = "done"  # running | done | error | no_ready_nodes | paused (waiting for a person)
     error: Optional[str] = None
     seconds: float = 0.0
     started_at: float = field(default_factory=time.time)

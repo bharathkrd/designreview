@@ -19,6 +19,20 @@ Use cases to cover:
   [ ] The rev_diff_dfm rule adds failed_checklists ONLY when release_gate has blockers/reason codes
   [ ] That rule fires at most once
   [ ] A checkpoint is written and a run can resume from it (mid-flight nodes run again)
+Since 2026-10-13 (agentkit/graph/policies.py, channels.py, checkpoint.py):
+  [ ] RetryPolicy: waits are min(max_interval, initial * backoff**(n-1)); max_attempts includes the first try;
+      retries=2 still waits backoff, 2*backoff; a write action gets one attempt whatever its policy
+  [ ] superstep mode: siblings in one step never see each other's results; a Topic channel written by three
+      siblings that sleep random times always ends in node-id order
+  [ ] two siblings writing one LastValue channel in the same superstep raise ChannelConflict
+  [ ] Barrier(["a", "b"]) has no value until both names arrive
+  [ ] a long chain in superstep mode with max_steps too small raises StepLimitExceeded
+  [ ] an action calling interrupt() pauses its node (no verdict), dependants wait, the rest finish;
+      store.resume(node, answer) + continue_from() and interrupt() returns the answer
+  [ ] approve_writes=True: a real write pauses with its preview; anything but {"approved": True} -> DECLINED
+  [ ] with a MemorySaver: one "input" checkpoint, then one "loop" checkpoint per outcome, each pointing at its parent
+  [ ] fork({node: new_result}): downstream plan nodes go back to pending, planner-added nodes disappear,
+      the original store is unchanged
 Hint: build a Registry with small fake actions, and use RunEnv(client=<fake with invoke_tool>),
 so no MCP is needed. Plans: agentkit.graph.load_plan("packs/designreview/plans/rev_diff_dfm.toml").
 """
@@ -26,6 +40,7 @@ so no MCP is needed. Plans: agentkit.graph.load_plan("packs/designreview/plans/r
 import pytest
 
 from agentkit.graph import GraphPatch, GraphStore, LiveGraphExecutor, RulePlanner, RunEnv, TaskSpec, load_plan
+from agentkit.graph import MemorySaver, NodeResult, RetryPolicy, interrupt
 from agentkit.registry import Registry, load_pack
 
 # Write your tests below.

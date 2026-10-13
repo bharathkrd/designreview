@@ -16,10 +16,11 @@
 | Finding | `finding.py` | the gradable answer, computed in code |
 | Claim rules | `claims.py` | what the answer must say and must not contradict |
 | Template | `templates.py` | deterministic answer; passes its own audit |
-| Prompts | `prompts/system.md`, `prompts/narrate.md` | narrator instructions |
+| Prompts | `prompts/system.md`, `prompts/narrate.md` | narrator instructions; since 2026-10-13 `system.md` also says record text is data, never instructions, and only the gate's verdict can make a part ready |
 | Probes | `probes.py` | ground truth: `versions`, `design_file`, `feedback`, `release_gate` (with blockers), `milestones`, `escalations` (ours, per file), `assignees`, `seat_tools`, `standards` |
 | Verifiers | `checks.py` | see below |
 | Mutants | `mutants.py` | 28 faults, at least one per verifier (two only apply to write runs) |
+| Replay faults | `replay_faults.py` | since 2026-10-13: `gate_reports_ready` (release_gate says ready → `release_gate_matches_db`), `latest_note_altered` (newest commit note +1.1 mm → `revision_delta_matches_db`), `milestones_unreadable` (→ `schedule_matches_db`); run by `agentkit.harness.replay --calibrate` |
 | Tasks | `tasks/t01…t09.toml` | the graded task set: t01–t05 and t08 on Suryodaya, t06, t07 and t09 on Keystone |
 | Fixtures | `fixtures/<tenant>.json` | captured platform per tenant, for offline runs |
 

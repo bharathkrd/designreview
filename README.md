@@ -98,7 +98,10 @@ readiness wording with their own parsers, so an agent bug can't pass its own che
 **Verifier self-test.** `agentkit.harness.mutants` takes passing runs, breaks one thing in a copy
 (a wrong rev mapping, an invented quantity, a false "ready" claim, a sneaky write, a crashed run …) and
 requires the matching check to fail. Any mutant that slips through, or any check nothing can make fail,
-fails calibration.
+fails calibration. `agentkit.harness.replay --calibrate` goes one level deeper: it replaces what one graph
+node returned (the release gate says "ready", a commit note states another quantity, the milestone read
+fails), re-runs everything downstream of it offline, rebuilds the finding and the answer, and requires the
+target check to fail -- while a control replay with the node's own result must still pass.
 
 **Offline.** `python -m agentkit.sim.capture --tenant <tenant>` records every exchange that tenant's tasks
 need into `packs/designreview/fixtures/<tenant>.json`; `--sim packs/designreview/fixtures` replays each
@@ -127,6 +130,7 @@ the standard library's `tomllib`.
 | [`agentkit/viewer/`](agentkit/viewer/) | Read-only run viewer: `python -m agentkit.viewer` |
 | [`core/`](core/) | Legacy import paths (`core.harness`, `core.llm_gateway`, `core.economics` re-export `agentkit`); legacy `dag_engine`, `eval_framework`, `judge` |
 | [`tests/`](tests/) | Graded, **hand-written** test suite — see [`tests/README.md`](tests/README.md) |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How generic the agent is: layers, the pack seam, extension points, limits |
 | [`docs/EXPLAINERS.md`](docs/EXPLAINERS.md) | Per-module explainers |
 | [`docs/CHANGES.md`](docs/CHANGES.md) | What changed, and why, after the refactor |
 
@@ -173,6 +177,9 @@ python -m agentkit.harness.grade --check runs/batches/ci
 
 # Prove the verifiers catch a misbehaving agent
 python -m agentkit.harness.mutants
+# ...end to end: replace one node's result in the saved graph, re-run downstream, grade
+python -m agentkit.harness.replay --calibrate runs/batches/ci --sim packs/designreview/fixtures
+python -m agentkit.harness.replay runs/<run_id> --fault gate_reports_ready --sim packs/designreview/fixtures
 
 # Offline: capture once, then replay (optionally with faults)
 python -m agentkit.sim.capture --tenant suryodaya
@@ -182,6 +189,10 @@ python -m agentkit.harness.batch --sim packs/designreview/fixtures --skip-llm --
 
 # LIVE WRITES: t08 files its hand-offs as escalations to the configured assignee, verifies them, then withdraws them
 python -m agentkit.harness.batch --only t08_battery_tray_handoff --write --grade
+# ...or stop before every write until a person approves it
+python -m agentkit.harness.run_one --task packs/designreview/tasks/t08_battery_tray_handoff.toml \
+       --run-dir runs/t08-approval --run-id t08-approval --write --require-approval
+python -m agentkit.harness.run_one --resume runs/t08-approval --approve file_handoffs   # or --reject
 python -m agentkit.harness.cleanup --tenant suryodaya --dry-run   # anything of ours still open?
 
 # Browse batches and runs in a browser (read-only, this machine only)
@@ -315,7 +326,9 @@ gitleaks git . --config .gitleaks.toml --redact --verbose   # gitleaks 8.30.1 (S
 2. every task 3 times on the captured fixtures with template answers, then the gate
    `**9 of 9 tasks pass on every run.**`;
 3. `grade --check` (re-grading the saved runs must give identical scores);
-4. `agentkit.harness.mutants` (every planted fault must be caught);
+4. `agentkit.harness.mutants` (every planted fault must be caught), then
+   `agentkit.harness.replay --calibrate` (each node-level replay fault must fail its check end to end,
+   and every control replay must still pass);
 5. a fault-injection matrix, `scripts/ci_fault_matrix.py`: tasks replayed with platform faults (a record
    edited mid-run, a flaky read, a tool removed from the seat, an endpoint that never answers). The agent
    must never crash and every run must be graded exactly as `packs/designreview/ci_faults.toml` says

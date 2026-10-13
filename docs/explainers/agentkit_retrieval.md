@@ -1,6 +1,7 @@
 # `agentkit/retrieval/` — chunking and recall
 
-*Reading order: **5th**. Files: `chunker.py`, `index.py`. Used by the pack's `gather_dfm_standards` action.*
+*Reading order: **5th**. Files: `chunker.py`, `index.py`, `hierarchy.py`. Used by the pack's
+`gather_dfm_standards` action.*
 
 ## 10,000-ft view
 
@@ -22,6 +23,18 @@
   model or vector store would add a dependency for no gain. Hits report which terms matched. Repeated query
   terms weigh more; `distinct_by` collapses duplicate records (the seed data repeats standard names across
   departments), preferring the lower `meta["_rank"]` on ties (the pack uses it to prefer active records).
+- **Search small, return whole (since 2026-10-13, `hierarchy.py`).** Before: a hit was the matching passage.
+  Now `ParentChildIndex` indexes small *children* (precise matches) but returns the whole *parent* record:
+  BM25 over children → parent ids in the children's rank order, each once → parents looked up by id (one
+  whose parent is gone is dropped). A parent's score is its best child's; `children` lists the matching ones.
+  The default child splitter `section_children` cuts by Markdown section first (`split_by_headers`: each
+  child keeps its header path, e.g. `["Bending", "Aluminium"]`; a `#` line inside a code fence is code) and
+  then runs `chunk_by_topic` inside each section, so the verbatim-suffix rule still decides every boundary.
+  Optional `parent_splitter` makes mid-size parents from a huge document. Today every standard is one short
+  record (one child = the parent), so results are identical — checked on all nine offline tasks; the gain
+  comes when records carry clauses: the narrator gets the whole standard, the match names the clause.
+  *(The two-level index and header-stack splitting are adapted from an external open-source retrieval design,
+  referred to from outside sources; BM25 children and verbatim-suffix chunking are ours.)*
 
 ## Key types
 
@@ -32,12 +45,16 @@
 | `chunk_by_topic(text, word_budget=512, min_words=40, splitter=, source_id=, meta=)` | the chunker |
 | `fixed_span_passages()` | fixed-window baseline for comparison |
 | `EvidenceIndex.add()` / `.recall(query, k, where=, distinct_by=)` | index and search |
+| `split_by_headers(text, max_level=, strip_headers=)` | one passage per Markdown section, `meta["header_path"]` |
+| `ParentDoc`, `ParentChildIndex(child_splitter=, parent_splitter=, id_key=, child_meta_fields=)` | search children, return parents: `.add_documents()`, `.recall_parents(query, k, where=, distinct_by=)`, `.mget()`, `.remove()` |
 | `plain_text(html)` | platform HTML descriptions → clean lines |
 
 ## In the design-review pack
 
-`gather_dfm_standards` reads every `DesignStandard` page through the journaled client, indexes name +
-description, and recalls with a query built from the change notes and the release blockers. The finding
+`gather_dfm_standards` reads every `DesignStandard` page through the journaled client, makes each record a
+parent (name + description) in a `ParentChildIndex`, and recalls with a query built from the change notes and
+the release blockers; each match now also carries `section` (the matching child's header path) and up to
+300 characters of the whole record. The finding
 labels the matches "relevance, not compliance". Live, for the Battery Tray, "Sheet metal bend rules" ranks first.
 
 ## How to test

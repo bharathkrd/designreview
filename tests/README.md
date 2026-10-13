@@ -32,11 +32,12 @@ Anything without a marker must run offline: no network, no LLM, no `.env`.
 | `test_dag_engine.py` | `agentkit/graph/*` (live graph, verdicts, rule planner, checkpoints) | yes |
 | `test_finding_and_claims.py` | `packs/designreview/finding.py`, `claims.py`, `templates.py`, `agentkit/answer/*` | yes |
 | `test_retrieval.py` | `agentkit/retrieval/*`, `gather_dfm_standards` | yes |
+| `test_retrieval_hierarchy.py` | `agentkit/retrieval/hierarchy.py` (header paths, search children / return parents) | yes |
 | `test_config_models.py` | TOML config / plans / tasks and their pydantic models | yes |
 | `test_harness.py` | run record + grader | yes |
 | `test_verifiers.py` | `packs/designreview/checks.py` (the graded verifiers) | yes |
 | `test_sim_platform.py` | `agentkit/sim/*` + the whole batch offline on the captured fixture | yes |
-| `test_calibration.py` | verifier self-test (`agentkit/harness/mutants.py`) | yes |
+| `test_calibration.py` | verifier self-test (`agentkit/harness/mutants.py`) and end-to-end replay (`replay.py`) | yes |
 | `test_viewer.py` | `agentkit/viewer/*` (read-only run viewer: API, path safety, escaping) | yes |
 | `test_telemetry.py` | `agentkit/telemetry/*` (spans, run tree, metrics, export) | yes |
 | `test_modularity.py` | architecture guards (domain-free framework, no agent frameworks) | yes |
