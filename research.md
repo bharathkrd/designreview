@@ -62,14 +62,36 @@ Base: `https://agentswitch.theschoolofai.in/v/DesignReview:Home/<view>` (Suryoda
 | `active_projects`, `all_projects` | Design programmes | `DesignProject` (`planning → active → on_hold → completed / archived`). Keystone bug `b4cc7be0`: the Active card shows 0 while the page lists 5. |
 | `all_files`, `ready_files`, `processing_files` | CAD files by conversion/status | `DesignFile` (`uploaded → processing → ready → approved`, or `error`). Keystone bugs `1485c79f` (Ready card 28 vs page 14) and `f90310be` (broken thumbnails). |
 | `version_impact` | Compare a source and target version of a file, plus the feedback on them. Query params: `design_version_impact_file`, `_source`, `_target` | `DesignVersion`, `DesignFeedback` |
-| `release_readiness` (`?release_file=`) | Release gate evidence for one file | `endpoint.designreview.release_readiness` |
+| `release_readiness` (`?release_file=`) | Release gate evidence for one file. Since at least 2026-10-13 the file picker loads only the first 25 files; a `release_file` outside them is replaced by the first file, so reach other files with the name search | `endpoint.designreview.release_readiness` |
 | `all_reviews`, `open_reviews`, `in_progress_reviews`, `completed_reviews` | Review workflow queues | `DesignReview` (`draft → open → in_progress → completed`) |
 | `supplier_response_sla` | Supplier request SLA tracking | `endpoint.designreview.supplier_response_sla`, `DesignSupplierRequest` |
-| `all_feedback`, `open_issues`, `my_assigned` | Findings / issues | `DesignFeedback` (accept/reject/reopen transitions) |
+| `findings` (2026-10-13; replaced `all_feedback`, `open_issues`, `my_assigned` in the sidebar — `/open_issues` lands on `/findings`) | "Workspace Feedback": findings / issues with saved views and filters | `DesignFeedback` (accept/reject/reopen transitions) |
 | `share_links`, `active_shares` | External sharing (supplier/customer) | `DesignShare` (`active → revoked / expired`) |
 | `design_standards` | DFM / GD&T / tolerancing standards | `DesignStandard` |
 | `design_checklists` | Review checklists (`dfm_sheet_metal`, `dfm_machining`, …) | `DesignChecklist`, `DesignChecklistResult` |
 | `packages` | Release/review bundles | `DesignPackage` (`draft → in_review → approved → released`) |
+
+### 2.0 UI re-check, 2026-10-13
+
+- **API unchanged:** read-only preflight on both tenants: 323 tools, catalogue fingerprint `fbadee4421f15020`, the
+  same as the fixtures captured 2026-10-12. Required tools all present.
+- **Release readiness, every task file — UI = fixture = agent finding:**
+
+| File | Tenant | UI: release candidate | UI: reasons | UI: blocking critical findings |
+| :-- | :-- | :-- | :-- | :-- |
+| BEV-BT-2400 Battery Tray Assembly (customer drawing) | Suryodaya | version 3 | no assembly tree; open critical findings; no review bound | "2.0 mm inside bend radius on 2.0 mm HR — cracking risk" |
+| AP-PR-001 Propeller — 380 mm marine | Suryodaya | version 2 | no assembly tree; no review bound | none |
+| ST-VICE-150 Bench Vice Assembly | Suryodaya | version 3 | not in ready state; no completed conversion; no review bound | none |
+| Hydraulic Manifold Mount — Machined Part | Keystone | version 6 | not in ready state; no assembly tree; no review bound | none |
+| Auger Drive — Housing Cover | Keystone | version 3 | no assembly tree; no review bound | none |
+
+- **Findings page:** FB-2026-00001 (critical, in progress) is on the Battery Tray; FB-2026-00002 "Blank length
+  grows 4.2 mm" (high, in progress) is on the derived **BT-2400 Base Pan — flat pattern (DF-2026-00002)**, not the
+  tray, so the agent's Battery Tray evidence never holds it (the 4.2 mm comes from the rev C commit note).
+  FB-2026-00103 "T21-TEST 20261009-133721 feedback" (open, low) is the team's own test record on the Propeller.
+- **Dashboards:** Suryodaya 101 projects / 21 open reviews / 22 open feedback / 4 active shares; Keystone 5 / 3 / 12 / 5.
+  Keystone's cards and charts show "0 / No … yet" for a few seconds before the data arrives.
+- Recorded in `tests/MANUAL_TEST_LOG.md` (M-NAV-01, M-REL-01…05, M-FB-01, M-CNT-01, M-REL-06).
 
 ### 2.1 Records referenced in `links.md` (read 2026-09-24)
 

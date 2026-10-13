@@ -28,6 +28,12 @@ https://agentswitch.theschoolofai.in/v/DesignReview:Home/completed_reviews
 
 https://agentswitch.theschoolofai.in/v/DesignReview:Home/supplier_response_sla
 
+https://agentswitch.theschoolofai.in/v/DesignReview:Home/findings
+
+(2026-10-13: the sidebar's FEEDBACK group is now one item, "Findings" -> /findings, a "Workspace Feedback"
+list with saved views and filters. The old /open_issues address lands on /findings. /all_feedback and
+/my_assigned are no longer in the sidebar; kept below for reference.)
+
 https://agentswitch.theschoolofai.in/v/DesignReview:Home/all_feedback
 
 https://agentswitch.theschoolofai.in/v/DesignReview:Home/open_issues
