@@ -16,6 +16,10 @@ python rescore.py [runs/batches/<id> | runs/<run_id> ...]                       
   run passed; `report.md` ends its header with `**P of T tasks pass on every run.**`).
   `python -m agentkit.harness.grade --check runs/batches/<id>` proves a re-grade gives the same scores
   without writing anything.
+- Since 2026-10-13 a batch can also be calibrated end to end:
+  `python -m agentkit.harness.replay --calibrate runs/batches/<id> --sim packs/designreview/fixtures`
+  re-runs each passing run from one node with a faulty result (offline) and proves the target check fails,
+  while an unchanged control replay still passes. CI runs it after the mutants. See `agentkit_harness.md`.
 
 ## What replaced the first draft's axes
 

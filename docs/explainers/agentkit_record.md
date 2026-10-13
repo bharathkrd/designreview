@@ -18,10 +18,14 @@ every write crash-safe.
 - **Old API kept.** `TaskRun(task_id, prompt)`, `add_step(kind, target, ok, detail)`, `save(proofs_dir)`
   (flat `<task_id>_<started_at>.json`) and `TaskRun.load()` work as before; `load()` ignores fields it
   doesn't know, so older code can read newer records.
+- **`paused` (since 2026-10-13).** Before: a run ended `done` or `error`. A run started with
+  `--require-approval` that stops before a write now ends `paused`, with the paused nodes as steps whose
+  `status` is `paused` and no answer yet. The grader fails it (`run_completed`) until `run_one --resume`
+  finishes the same folder.
 
 ## Key fields
 
-`TaskRun`: `task_id, prompt, steps, claimed_answer, ended (running|done|error), error, seconds,
+`TaskRun`: `task_id, prompt, steps, claimed_answer, ended (running|done|error|paused), error, seconds,
 started_at, run_id, tenant, dry_run, harness_task, pack, finding, answer_source, warnings`.
 `Step`: `kind, target, ok, detail, status (the node verdict), reason, error_kind, attempts, added_by, seconds`.
 

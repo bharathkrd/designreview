@@ -21,7 +21,7 @@ how to test it (the matching hand-written test template in `tests/` has the deta
             │                     └─► llm/  multi-provider gateway │
             │                                                     │
             │  harness/  ground truth (own login) before/after ─► run folder ─► checks ─► score / report
-            │            mutants ─► prove every check can fail    │
+            │            mutants, replay ─► prove checks can fail │
             │  sim/      captured platform, offline, with faults  │
             │  telemetry/ run tree per run (never graded)          │
             │  viewer/   read-only browser page over run folders  │
@@ -37,11 +37,11 @@ and grading compares the result with the platform — read separately, saved to 
 0. [`config.md`](explainers/config.md) — TOML config and the pydantic models that validate it
 1. [`agentkit_transport.md`](explainers/agentkit_transport.md) — MCP client, REST reader, tool-call journal
 2. [`agentkit_llm.md`](explainers/agentkit_llm.md) — LLM gateway and cost ledger
-3. [`agentkit_graph.md`](explainers/agentkit_graph.md) — live task graph, verdicts, rules, registry
-4. [`agentkit_answer.md`](explainers/agentkit_answer.md) — claim audit and narrator
-5. [`agentkit_retrieval.md`](explainers/agentkit_retrieval.md) — topic chunker and BM25 index
+3. [`agentkit_graph.md`](explainers/agentkit_graph.md) — live task graph, verdicts, rules, registry; retry policy, channels + superstep mode, approval pause, checkpoint history + fork
+4. [`agentkit_answer.md`](explainers/agentkit_answer.md) — claim audit and narrator (platform data fenced as untrusted; corrections name the verified value)
+5. [`agentkit_retrieval.md`](explainers/agentkit_retrieval.md) — topic chunker, BM25 index, search-children/return-parents index
 6. [`agentkit_record.md`](explainers/agentkit_record.md) — crash-safe run record
-7. [`agentkit_harness.md`](explainers/agentkit_harness.md) — tasks, ground truth, grading, calibration
+7. [`agentkit_harness.md`](explainers/agentkit_harness.md) — tasks, ground truth, grading, calibration (mutants and end-to-end replay), approval resume
 8. [`agentkit_sim.md`](explainers/agentkit_sim.md) — fixtures, offline platform, faults
 9. [`agentkit_telemetry.md`](explainers/agentkit_telemetry.md) — run tree: spans, timings, tokens, retries (telemetry.json, report Performance, viewer Timeline)
 10. [`agentkit_viewer.md`](explainers/agentkit_viewer.md) — read-only browser page over batches and runs
@@ -63,6 +63,8 @@ and grading compares the result with the platform — read separately, saved to 
   graph checkpoint and ground truth are on disk before any check reads them; checks never touch the network.
 - **Observable, not graded.** Every run writes `telemetry.json` (task → node → tool / llm spans); timings
   feed `report.md` and the viewer, never a score, so re-grading stays byte-identical (`grade --check`).
+- **Platform text is data.** The narrator gets the finding inside an `<untrusted_platform_data>` fence and is
+  told never to follow instructions found there; live writes can be paused for a person's approval.
 - **Honest about the platform.** This build has no CAD kernel, so revision changes come from commit messages
   and the answer never claims a geometry comparison.
 
