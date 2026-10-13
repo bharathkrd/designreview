@@ -130,6 +130,7 @@ the standard library's `tomllib`.
 | [`agentkit/viewer/`](agentkit/viewer/) | Read-only run viewer: `python -m agentkit.viewer` |
 | [`core/`](core/) | Legacy import paths (`core.harness`, `core.llm_gateway`, `core.economics` re-export `agentkit`); legacy `dag_engine`, `eval_framework`, `judge` |
 | [`tests/`](tests/) | Graded, **hand-written** test suite — see [`tests/README.md`](tests/README.md) |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How generic the agent is: layers, the pack seam, extension points, limits |
 | [`docs/EXPLAINERS.md`](docs/EXPLAINERS.md) | Per-module explainers |
 | [`docs/CHANGES.md`](docs/CHANGES.md) | What changed, and why, after the refactor |
 

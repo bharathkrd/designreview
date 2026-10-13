@@ -5,6 +5,9 @@ rev C, and are there manufacturability problems in this part?"* on the live Agen
 Each explainer covers: the 10,000-ft view, why it's written the way it is, what it does, its key types, and
 how to test it (the matching hand-written test template in `tests/` has the detailed checklist).
 
+For how generic the architecture is — the pack seam, the extension points, and the honest limits — read
+[`ARCHITECTURE.md`](ARCHITECTURE.md) first.
+
 ## The whole system
 
 ```
