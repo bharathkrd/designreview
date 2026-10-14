@@ -40,9 +40,13 @@ and grading compares the result with the platform — read separately, saved to 
 
 ## Reading order
 
-0. [`config.md`](explainers/config.md) — TOML config and the pydantic models that validate it
+Writing style: `config.md`, `agentkit_llm.md` and `agentkit_answer.md` use ASD-STE100 (Simplified Technical
+English). The sections added on 2026-10-14 to `agentkit_harness.md` and `packs_designreview.md` also use it.
+The other explainers do not use it yet.
+
+0. [`config.md`](explainers/config.md) — TOML config, the pydantic models that validate it, and `.env` loading
 1. [`agentkit_transport.md`](explainers/agentkit_transport.md) — MCP client, REST reader, tool-call journal
-2. [`agentkit_llm.md`](explainers/agentkit_llm.md) — LLM gateway and cost ledger
+2. [`agentkit_llm.md`](explainers/agentkit_llm.md) — LLM gateway, providers and tiers, which model answered, cost ledger
 3. [`agentkit_graph.md`](explainers/agentkit_graph.md) — live task graph, verdicts, rules, registry; retry policy, channels + superstep mode, approval pause, checkpoint history + fork
 4. [`agentkit_answer.md`](explainers/agentkit_answer.md) — claim audit and narrator (platform data fenced as untrusted; corrections name the verified value)
 5. [`agentkit_retrieval.md`](explainers/agentkit_retrieval.md) — topic chunker, BM25 index, search-children/return-parents index

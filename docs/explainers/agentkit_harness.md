@@ -132,3 +132,20 @@ for the plan and its parameters inside a `route` step span (its reads are journa
 saved as `taskrun.route` = {plan, params, why} and resume / replay reuse it. A decline runs the pack's
 `route_declined` plan, so it ends as an ordinary refusal. The design-review check `routed_as` grades the decision.
 
+## The model of each LLM call in the report (since 2026-10-14)
+
+*This section is in ASD-STE100 style.*
+
+The batch `report.md` has a Performance table. Its last column is "Models (provider:model)". The grader reads
+this column from the `llm_ledger.json` file of each run. An example is
+`deepseek:deepseek-v4-pro, deepseek_flash:deepseek-flash`. This example shows that the cheap draft failed the
+claim audit, and the quality tier wrote the answer.
+
+The column is for the report only. `batch_score.json` does not have it, so `grade --check` stays byte-stable.
+
+The narrate step in `taskrun.json` also keeps the provider and the model of the answer and of each attempt.
+See `agentkit_answer.md`.
+
+Each task runs in a child process. The child knows which environment values came from `.env` through
+`AGENTKIT_DOTENV_KEYS`. See `config.md`.
+

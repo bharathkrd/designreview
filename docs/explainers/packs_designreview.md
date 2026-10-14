@@ -121,3 +121,21 @@ more than max(3, 5% of N) names ignored (seed department words); files within 10
 revisions keep files with 2+ versions and then those whose own notes carry the revisions; anything still tied,
 or nothing found, is declined with the candidates named. Tasks t10-t12 grade it.
 
+## Geometry disclaimers (since 2026-10-14)
+
+*This section is in ASD-STE100 style.*
+
+The check `no_geometry_claim` finds sentences that state a geometry comparison. A sentence with a negation
+does not count. Examples are "not", "no", "never", "without" and "cannot".
+
+A live answer said: "Nothing in this answer comes from a geometry diff, 3D comparison or CAD analysis." This
+statement is true. But the check did not know "nothing" as a negation, so task t10 failed.
+
+Now `geometry_claims()` also knows "nothing", "none", "neither" and "nor". The check reads whole words. Thus
+"nonetheless" is not a negation.
+
+The readiness check does not use these new words. In "Nothing blocks it; it is ready for release", the word
+"nothing" does not change the readiness claim.
+
+The tests are in `tests_local/test_url_providers.py` (`test_geometry_disclaimers`).
+
