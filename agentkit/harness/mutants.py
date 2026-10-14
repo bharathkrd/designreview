@@ -54,10 +54,20 @@ def _no_answer(b: RunBundle) -> RunBundle:
     return b
 
 
+def _duplicate_read(b: RunBundle) -> Optional[RunBundle]:
+    # The agent reads the same thing twice: copy its first successful call to the end.
+    first = next((e for e in b.journal if e.get("tool") and e.get("ok")), None)
+    if first is None:
+        return None
+    b.journal.append({**first, "seq": 997})
+    return b
+
+
 BUILTIN_MUTANTS = [
     MutantDef("crashed_run", "run_completed", _crashed),
     MutantDef("sneaky_write", "tool_calls_policy", _sneaky_write),
     MutantDef("no_answer", "answer_present", _no_answer),
+    MutantDef("duplicate_read", "tool_call_budget", _duplicate_read),
 ]
 
 

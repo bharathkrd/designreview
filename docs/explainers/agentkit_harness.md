@@ -27,7 +27,14 @@ task.toml ──► ground truth BEFORE (harness's own login)
   the data moved under the run), `skip`, `error` (ground truth unavailable or the check crashed). `error`
   never counts as a pass. Task status: any fail/error → fail; only drift → drift; else pass.
 - **Built-in checks for every task:** `run_completed`, `tool_calls_policy` (from the journal: a dry run may
-  only read; a write run may only write through the pack's `write_tools` allowlist), `answer_present`.
+  only read; a write run may only write through the pack's `write_tools` allowlist), `answer_present`, and
+  `tool_call_budget` (since 2026-10-14: the same read -- tool and arguments -- may succeed only once unless a
+  write happened in between; a retried failure is fine; in a replay only the replay's own calls count, from
+  `replay.json`'s `replay_start_seq`). Built-in mutant `duplicate_read` proves it can fail.
+- **Failure modes (since 2026-10-14).** Every check has a `failure_mode` (`agentkit.registry.FAILURE_MODES`:
+  wrong_fact, fabrication, ignored_evidence, policy_breach, premature_stop, verification_gap, inefficiency),
+  given at `registry.check(name, failure_mode=...)`; an unknown mode is a registration error. `score.json` has
+  `fail_modes` (failed checks counted by mode) and `report.md` a "Failures by mode" table. Never scored.
 - **Writes are opt-in twice.** A run writes only when the batch has `--write` *and* the task sets
   `allow_writes = true`; every other run is a dry run, where write actions are previewed, never called.
   `--write` is live only (a fixture can't take writes).
@@ -45,6 +52,16 @@ task.toml ──► ground truth BEFORE (harness's own login)
   (the line CI checks); `batch_score.json` holds the same numbers without timestamps.
   *Before:* one run per task; `report.md` had only the per-run table, so "all tasks ran and passed" could not
   be checked mechanically.
+- **Reliability statistics (since 2026-10-14; `agentkit-grade-v2`).** Reported, never part of pass/fail:
+  - per task, for k = 1..n (n runs expected, c passed; a missing run counts as failed):
+    pass@k = 1 - C(n-c, k)/C(n, k) (at least one of k passes) and pass^k = C(c, k)/C(n, k) (all k pass),
+    unbiased, stored as exact fractions (`"1/3"`) so `batch_score.json` stays byte-stable;
+  - a 95% Wilson interval for the share of tasks passing every run (9 of 9 -> 0.70 to 1.00);
+  - the run pass rate with a standard error clustered by task: sqrt(sum over tasks of (sum of (s - mean))^2) / n;
+  - per run, `partial` = 0.5 * (passed / applicable checks) + 0.5 * (run passed) -- partial credit.
+  `report.md` gains the interval line (under the line CI greps, which is unchanged), a "Partial credit"
+  column, a "Reliability" table (pass@1, pass@n, pass^n per task) when tasks ran more than once, and
+  "Failures by mode". Helpers: `pass_at_k`, `pass_hat_k`, `wilson_interval`, `clustered_se`, `partial_score`.
 - **Re-grading is checkable.** `grade --check <batch>` re-grades in memory, writes nothing, and compares
   with the saved `score.json` files and `batch_score.json` (exit 1 on any difference or an ungraded batch).
   *Before:* re-grading simply overwrote the scores; determinism was assumed, not tested.

@@ -53,7 +53,7 @@ Prior work this builds on:
 | Grading from saved files only, pure check functions; `grade --check` proves re-grade is byte-identical | `harness/grade.py`, `checks.py` | P1 O.f.2, P2 reproducibility |
 | Agent runs in a subprocess; run record on disk before work; crash = fail; `error` never a pass; missing runs fail | `run_one.py`, `batch.py`, `grade.score_batch` | P1 T.3, T.5 |
 | pass^k gate (CI `--repeat 3`; task passes only if every run passed) | `grade.score_batch` | P3, P18 |
-| Verifiers proven able to fail: 28 mutants + replay faults (node → finding → answer → check) with a control replay | `harness/mutants.py`, `replay.py`, pack `mutants.py`, `replay_faults.py` | Beyond P1 O.d / T.9 — no paper does both |
+| Verifiers proven able to fail: 29 mutants + replay faults (node → finding → answer → check) with a control replay | `harness/mutants.py`, `replay.py`, pack `mutants.py`, `replay_faults.py` | Beyond P1 O.d / T.9 — no paper does both |
 | Fault-injection matrix with asserted expected grades (flaky, drop_tool, fail_always, edit_text) | `scripts/ci_fault_matrix.py`, `ci_faults.toml` | P18 λ (partial) |
 | Refusal tasks: unknown record (t02), tool not in seat (t03), no geometry claims (t04) | tasks t02–t04; checks `record_absent`, `tool_absent`, `no_geometry_claim` | P12 |
 | Frozen offline environment: captured fixtures, frozen clock, `AGENTKIT_OFFLINE=1` | `agentkit/sim`, `clock.py` | P1 T.4, T.6 |
@@ -82,6 +82,10 @@ evaluation*, and *baselines*.
   resolving "the battery tray" to a file, or asking/declining when a part name is ambiguous.
 - Fix: a resolver/router stage (rules first, optional LLM behind the allowlist) + prompt-only tasks.
 
+> **Partly closed 2026-10-14 (batch 1):** the new check `lookup_before_refusal` (on t02) needs the agent's own
+> lookup to have said missing; mutant `refused_without_lookup` proves it can fail. Open: the null agent as a
+> standing baseline in `report.md`.
+
 **G2. Trivial-agent baseline is not a standing part of the harness; one refusal check accepts "no lookup"**
 (P1 R.12/R.13 — the τ-bench 38% flaw; P1 O.b.2)
 - Checked on 2026-10-14 against an offline batch: a do-nothing agent (no tool calls, finding `declined`,
@@ -101,10 +105,17 @@ evaluation*, and *baselines*.
   - make the null agent a standing baseline in `report.md` that must score 0 of N (P1 R.13), so a future
     check change can't silently let it through.
 
+> **Partly closed 2026-10-14 (batch 2):** pass@k / pass^k curves (exact fractions), the Wilson interval and the
+> clustered standard error are in `batch_score.json` and `report.md`. Open: an LLM-on batch, so repeats differ.
+
 **G3. pass^k is trivially 1 in CI; no curves, no error bars** (P3, P5, P17, P18, P19)
 - CI runs `--skip-llm`, so 3 repeats are deterministic — the only stochastic part (narration) is never in CI.
   Last LLM batches in `runs/` are 2026-09-30.
 - `score_batch` stores only `pass_all`: no pass@k / pass^k curve, no confidence interval.
+
+> **Partly closed 2026-10-14 (batch 1):** `finding.requested_pair` reads the compare phrase ("between … and",
+> "from … to", "rev X -> rev Y"), so the distractor case compares B -> C and "from B to C" works; three revs with
+> no compare phrase decline. Open: metamorphic task variants graded in the batch.
 
 **G4. No perturbation robustness; a distractor sentence changes the answer** (P18 ε-axis, P19)
 - Checked on 2026-10-14 with `finding.requested_revs`:
@@ -140,10 +151,10 @@ evaluation*, and *baselines*.
   question templates to raise N.
 
 ### P2 — richer metrics and analysis
-**G9. Binary run score, no partial credit** (P9) — add S_partial (report-only, never a gate).
-**G10. No failure-mode taxonomy** (P8, P4) — tag every check/mutant with a mode; count failures by mode.
+**G9. Binary run score, no partial credit** (P9) — add S_partial (report-only, never a gate). **Closed 2026-10-14 (batch 2):** `score.json` `partial`, report column.
+**G10. No failure-mode taxonomy** (P8, P4) — tag every check/mutant with a mode; count failures by mode. **Closed 2026-10-14 (batch 2):** `FAILURE_MODES`, every check tagged (mutants through their target), `fail_modes` per run, "Failures by mode" table.
 **G11. Efficiency not graded** (P2, P9, ToolBench) — tool calls/steps are report-only; add `tool_call_budget`
-(no duplicate identical reads; calls ≤ plan maximum).
+(no duplicate identical reads; calls ≤ plan maximum). **Partly closed 2026-10-14 (batch 2):** built-in `tool_call_budget` (no repeated identical read unless a write came between) with mutant `duplicate_read`. Open: a per-plan call maximum.
 **G12. No cost–accuracy Pareto** (P2) — template agent = $0 baseline vs each LLM route; cost per *passing*
 task; answer-source mix (LLM / rewritten / template).
 **G13. No predictability signal** (P19) — agent emits no confidence or coverage score, so calibration and

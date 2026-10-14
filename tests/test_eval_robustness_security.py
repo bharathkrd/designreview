@@ -13,10 +13,12 @@ Use cases to cover:
   Reworded prompts (G4):
   [ ] requested_revs on "rev B and rev C", "revision B and revision C", "rev. B -> rev. C" and
       "Compare Rev B to Rev C" -> ["B", "C"]   (works today)
-  [ ] (bug today) "Rev A was the prototype. What changed between rev B and rev C?" -> build_finding
-      compares B -> C; today it compares A -> B (it takes the first two revs named)
-  [ ] (not handled today) "What changed from B to C?" -> ["B", "C"]; today [] and the finding silently
-      uses the latest two versions
+  [ ] "Rev A was the prototype. What changed between rev B and rev C?" -> build_finding compares B -> C
+      (fixed 2026-10-14; before, it compared A -> B)
+  [ ] requested_pair("What changed from B to C?") -> ["B", "C"]   (fixed 2026-10-14)
+  [ ] "Tell me about rev A, rev B and rev C." (no compare phrase) -> revision_delta declined, reason
+      names the three revs -- no guess
+  [ ] requested_pair("The radius grew from 2.0 mm to 3.0 mm") -> None (quantities are not revs)
   [ ] (not built yet) five rewordings of t01 replayed on the fixture all grade the same as t01
 
   Prompt injection in platform data (G5, not built yet):
@@ -58,6 +60,6 @@ from agentkit.harness.grade import grade_batch
 from agentkit.harness.tasks import load_tasks
 from agentkit.registry import load_pack
 from agentkit.sim import SimPlatform, parse_fault
-from packs.designreview.finding import requested_revs
+from packs.designreview.finding import build_finding, requested_pair, requested_revs
 
 # Write your tests below.

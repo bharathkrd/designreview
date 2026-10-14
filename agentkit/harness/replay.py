@@ -135,9 +135,12 @@ def replay_run(run_dir: Path, update: Dict[str, NodeResult], out_dir: Path, *, c
             export_run(tracer, out_dir)
         except Exception:  # telemetry is never graded
             pass
+    # Graders need to know where the replay's own calls start (the journal also holds the original's).
+    dump_record(out_dir / REPLAY_FILE, {"replay_of": original.get("run_id"), "replay_start_seq": last_seq + 1})
     score = grade_run(out_dir, registry)
     original_score = load_record(run_dir / "score.json") if (run_dir / "score.json").exists() else {}
-    meta = {"replay_of": original.get("run_id"), "source_dir": str(run_dir), "label": label,
+    meta = {"replay_of": original.get("run_id"), "replay_start_seq": last_seq + 1, "source_dir": str(run_dir),
+            "label": label,
             "replaced": {k: v.to_dict() for k, v in update.items()}, "ended": run.ended, "error": run.error,
             "status": score["status"], "original_status": original_score.get("status")}
     dump_record(out_dir / REPLAY_FILE, meta)
