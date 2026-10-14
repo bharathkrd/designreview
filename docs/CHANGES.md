@@ -1,5 +1,12 @@
 # Changes
 
+## 2026-10-14 — Tier order: OpenAI, DeepSeek, Moonshot, Gemini, Anthropic
+
+`fast`: openai_luna, deepseek_flash, moonshot, gemini_lite, anthropic_haiku, then groq, cerebras, nvidia, lmstudio,
+ollama. `quality` and `default`: openai_sol, deepseek, moonshot, gemini, anthropic, then the rest (`config/routing.toml`).
+A provider is still skipped when its key is unset or while it cools down, so the next one in this order answers.
+Verified live: a 12-task batch passed 12 of 12, every answer by gpt-6-luna on the first draft (about $0.004).
+
 ## 2026-10-14 — Anthropic (Haiku / Sonnet 5.5) and Gemini (Flash-Lite / Flash) as cheap-draft and quality rows
 
 | What | Before | After | Where |

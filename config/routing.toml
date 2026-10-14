@@ -164,9 +164,9 @@ rpm = 120
 timeout = 180
 
 [tiers]
-# DeepSeek first, then OpenAI GPT-6, Anthropic, Gemini and Moonshot (Kimi); the other hosted providers next; local LM Studio, then Ollama, last.
-default = ["deepseek", "moonshot", "openai_sol", "anthropic", "gemini", "groq", "cerebras", "nvidia", "openrouter", "lmstudio", "ollama"]
+# Order (2026-10-14): OpenAI GPT-6, DeepSeek, Moonshot (Kimi), Gemini, Anthropic; the other hosted providers next; local LM Studio, then Ollama, last.
+default = ["openai_sol", "deepseek", "moonshot", "gemini", "anthropic", "groq", "cerebras", "nvidia", "openrouter", "lmstudio", "ollama"]
 # Cheap/fast tier for high-volume, low-stakes calls (cascade drafts, the eval judge).
-fast = ["deepseek_flash", "openai_luna", "anthropic_haiku", "gemini_lite", "moonshot", "groq", "cerebras", "nvidia", "lmstudio", "ollama"]
+fast = ["openai_luna", "deepseek_flash", "moonshot", "gemini_lite", "anthropic_haiku", "groq", "cerebras", "nvidia", "lmstudio", "ollama"]
 # Quality tier for the final answer.
-quality = ["deepseek", "openai_sol", "anthropic", "gemini", "moonshot", "openrouter", "nvidia", "lmstudio", "ollama"]
+quality = ["openai_sol", "deepseek", "moonshot", "gemini", "anthropic", "openrouter", "nvidia", "lmstudio", "ollama"]
