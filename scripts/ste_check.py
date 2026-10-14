@@ -1,7 +1,7 @@
 """
 Check Markdown docs against the measurable writing rules of ASD-STE100 (Simplified Technical English).
 
-    python scripts/ste_check.py                   # docs/ARCHITECTURE.md, docs/EXPLAINERS.md, docs/explainers/*.md
+    python scripts/ste_check.py                   # README.md, docs/ARCHITECTURE.md, docs/EXPLAINERS.md, docs/explainers/*.md
     python scripts/ste_check.py docs/x.md ...     # the given files
     python scripts/ste_check.py --detail          # also each finding (CI always prints them)
 
@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import Iterator, List, Tuple
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_FILES = [ROOT / "docs" / "ARCHITECTURE.md", ROOT / "docs" / "EXPLAINERS.md",
+DEFAULT_FILES = [ROOT / "README.md", ROOT / "docs" / "ARCHITECTURE.md", ROOT / "docs" / "EXPLAINERS.md",
                  *sorted((ROOT / "docs" / "explainers").glob("*.md"))]
 
 MAX_DESCRIPTIVE = 25
@@ -137,7 +137,7 @@ def check_file(path: Path) -> Tuple[int, List[Finding]]:
 
 def main(argv: List[str] = None) -> int:
     ap = argparse.ArgumentParser(description="Check Markdown docs against the measurable ASD-STE100 rules.")
-    ap.add_argument("files", nargs="*", type=Path, help="default: docs/ARCHITECTURE.md, docs/EXPLAINERS.md and docs/explainers/*.md")
+    ap.add_argument("files", nargs="*", type=Path, help="default: README.md, docs/ARCHITECTURE.md, docs/EXPLAINERS.md and docs/explainers/*.md")
     ap.add_argument("--detail", action="store_true", help="print each finding (on in GitHub Actions)")
     args = ap.parse_args(argv)
     files = args.files or DEFAULT_FILES

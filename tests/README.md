@@ -49,6 +49,8 @@ Anything without a marker must run offline: no network, no LLM, no `.env`.
 | `test_llm_cascade_and_budgets.py` | `agentkit/llm/*`, `agentkit/answer/*`: audit-gated cascade, prompt caching, sampled agreement, citations, model drift, budgets (I1–I5, I8) | yes |
 | `test_planning_and_routing.py` | `agentkit/graph/*`, `agentkit/transport/catalog.py`: question → plan and part, patch guard, fallback rules, argument checks (G1, I6, I7, I9) | yes |
 | `test_rag_quality.py` | `agentkit/retrieval/*`, `gather_dfm_standards`: recall@k / MRR, relevance floor, query expansion, order, chunking comparison, context-carrying chunks (I10–I17) | yes |
+| `test_llm_providers.py` | `agentkit/llm/*`, `agentkit/config.py`: providers by URL or native `api`, per-row request settings, the tier order, which model answered, `.env` values in child processes | yes |
+| `test_docs_and_grader_words.py` | `scripts/ste_check.py` (ASD-STE100 docs check), `packs/designreview/checks.py` geometry disclaimers | yes |
 | `test_agent_tasks.py` | the nine tasks (t01–t05, t08 Suryodaya; t06, t07, t09 Keystone), end to end | live + agent |
 
 ## Tools you can use (all product code, not test code)

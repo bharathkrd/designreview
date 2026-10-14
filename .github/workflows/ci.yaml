@@ -121,7 +121,7 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
-  # The architecture document and the explainers are written in ASD-STE100 (Simplified Technical
+  # The README, the architecture document and the explainers are written in ASD-STE100 (Simplified Technical
   # English). scripts/ste_check.py examines the rules that a program can measure: sentence and
   # paragraph length, passive voice, contractions, common unapproved words. Standard library only.
   docs-style:
@@ -137,7 +137,7 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Check docs/ARCHITECTURE.md, docs/EXPLAINERS.md and docs/explainers/
+      - name: Check README.md, docs/ARCHITECTURE.md, docs/EXPLAINERS.md and docs/explainers/
         run: python scripts/ste_check.py
 
   secret-scan:

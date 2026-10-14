@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-10-15 — README up to date and in ASD-STE100; live LLM batches logged; test templates
+
+| What | Before | After | Where |
+|---|---|---|---|
+| README | "nine tasks", "9 of 9", "the pack has no write actions", "rewritten once", the old provider list, t09 after t12 | 12 tasks; `raise_handoffs` is the write action; the cascade; the provider and tier table; the new modules; the retrieval and docs-style CI steps; ASD-STE100 style (0 findings) | `README.md` |
+| STE check | 18 docs | also `README.md` (19 files) | `scripts/ste_check.py`, `.github/workflows/ci.yaml` |
+| Manual test log | live rows up to A-LIVE-04 | A-LIVE-05 to A-LIVE-10: the six live 12-task LLM batches of 2026-10-14 (provider, model, cost, findings), and two tests to author | `tests/MANUAL_TEST_LOG.md` |
+| Test templates | — | `tests/test_llm_providers.py` and `tests/test_docs_and_grader_words.py`: use cases only, no test code (the `tests/` suite is hand-written) | `tests/`, `tests/README.md` |
+
 ## 2026-10-14 — The docs in ASD-STE100, and a CI check for it
 
 | What | Before | After | Where |

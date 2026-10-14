@@ -1,121 +1,187 @@
 # AgentSwitch — Design Review Seat (`designreview`)
 
-> **EAGv3 Capstone Project** | **Team 21**  
-> **Assigned Seat:** Design Review (`designreview`) — Design Files, Versions, Reviews  
-> **Team Members:** Sunil Jakkaraju ([@jssunil](https://github.com/jssunil)), Bharath KR ([@bharathkrd](https://github.com/bharathkrd))  
-> **Core Request:** *"What changed between rev B and rev C, and are there manufacturability problems in this part?"*
+| | |
+|---|---|
+| **Project** | EAGv3 Capstone Project, **Team 21** |
+| **Assigned seat** | Design Review (`designreview`): Design Files, Versions, Reviews |
+| **Team members** | Sunil Jakkaraju ([@jssunil](https://github.com/jssunil)), Bharath KR ([@bharathkrd](https://github.com/bharathkrd)) |
+| **Core request** | *"What changed between rev B and rev C, and are there manufacturability problems in this part?"* |
+
+*Written in ASD-STE100 (Simplified Technical English) style, 2026-10-15. CI examines this file with
+`scripts/ste_check.py`.*
 
 ---
 
 ## 📌 Project Overview
 
-**AgentSwitch** is a multi-agent, enterprise-grade business operations platform spanning 424 entity types deployed across two simulated manufacturing enterprises:
+**AgentSwitch** is a multi-agent business-operations platform for enterprises. It has 424 entity types. Two
+simulated manufacturing companies use it:
+
 1. **Suryodaya Precision Works** (India — GST / Ind AS)
 2. **Keystone Precision Works LLC** (US — Sales & Use Tax / ASC)
 
-Each team operates within an assigned **seat** with specific entity permissions, API scopes, and MCP interfaces. Our seat, **Team 21 (`designreview`)**, is tasked with building an autonomous, MCP-driven agent that can perform multi-step geometric/BOM revision comparisons, inspect design revisions, validate engineering checklists, and assess manufacturability (DFM/DFA) issues.
+Each team works in one **seat**. A seat has specified entity permissions, API scopes and MCP interfaces. Our
+seat is **Team 21 (`designreview`)**. The seat brief asks for an autonomous agent that uses MCP to do these
+tasks:
+
+- compare design revisions;
+- examine engineering checklists;
+- find manufacturability (DFM and DFA) problems.
 
 ---
 
 ## 🎯 The Core Agent Goal
 
-Our agent must handle the following high-bar engineering evaluation autonomously over Model Context Protocol (MCP) and REST APIs:
+The agent must answer this question autonomously, through the Model Context Protocol (MCP) and REST APIs:
 
 ```text
 "What changed between rev B and rev C, and are there manufacturability problems in this part?"
 ```
 
-What the agent actually does to answer it:
-- **Revision delta from the engineers' own notes.** Rev letters ("Rev B", "Rev 2") are read from each
-  `DesignVersion.commit_message`, so rev B is mapped to the right version even when it isn't v2. This
-  platform build has no CAD kernel (geometry diffs, wall-thickness and interference checks return `501`),
-  so the answer says plainly that no geometry comparison was run.
-- **Manufacturability from platform evidence.** The release-readiness gate (ready / reasons / critical
-  blockers), open high/critical `DesignFeedback`, failed DFM checklist results, and the company's
-  `DesignStandard` records relevant to the change.
-- **Refusal when the data or the seat can't support an answer** — an unknown file, or a request that needs
-  a tool this seat isn't given (e.g. the platform's AI review).
+What the agent does to answer it:
+
+- **The revision change comes from the notes of the engineers.** The agent reads rev letters ("Rev B",
+  "Rev 2") from each `DesignVersion.commit_message`. Thus it maps rev B to the correct version, also when rev B
+  is not v2.
+- **No geometry claims.** This platform build has no CAD kernel. Geometry diffs, wall-thickness checks and
+  interference checks give `501`. Thus the answer says clearly that the agent did not compare geometry.
+- **Manufacturability comes from platform evidence:**
+  - the release-readiness gate (ready, reasons, critical blockers);
+  - open high and critical `DesignFeedback`;
+  - failed DFM checklist results;
+  - the `DesignStandard` records of the company that apply to the change.
+- **A refusal when the data or the seat cannot support an answer.** One example is an unknown file. Another
+  example is a request for a tool that this seat does not have, such as the AI review of the platform.
+- **A refusal when the question is not clear.** If a part name matches more than one file, the agent names
+  the candidates. It does not guess.
 
 ---
 
 ## 🏗️ Architecture
 
-Three layers; a lower layer never imports a higher one.
+The code has three layers. A lower layer never imports a higher layer.
 
 ```
 agentkit/            domain-free framework (no design-review names; a lint test enforces it)
-  transport/         MCP client (typed errors, re-login, read-only retries), REST reader, tool-call journal
-  llm/               multi-provider LLM gateway (classified retries, real token usage, cost ledger)
-  graph/             live task graph: verdicts, allowlisted actions, rule planner, checkpoints
-  answer/            claim audit + narrator (LLM words a finding; audited; template fallback)
-  retrieval/         topic chunker + BM25 evidence index
+  agents/            run a plan, record its steps, word the answer; router: question → plan + params
+  transport/         MCP client (typed errors, re-login, read-only retries, argument check), REST reader, tool-call journal
+  llm/               multi-provider LLM gateway (tiers, classified retries, real token usage, cost ledger, model check)
+  graph/             live task graph: verdicts, allowlisted actions, rule planner, timeouts, checkpoints
+  answer/            claim audit + narrator (cheap draft → quality tier → template), data fence, quarantine
+  retrieval/         topic chunker, BM25 evidence index, parent/child index, quality metrics, relevance gate
   record/            crash-safe run record (TaskRun) and atomic writes
   harness/           tasks, ground-truth capture, checks, batch runner, grader, verifier self-test
   sim/               platform fixtures + offline SimPlatform with injectable faults
-packs/designreview/  the domain pack: actions, finding, claim rules, template, probes, verifiers,
+  telemetry/         run tree for each run (task → node → tool / llm)
+  viewer/            read-only browser page over the run folders
+packs/designreview/  the domain pack: actions, routes, finding, claim rules, template, probes, verifiers,
                      mutants, prompts/*.md, plans/*.toml, tasks/*.toml, fixtures/*.json
-config/              tenants.toml, routing.toml, project.toml (default pack / tenant)
+config/              tenants.toml, routing.toml (LLM providers and tiers), project.toml (defaults, LLM cost limit)
 ```
 
-**How one question is answered**
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the layers and the pack seam.
 
-1. **Plan** (`packs/designreview/plans/rev_diff_dfm.toml`) — the design file is read first; revisions,
-   release gate, feedback and standards follow in parallel; a declarative rule adds a read of failed DFM
-   checklists only when the gate reports blockers. Nodes can only name registered actions (an allowlist);
-   the pack has no write actions, and every run is a dry run.
-2. **Evidence** — every MCP call goes through a journal (`tool_journal.jsonl`); the graph is checkpointed
-   after every step (`graph.json`).
-3. **Finding** (`packs/designreview/finding.py`) — the gradable answer is computed in code: rev → version
-   mapping, change notes and their quantities, release verdict, blockers, DFM signals, refusals.
-4. **Answer** — the LLM only words the finding. The wording is audited against it (no invented quantities,
-   record ids or standards; no "ready" when the gate says not ready; no geometry claims; required facts
-   present), rewritten once if wrong, and replaced by a deterministic template if it still fails or the
-   LLM is down.
+### How the agent answers one question
 
-**How a run is graded (the harness)**
+1. **Route.** A task can give only the question (`plan = "route"`). Then the router of the pack chooses the
+   plan and finds the design file by its name. If the name is not clear, the router declines.
+2. **Plan** (`packs/designreview/plans/rev_diff_dfm.toml`). The agent reads the design file first. Then it
+   reads the revisions, the release gate, the feedback and the standards in parallel. A declarative rule adds
+   a read of the failed DFM checklists only when the gate shows blockers.
+3. **Actions.** Nodes can name only registered actions (an allowlist). The only write action is
+   `raise_handoffs`. It runs only when you give `--write` and the task permits writes. Each other run is a
+   dry run.
+4. **Evidence.** Each MCP call goes through a journal (`tool_journal.jsonl`). The journal also validates the
+   arguments before each call. The engine saves a checkpoint of the graph after each step (`graph.json`).
+5. **Finding** (`packs/designreview/finding.py`). Code calculates the answer that the harness grades:
+   - the rev-to-version mapping;
+   - the change notes and their quantities;
+   - the release verdict and the blockers;
+   - the DFM signals;
+   - the refusals.
+6. **Answer.** The LLM only writes the finding as text:
+   1. A cheap model (the `fast` tier) writes a draft.
+   2. The claim audit compares the draft with the finding. It rejects invented quantities, record ids and
+      standards, "ready" when the gate says "not ready", geometry claims, and missing facts.
+   3. A rejected draft goes to a stronger model (the `quality` tier), with the verified values.
+   4. If no draft passes, or no LLM is available, a deterministic template gives the answer.
 
-Each task is a TOML file (`packs/designreview/tasks/`). For every task the harness:
-reads the platform facts its verifiers need **with its own login** (before and after the run) →
-runs the agent **in a subprocess** → saves everything to `runs/<run_id>/`
-(`task.json`, `taskrun.json` written first as `ended="running"`, `tool_journal.jsonl`, `graph.json`,
-`ground_truth_before/after.json`, `llm_ledger.json`) → **grades from those files only**, so a verifier fix
-is a free re-grade. Check results are `pass / fail / drift / skip / error`; `drift` means the data moved
-under the run, and `error` never counts as a pass. The verifiers re-derive rev letters, quantities and
-readiness wording with their own parsers, so an agent bug can't pass its own check.
+### LLM providers
+
+`config/routing.toml` sets the providers and their sequence in each tier. The gateway skips a provider that
+has no key in `.env`.
+
+| Tier | Sequence |
+|---|---|
+| `fast` (cheap drafts) | OpenAI gpt-6-luna → DeepSeek deepseek-flash → Moonshot kimi-k2.6 → Gemini 3.5 Flash-Lite → Claude Haiku 5.5 → Groq, Cerebras, NVIDIA → LM Studio → Ollama |
+| `quality` (rejected drafts) | OpenAI gpt-6.1-sol → DeepSeek deepseek-v4-pro → Moonshot kimi-k2.6 → Gemini 3 Flash → Claude Sonnet 5.5 → OpenRouter, NVIDIA → LM Studio → Ollama |
+
+A new OpenAI-compatible provider is one `[[providers]]` row with a `url`. It needs no code change. Each run
+records the provider and the model of each LLM call. See
+[`docs/explainers/agentkit_llm.md`](docs/explainers/agentkit_llm.md).
+
+### How the harness grades a run
+
+Each task is a TOML file in `packs/designreview/tasks/`. For each task, the harness does these steps:
+
+1. It reads the platform facts that its verifiers need, **with its own login**, before the run.
+2. It runs the agent **in a subprocess**.
+3. It reads the platform facts again after the run.
+4. It saves all data to `runs/<run_id>/`: `task.json`, `taskrun.json` (written first, as
+   `ended="running"`), `tool_journal.jsonl`, `graph.json`, `ground_truth_before/after.json`,
+   `llm_ledger.json`, `telemetry.json`.
+5. It **grades from those files only**. Thus a correction to a verifier costs nothing: grade again.
+
+The check results are `pass`, `fail`, `drift`, `skip` and `error`:
+
+- `drift` means that the data changed during the run.
+- `error` never counts as a pass.
+
+The verifiers use their own parsers for rev letters, quantities and readiness wording. Thus an error in the
+agent cannot make its own check pass.
 
 | Task | What it proves |
 |---|---|
-| `t01_battery_tray_rev_diff` | B→v2, C→v3; 2.0→3.0 mm bend radius, +4.2 mm blank; NOT ready with a critical blocker |
-| `t02_unknown_file_refusal` | refuses after one lookup; reads nothing else, invents nothing |
-| `t03_ai_review_refusal` | checks the seat catalogue, never calls the absent tool, declines |
-| `t04_bench_vice_no_geometry` | numeric revs; reports the 180 g saving; claims no geometry comparison |
-| `t05_propeller_rev_mapping` | rev B is v1 — mapped by commit note, not by position |
-| `t06_keystone_boilerplate_notes` | **Keystone.** Rev B/C notes only say "drawing and model updated together": reports exactly that, invents no changes |
-| `t07_keystone_latest_dfm_fixes` | **Keystone.** Notes carry no rev labels: compares the latest two versions ("DFM fixes: increased draft angles, added rib reinforcement") and recalls the company's DFM guidelines |
-| `t08_battery_tray_handoff` | NOT ready; proposes one hand-off each to **manufacturing** (cracking bend radius, weld access) and **quality** (PPAP level 3), cites exactly those items, shows the escalation each would file and files nothing; names the past-due "DFM review closed" milestone |
-| `t10_routed_battery_tray` | **Routed** (`plan = "route"`): only the question is given; the router must pick the plan and find DF-2026-00001 by name, then t01's checks hold |
-| `t11_routed_ambiguous_propeller` | **Routed refusal**: "the propeller" matches four files and no revision narrows it -- declines, naming them |
-| `t12_routed_keystone_schedule` | **Routed, Keystone**: t09's question alone; must find the housing cover (not the float arm or pivot of the same drive) |
-| `t09_keystone_no_handoff_late_schedule` | **Keystone.** Every open issue is design review's own, so it proposes **no** hand-off (inventing one fails); names three past-due critical-path milestones and never says "on track" |
+| `t01_battery_tray_rev_diff` | B→v2, C→v3; bend radius 2.0→3.0 mm, blank +4.2 mm; NOT ready, with a critical blocker. |
+| `t02_unknown_file_refusal` | Refuses after one lookup. Reads nothing else and invents nothing. |
+| `t03_ai_review_refusal` | Examines the seat catalogue, never calls the absent tool, and declines. |
+| `t04_bench_vice_no_geometry` | Numeric revs. Reports the saving of 180 g. Makes no geometry claim. |
+| `t05_propeller_rev_mapping` | Rev B is v1. The mapping comes from the commit note, not from the position. |
+| `t06_keystone_boilerplate_notes` | **Keystone.** The rev B and C notes say only "drawing and model updated together". The answer reports exactly that and invents no changes. |
+| `t07_keystone_latest_dfm_fixes` | **Keystone.** The notes have no rev labels. The agent compares the latest two versions ("DFM fixes: increased draft angles, added rib reinforcement") and recalls the DFM guidelines of the company. |
+| `t08_battery_tray_handoff` | NOT ready. Proposes one hand-off to **manufacturing** (cracking bend radius, weld access) and one to **quality** (PPAP level 3). Cites exactly those items. Shows the escalation that each would file, and files nothing. Names the past-due milestone "DFM review closed". |
+| `t09_keystone_no_handoff_late_schedule` | **Keystone.** Each open problem is work for design review, so the agent proposes **no** hand-off (an invented hand-off fails). Names three past-due critical-path milestones. Never says "on track". |
+| `t10_routed_battery_tray` | **Routed** (`plan = "route"`). The task gives only the question. The router must choose the plan and find DF-2026-00001 by its name. Then the checks of t01 apply. |
+| `t11_routed_ambiguous_propeller` | **Routed refusal.** "The propeller" matches four files, and no revision makes the choice smaller. The agent declines and names them. |
+| `t12_routed_keystone_schedule` | **Routed, Keystone.** Only the question of t09. The router must find the housing cover, not the float arm or the pivot of the same drive. |
 
-**Verifier self-test.** `agentkit.harness.mutants` takes passing runs, breaks one thing in a copy
-(a wrong rev mapping, an invented quantity, a false "ready" claim, a sneaky write, a crashed run …) and
-requires the matching check to fail. Any mutant that slips through, or any check nothing can make fail,
-fails calibration. `agentkit.harness.replay --calibrate` goes one level deeper: it replaces what one graph
-node returned (the release gate says "ready", a commit note states another quantity, the milestone read
-fails), re-runs everything downstream of it offline, rebuilds the finding and the answer, and requires the
-target check to fail -- while a control replay with the node's own result must still pass.
+### The verifiers test themselves
 
-**Offline.** `python -m agentkit.sim.capture --tenant <tenant>` records every exchange that tenant's tasks
-need into `packs/designreview/fixtures/<tenant>.json`; `--sim packs/designreview/fixtures` replays each
-task against its own tenant's fixture (all nine tasks in about a second),
-with faults such as `drop_tool:…`, `fail_once:…:flaky`, or `edit_text:old=>new` (another team edits a
-record during the run → graded `drift`).
+- **Mutants.** `agentkit.harness.mutants` takes passing runs and changes one thing in a copy. Examples are a
+  wrong rev mapping, an invented quantity, a false "ready" claim, a hidden write and a crashed run. The
+  matching check must fail. Calibration fails if a mutant passes, or if no mutant can make a check fail.
+- **Replay faults.** `agentkit.harness.replay --calibrate` goes one level deeper. It changes the result of one
+  graph node (for example, the release gate says "ready"). It runs all nodes after it again, offline.
+- **The replay result.** The replay makes the finding and the answer again. The target check must fail. A control replay with the original result
+  must still pass.
 
-**Constraints.** No agent or workflow frameworks of any kind: the loop, graph, planner, retrieval,
-harness and telemetry are plain Python. Dependencies: `httpx`,
-`pydantic` (validates config/plan/task/fixture files), `python-dotenv`, `pytest`; config is TOML read by
-the standard library's `tomllib`.
+### Offline runs
+
+- `python -m agentkit.sim.capture --tenant <tenant>` records each exchange that the tasks of that tenant
+  need. It writes `packs/designreview/fixtures/<tenant>.json`.
+- `--sim packs/designreview/fixtures` replays each task on the fixture of its tenant. All 12 tasks run in a
+  few seconds.
+- You can add faults, for example `drop_tool:…`, `fail_once:…:flaky` or `inject_text:…` (an instruction in
+  platform data).
+- With `edit_text:old=>new`, another team changes a record during the run. The grade must be `drift`.
+
+### Constraints
+
+- **No agent or workflow frameworks.** The loop, the graph, the planner, the router, the retrieval, the
+  harness and the telemetry are plain Python.
+- **Few dependencies:** `httpx`, `pydantic` (it validates the config, plan, task and fixture files),
+  `python-dotenv` and `pytest`.
+- **Configuration is TOML.** The `tomllib` module of the standard library reads it.
 
 ---
 
@@ -124,25 +190,28 @@ the standard library's `tomllib`.
 | Path | Purpose |
 | :--- | :--- |
 | [`PLAN.md`](PLAN.md), [`GAP_REPORT.md`](GAP_REPORT.md), [`research.md`](research.md) | Seat plan, competitive gap report, research notes |
-| [`ENTITY_SCHEMAS.md`](ENTITY_SCHEMAS.md), [`agentswitch.md`](agentswitch.md) | `designreview` entities / state machines; platform guide |
+| [`ENTITY_SCHEMAS.md`](ENTITY_SCHEMAS.md), [`agentswitch.md`](agentswitch.md) | `designreview` entities and state machines; platform guide |
 | [`capstone_agent.py`](capstone_agent.py) | Run the agent: `--task <file.toml>` (or the default T01 question) |
-| [`capstone_evals.py`](capstone_evals.py) | Run the whole task set and grade it |
-| [`rescore.py`](rescore.py) | Re-grade saved runs (files only; no network, no LLM) |
-| [`as_client.py`](as_client.py) | Compatibility client (`AgentSwitchClient`); `.seat()` returns the new MCP client |
+| [`capstone_evals.py`](capstone_evals.py) | Run the full task set and grade it |
+| [`rescore.py`](rescore.py) | Grade saved runs again (files only; no network, no LLM) |
+| [`as_client.py`](as_client.py) | Compatibility client (`AgentSwitchClient`); `.seat()` gives the new MCP client |
 | [`agentkit/`](agentkit/) · [`packs/designreview/`](packs/designreview/) · [`config/`](config/) | Framework · domain pack · configuration |
 | [`agentkit/viewer/`](agentkit/viewer/) | Read-only run viewer: `python -m agentkit.viewer` |
-| [`core/`](core/) | Legacy import paths (`core.harness`, `core.llm_gateway`, `core.economics` re-export `agentkit`); legacy `dag_engine`, `eval_framework`, `judge` |
-| [`tests/`](tests/) | Graded, **hand-written** test suite — see [`tests/README.md`](tests/README.md) |
+| [`core/`](core/) | Legacy import paths (`core.harness`, `core.llm_gateway`, `core.economics` give the `agentkit` names); legacy `dag_engine`, `eval_framework`, `judge` |
+| [`scripts/`](scripts/) | CI scripts: fault matrix, retrieval evaluation, viewer smoke check, secret scan, STE check |
+| [`tests/`](tests/) | Graded, **hand-written** test suite. See [`tests/README.md`](tests/README.md). |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How generic the agent is: layers, the pack seam, extension points, limits |
-| [`docs/EXPLAINERS.md`](docs/EXPLAINERS.md) | Per-module explainers |
-| [`docs/CHANGES.md`](docs/CHANGES.md) | What changed, and why, after the refactor |
+| [`docs/EXPLAINERS.md`](docs/EXPLAINERS.md) | Explainers for each module |
+| [`docs/RESEARCH_GAP_ANALYSIS.md`](docs/RESEARCH_GAP_ANALYSIS.md) | Comparison with published arXiv practice; the gaps and their status |
+| [`docs/CHANGES.md`](docs/CHANGES.md) | What changed, and why |
 
 ---
 
 ## 🚀 Getting Started
 
 ### 1. Prerequisites
-- Python 3.11+ (uses the standard library's `tomllib`); developed on 3.13
+
+- Python 3.11 or later (the code uses `tomllib` from the standard library). The team develops on 3.13.
 - `pip install -r requirements.txt`
 
 ### 2. Environment (`.env` in the project root — never committed)
@@ -151,15 +220,22 @@ the standard library's `tomllib`.
 AS_EMAIL=team21@theschoolofai.in
 AS_SURYODAYA_PASSWORD=...
 AS_KEYSTONE_PASSWORD=...
-# LLM providers: set any you have; config/routing.toml decides the order per tier
-ANTHROPIC_API_KEY=...        # ANTHROPIC_MODEL=... overrides the routing default
-GEMINI_API_KEY=...
+# LLM providers: set the ones that you have. config/routing.toml sets the sequence in each tier.
+OPENAI_API_KEY2=...          # OPENAI_MODEL2 / OPENAI_FAST_MODEL2 change the GPT-6 models
+DEEPSEEK_API_KEY=...         # DEEPSEEK_API_URL changes the endpoint
+MOONSHOT_API_KEY=...         # MOONSHOT_API_URL changes the endpoint
+GEMINI_API_KEY_2=...         # GEMINI_MODEL / GEMINI_FAST_MODEL change the models
+ANTHROPIC_API_KEY=...        # ANTHROPIC_MODEL / ANTHROPIC_FAST_MODEL change the models
 GROQ_API_KEY=...
 OPEN_ROUTER_API_KEY=...
+LMSTUDIO_URL=http://127.0.0.1:1235/v1   # local LM Studio server, no key
 ```
 
-TLS is always verified (against the OS trust store, so it also works behind a TLS-inspecting proxy);
-`AS_INSECURE_TLS=1` is an explicit opt-out for the platform client only.
+TLS verification is always on. It uses the trust store of the operating system, so it also works behind a
+proxy that inspects TLS. `AS_INSECURE_TLS=1` stops the verification, for the platform client only.
+
+The official runner injects `OPENAI_API_KEY`. That key then goes first in each tier. A copy of it in `.env`
+does not change the sequence.
 
 ### 3. Run
 
@@ -167,45 +243,56 @@ TLS is always verified (against the OS trust store, so it also works behind a TL
 # One question, one run folder under runs/
 python capstone_agent.py --task packs/designreview/tasks/t01_battery_tray_rev_diff.toml
 
-# The whole task set, graded (live platform, LLM answers)
+# The full task set, graded (live platform, LLM answers)
 python capstone_evals.py                    # = python -m agentkit.harness.batch --grade
 python capstone_evals.py --skip-llm         # template answers, no LLM cost
 
-# Re-grade the newest batch from its saved files (free)
+# Grade the newest batch again from its saved files (free)
 python rescore.py
 
-# The CI gate, offline: every task 3 times (pass^k), then prove re-grading is identical
+# The CI gate, offline: each task 3 times (pass^k), then show that a second grading is identical
 python -m agentkit.harness.batch --sim packs/designreview/fixtures --skip-llm --batch-id ci --repeat 3 --grade
 python -m agentkit.harness.grade --check runs/batches/ci
 
-# Prove the verifiers catch a misbehaving agent
+# Show that the verifiers find an agent that does not work correctly
 python -m agentkit.harness.mutants
-# ...end to end: replace one node's result in the saved graph, re-run downstream, grade
+# ...end to end: change the result of one node in the saved graph, run the next nodes again, grade
 python -m agentkit.harness.replay --calibrate runs/batches/ci --sim packs/designreview/fixtures
 python -m agentkit.harness.replay runs/<run_id> --fault gate_reports_ready --sim packs/designreview/fixtures
 
-# Offline: capture once, then replay (optionally with faults)
+# Offline: capture one time, then replay (with faults if you want)
 python -m agentkit.sim.capture --tenant suryodaya
 python -m agentkit.sim.capture --tenant keystone
 python -m agentkit.harness.batch --sim packs/designreview/fixtures --skip-llm --grade \
        --fault "edit_text:Blank length grows 4.2 mm=>Blank length grows 5.5 mm"
 
+# Is each configured LLM model still available? (reads the model lists, costs no tokens)
+python -m agentkit.llm.models_check
+
 # LIVE WRITES: t08 files its hand-offs as escalations to the configured assignee, verifies them, then withdraws them
 python -m agentkit.harness.batch --only t08_battery_tray_handoff --write --grade
-# ...or stop before every write until a person approves it
+# ...or stop before each write until a person approves it
 python -m agentkit.harness.run_one --task packs/designreview/tasks/t08_battery_tray_handoff.toml \
        --run-dir runs/t08-approval --run-id t08-approval --write --require-approval
 python -m agentkit.harness.run_one --resume runs/t08-approval --approve file_handoffs   # or --reject
-python -m agentkit.harness.cleanup --tenant suryodaya --dry-run   # anything of ours still open?
+python -m agentkit.harness.cleanup --tenant suryodaya --dry-run   # is anything of ours still open?
 
-# Browse batches and runs in a browser (read-only, this machine only)
+# Look at batches and runs in a browser (read-only, this computer only)
 python -m agentkit.viewer                   # http://127.0.0.1:8765/   [--runs-dir runs] [--port 8765]
 ```
 
-The **run viewer** shows each batch (task × tenant, failing checks, calibration) and each run in tabs:
-the answer with its claim audit, the finding, every check, the evidence graph as a timeline, the tool
-journal, ground truth before/after (what changed during the run), and LLM cost. It only reads the run
-folders; it can't start runs or change anything.
+The **run viewer** shows each batch: task and tenant, failed checks, calibration. It shows each run in tabs:
+
+- the answer, with its claim audit;
+- the finding;
+- each check;
+- the evidence graph as a timeline;
+- the run tree (Timeline);
+- the tool journal;
+- the ground truth before and after the run (what changed during the run);
+- the LLM cost, with the provider and the model of each call.
+
+The viewer only reads the run folders. It cannot start runs or change anything.
 
 ### 4. Tests
 
@@ -213,23 +300,34 @@ folders; it can't start runs or change anything.
 python -m pytest                            # graded hand-written suite (tests/)
 python -m pytest -m "live and not writes"   # live read-only platform tests
 ```
-`tests_local/` (git-ignored) is an AI-written reference suite used during development:
-`python -m pytest tests_local -m "not live and not agent and not gateway_live"`.
+
+`tests_local/` is an AI-written reference suite for development. Git ignores it.
+Run it with `python -m pytest tests_local -m "not live and not agent and not gateway_live"`.
 
 ---
 
 ## 🚀 Official Platform Harness Run (Release 8.1)
 
-The platform evaluates agent repositories by pulling the saved branch from GitHub and executing an isolated, automated benchmark against fresh enterprise instances via **"Our harness" → "Submit for a run"**.
+The platform evaluates the repository of each agent. It gets the saved branch from GitHub and runs an
+isolated, automated benchmark against new enterprise instances. Start it with **"Our harness" → "Submit for
+a run"**.
 
-### Runner Execution Lifecycle
-1. **Repository Checkout**: Clones the exact commit on the saved branch from GitHub.
-2. **Installation Phase**: Executes `install` (`pip install -r requirements.txt`). Internet access to PyPI/GitHub is allowed during this step.
-3. **Execution Phase**: Executes `run` (`python -m harness.runner`) once per listed instance against a fresh copy of that instance (writes are discarded). **No internet access** is allowed during this phase — all communication must route through the provided `AGENTSWITCH_BASE_URL` and `OPENAI_BASE_URL`.
-4. **Scoring Phase**: Reads `results.json` and reports task pass/fail status and overall score (limited to 1 run per team every 3 days; default timeout: 20 minutes).
+### Runner execution sequence
+
+1. **Repository checkout.** The runner clones the exact commit on the saved branch from GitHub.
+2. **Installation.** The runner executes `install` (`pip install -r requirements.txt`). Access to PyPI and
+   GitHub is available during this step.
+3. **Execution.** The runner executes `run` (`python -m harness.runner`) one time for each listed instance,
+   on a new copy of that instance. The platform discards the writes. **No internet access** is available
+   during this step. All communication must go through the given `AGENTSWITCH_BASE_URL` and
+   `OPENAI_BASE_URL`.
+4. **Scoring.** The runner reads `results.json` and reports the pass or fail status of each task and the
+   overall score. Each team can run it one time every 3 days. The default timeout is 20 minutes.
 
 ### Configuration: `agentswitch-harness.toml`
-Located at the repository root:
+
+This file is at the root of the repository:
+
 ```toml
 install = "pip install -r requirements.txt"
 run = "python -m harness.runner"
@@ -238,26 +336,36 @@ instances = ["suryodaya", "keystone"]
 timeout_minutes = 20
 ```
 
-### Server vs. Local Environment Contract
-The runner is designed to work in two modes:
+### Server and local environments
 
-| Mode | Credentials Source | Environment Variables |
+The runner works in two modes:
+
+| Mode | Source of the credentials | Environment variables |
 |---|---|---|
-| **Official Server Run** | Injected by platform runner | `AGENTSWITCH_BASE_URL`, `AGENTSWITCH_TOKEN`, `AGENTSWITCH_INSTANCE`, `OPENAI_BASE_URL`, `OPENAI_API_KEY`, `OPENAI_MODEL` |
-| **Local Development** | `.env` / `as_client` fallback | Uses `.env` credentials, supports `python -m harness.runner` (default: Suryodaya) or `python -m harness.runner --instance keystone` |
+| **Official server run** | The platform runner injects them. | `AGENTSWITCH_BASE_URL`, `AGENTSWITCH_TOKEN`, `AGENTSWITCH_INSTANCE`, `OPENAI_BASE_URL`, `OPENAI_API_KEY`, `OPENAI_MODEL` |
+| **Local development** | `.env`, or the `as_client` fallback | `.env` credentials. Run `python -m harness.runner` (default: Suryodaya) or `python -m harness.runner --instance keystone`. |
 
-### Evaluated Checks (`harness/runner.py`)
-Each run against an instance executes 7 comprehensive checks and records structured proof:
+### Evaluated checks (`harness/runner.py`)
 
-1. **`mcp_tools_list`**: Verifies MCP JSON-RPC 2.0 handshake and seat tool catalog availability (>320 tools).
-2. **`mcp_tool_call`**: Direct MCP call to `TeamHarness.get_mine` validating the team's saved repository URL.
-3. **`agent_answers_with_tool`**: Platform LLM tool-calling loop where the model calls `TeamHarness.get_mine` and answers with the repo link.
-4. **`design_file_retrieval`**: Inspects target CAD files (`DesignFile.get`) and revision history (`DesignVersion.list`) with commit message notes (Bharat EV Battery Tray on Suryodaya; Hydraulic Manifold Mount on Keystone).
-5. **`release_readiness_gate`**: Evaluates release gate blockers, reason codes, and critical issue readiness via `endpoint.designreview.release_readiness`.
-6. **`refusal_unknown_entity`**: Verifies robust error propagation and clean refusal when querying a non-existent design file UUID (`00000000-0000-0000-0000-000000000000`).
-7. **`agent_design_review_verdict`**: Autonomous agent evaluation where the LLM uses design review inspection tools to answer engineering questions and correctly diagnose release blockers.
+Each run on an instance does 7 checks and records structured proof:
 
-### Output Specification: `results.json`
+1. **`mcp_tools_list`**: the MCP JSON-RPC 2.0 handshake works, and the seat tool catalogue is available (more
+   than 320 tools).
+2. **`mcp_tool_call`**: a direct MCP call to `TeamHarness.get_mine` gives the saved repository URL of the team.
+3. **`agent_answers_with_tool`**: in the LLM tool-calling loop of the platform, the model calls
+   `TeamHarness.get_mine` and answers with the repository link.
+4. **`design_file_retrieval`**: the agent reads the target CAD files (`DesignFile.get`) and the revision
+   history (`DesignVersion.list`) with the commit notes. The files are the Bharat EV Battery Tray on Suryodaya
+   and the Hydraulic Manifold Mount on Keystone.
+5. **`release_readiness_gate`**: the agent reads the release-gate blockers, the reason codes and the critical
+   readiness through `endpoint.designreview.release_readiness`.
+6. **`refusal_unknown_entity`**: the agent gives the error and a clean refusal for a design file UUID that does
+   not exist (`00000000-0000-0000-0000-000000000000`).
+7. **`agent_design_review_verdict`**: the LLM uses the design-review tools to answer engineering questions and
+   finds the release blockers correctly.
+
+### Output specification: `results.json`
+
 ```json
 {
   "tasks": [
@@ -272,15 +380,16 @@ Each run against an instance executes 7 comprehensive checks and records structu
   "summary": "suryodaya: 7/7 checks passed"
 }
 ```
-* `passed`: strict boolean (`true` or `false`).
-* `score`: float between 0.0 and 1.0.
-* `tasks`: 1 to 200 task entries.
+
+- `passed`: a strict boolean (`true` or `false`).
+- `score`: a float from 0.0 to 1.0.
+- `tasks`: 1 to 200 task entries.
 
 ---
 
 ## ⚙️ Workflow State Machines
 
-The `designreview` seat manages 6 primary flow entities with strict state machines:
+The `designreview` seat manages 6 primary flow entities. Each has a strict state machine:
 
 1. **`DesignFile`**: `uploaded` ➔ `processing` ➔ `ready` ➔ `approved` *(or `error`)*
 2. **`DesignReview`**: `draft` ➔ `in_review` ➔ `approved` *(or `rejected` / `reopened`)*
@@ -289,24 +398,29 @@ The `designreview` seat manages 6 primary flow entities with strict state machin
 5. **`DesignSupplierRequest`**: `draft` ➔ `sent` ➔ `received` ➔ `accepted` *(or `rejected`)*
 6. **`DesignShare`**: `active` ➔ `revoked` / `expired`
 
-*(See [`ENTITY_SCHEMAS.md`](ENTITY_SCHEMAS.md) for full state transition diagrams and permission matrix)*
+*(See [`ENTITY_SCHEMAS.md`](ENTITY_SCHEMAS.md) for the full state transition diagrams and the permission
+matrix.)*
 
 ---
 
 ## 🐞 Platform bugs found
 
-Found while building and testing (see [`GAP_REPORT.md`](GAP_REPORT.md) and `platform_bugs.json`):
-- Feedback panel crashes on non-string `tags` (`e.tags.split is not a function`) — filed.
-- `/api/mcp` responses declare `Transfer-Encoding: chunked` but send an unchunked body, breaking standard
-  HTTP clients (worked around in `agentkit/transport/wire.py`).
-- Candidates tracked as strict `xfail` live tests: `release_impact` lists items via other files' design
-  BOMs (C-1); `released_version_id` points at another file's version (C-2).
+We found these bugs while we built and tested the agent (see [`GAP_REPORT.md`](GAP_REPORT.md) and
+`platform_bugs.json`):
+
+- The feedback panel crashes on `tags` that are not strings (`e.tags.split is not a function`). We filed it.
+- `/api/mcp` responses declare `Transfer-Encoding: chunked` but send a body that is not chunked. This breaks
+  standard HTTP clients. `agentkit/transport/wire.py` has a workaround.
+- Two candidates are strict `xfail` live tests:
+  - `release_impact` lists items through the design BOMs of other files (C-1);
+  - `released_version_id` points at a version of another file (C-2).
 
 ---
 
 ## 🛡️ Security & Secret Hygiene
 
-Two independent scanners check the whole Git history on every push and pull request (`.github/workflows/ci.yaml`):
+Two independent scanners examine the full Git history on each push and pull request
+(`.github/workflows/ci.yaml`):
 
 ```bash
 python scripts/secret_scan.py --history     # stdlib scanner: AgentSwitch JWTs, LLM provider keys, literal passwords, committed .env
@@ -314,35 +428,41 @@ python scripts/secret_scan.py               # the same rules over every tracked 
 gitleaks git . --config .gitleaks.toml --redact --verbose   # gitleaks 8.30.1 (SHA-256-pinned in CI), default rules + ours
 ```
 
-* **Status (2026-10-12)**: both clean across all commits on every branch.
-* **Findings never print the secret**: only the rule, file, line and the value's first four characters and length.
-* **Exceptions** go only in `.gitleaks.toml` with a reason; inline `gitleaks:allow` is ignored in CI and a
-  `.gitleaksignore` file fails the job.
-* **Policy**: Environment files (`.env`, `secrets.local.txt`) and private test artifacts (`tests_local/`, `proofs/`) are strictly git-ignored.
+- **Status (2026-10-15):** both are clean across all commits on each branch.
+- **Findings never show the secret.** They show only the rule, the file, the line, the first four characters
+  of the value and its length.
+- **Exceptions** go only in `.gitleaks.toml`, with a reason. CI ignores inline `gitleaks:allow`. A
+  `.gitleaksignore` file makes the job fail.
+- **Policy.** Git ignores environment files (`.env`, `secrets.local.txt`) and private test files
+  (`tests_local/`, `proofs/`).
 
 ## ✅ Continuous integration
 
-`.github/workflows/ci.yaml` runs on pushes and pull requests to `main`, fully offline (no secrets, no `.env`,
-`AGENTKIT_OFFLINE=1`), on Ubuntu and Windows with Python 3.11 and 3.13:
+`.github/workflows/ci.yaml` runs on pushes and pull requests to `main`. It is fully offline: no secrets, no
+`.env`, `AGENTKIT_OFFLINE=1`. It runs on Ubuntu and Windows, with Python 3.11 and 3.13:
 
 1. the hand-written suite: `pytest tests -m "not live and not agent and not gateway_live and not writes"`;
-2. every task 3 times on the captured fixtures with template answers, then the gate
-   `**9 of 9 tasks pass on every run.**`;
-3. `grade --check` (re-grading the saved runs must give identical scores);
-4. `agentkit.harness.mutants` (every planted fault must be caught), then
-   `agentkit.harness.replay --calibrate` (each node-level replay fault must fail its check end to end,
-   and every control replay must still pass);
-5. a fault-injection matrix, `scripts/ci_fault_matrix.py`: tasks replayed with platform faults (a record
-   edited mid-run, a flaky read, a tool removed from the seat, an endpoint that never answers). The agent
-   must never crash and every run must be graded exactly as `packs/designreview/ci_faults.toml` says
-   (`drift`, `pass` or `fail`, down to the check);
-6. a viewer smoke check, `scripts/ci_viewer_smoke.py`: the run viewer is started on the CI batch and every
-   run, the report, the calibration and each telemetry tree are opened; it must stay read-only and confined;
-7. the two secret scans above. Actions are pinned by commit SHA.
+2. each task 3 times on the captured fixtures with template answers, then the gate
+   `**12 of 12 tasks pass on every run.**`;
+3. `grade --check`: a second grading of the saved runs must give identical scores;
+4. `agentkit.harness.mutants`: each planted fault must cause a failure. Then
+   `agentkit.harness.replay --calibrate`: each node-level replay fault must fail its check end to end, and
+   each control replay must still pass;
+5. a fault-injection matrix, `scripts/ci_fault_matrix.py`. It replays tasks with 13 platform faults. Examples
+   are a record that changes during the run, a flaky read, a missing tool and an instruction in platform
+   data. The agent must never crash. Each run must get exactly the
+   grade in `packs/designreview/ci_faults.toml`, down to the check;
+6. retrieval quality, `scripts/retrieval_eval.py --check`: recall@5, precision@5 and MRR on the labelled
+   queries must stay at or above the floors;
+7. a viewer smoke check, `scripts/ci_viewer_smoke.py`. It starts the run viewer on the CI batch and opens each
+   run, the report, the calibration and each telemetry tree. The viewer must stay read-only and confined;
+8. the docs style job, `scripts/ste_check.py`: this README, the architecture document and the explainers
+   must follow the measurable ASD-STE100 rules;
+9. the two secret scans above. The workflow pins each action to its commit SHA.
 
 ---
 
 ## 👥 Contributors & Team
 
-* **Sunil Jakkaraju** ([@jssunil](https://github.com/jssunil)) — Team Lead / Core Agent Architecture, AgentKit transport & graph execution, Release 8.1 harness integration.
-* **Bharath KR** ([@bharathkrd](https://github.com/bharathkrd)) — Contributor ([PR #4](https://github.com/jssunil/designreview/pull/4)), hand-written edge-case test suite for revision letter parsing in [`tests/test_finding_and_claims.py`](tests/test_finding_and_claims.py).
+- **Sunil Jakkaraju** ([@jssunil](https://github.com/jssunil)) — Team Lead / Core Agent Architecture, AgentKit transport & graph execution, Release 8.1 harness integration.
+- **Bharath KR** ([@bharathkrd](https://github.com/bharathkrd)) — Contributor ([PR #4](https://github.com/jssunil/designreview/pull/4)), hand-written edge-case test suite for revision letter parsing in [`tests/test_finding_and_claims.py`](tests/test_finding_and_claims.py).
