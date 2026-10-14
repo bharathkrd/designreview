@@ -1,5 +1,12 @@
 # Changes
 
+## 2026-10-14 — Docs: research gap analysis; hand-written test templates for the gaps
+
+| What | Before | After |
+|---|---|---|
+| `docs/RESEARCH_GAP_ANALYSIS.md` (new) | paper mapping only in session notes; the 2026-10-13 eval suggestions were never written down | 44 arXiv papers on agent evaluation and implementation; what is implemented (with file and paper); gaps G1–G19 (harness and evals) and I1–I18 (LLM calls, DAG, RAG, chunking) with evidence, fix and metric; the math (pass@k / pass^k, Wilson, clustered SE, ASR, S_partial); recommended order; linked from `docs/EXPLAINERS.md` |
+| `tests/` | no templates for the gaps | five to-do templates (`test_eval_reliability.py`, `test_eval_robustness_security.py`, `test_llm_cascade_and_budgets.py`, `test_planning_and_routing.py`, `test_rag_quality.py`): use cases only, no test code; rows added to `tests/README.md` |
+
 ## 2026-10-13 — Docs: architecture document; explainers caught up; hand-written retrieval tests
 
 | What | Before | After |

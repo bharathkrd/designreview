@@ -8,6 +8,9 @@ how to test it (the matching hand-written test template in `tests/` has the deta
 For how generic the architecture is — the pack seam, the extension points, and the honest limits — read
 [`ARCHITECTURE.md`](ARCHITECTURE.md) first.
 
+For how the harness, evals and implementation compare with published arXiv practice, and which gaps and tests
+remain, read [`RESEARCH_GAP_ANALYSIS.md`](RESEARCH_GAP_ANALYSIS.md).
+
 ## The whole system
 
 ```

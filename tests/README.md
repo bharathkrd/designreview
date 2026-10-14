@@ -44,6 +44,11 @@ Anything without a marker must run offline: no network, no LLM, no `.env`.
 | `test_platform_live.py` | platform facts the tasks rely on | live |
 | `test_platform_workflows.py` | review / feedback workflows | live + writes |
 | `test_handoffs.py` | dry-run hand-offs: engine preview, `packs/designreview/handoffs.py`, schedule, the three hand-off verifiers | yes |
+| `test_eval_reliability.py` | `agentkit/harness/grade.py`, checks: pass@k / pass^k, error bars, trivial-agent baselines, partial credit, failure modes, tool-call budget (gaps G2, G3, G9–G11 in `docs/RESEARCH_GAP_ANALYSIS.md`) | yes |
+| `test_eval_robustness_security.py` | reworded prompts, injection planted in platform data, unexpected state change, more faults, holdout tasks (G4–G8) | yes |
+| `test_llm_cascade_and_budgets.py` | `agentkit/llm/*`, `agentkit/answer/*`: audit-gated cascade, prompt caching, sampled agreement, citations, model drift, budgets (I1–I5, I8) | yes |
+| `test_planning_and_routing.py` | `agentkit/graph/*`, `agentkit/transport/catalog.py`: question → plan and part, patch guard, fallback rules, argument checks (G1, I6, I7, I9) | yes |
+| `test_rag_quality.py` | `agentkit/retrieval/*`, `gather_dfm_standards`: recall@k / MRR, relevance floor, query expansion, order, chunking comparison, context-carrying chunks (I10–I17) | yes |
 | `test_agent_tasks.py` | the nine tasks (t01–t05, t08 Suryodaya; t06, t07, t09 Keystone), end to end | live + agent |
 
 ## Tools you can use (all product code, not test code)
