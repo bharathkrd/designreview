@@ -1,5 +1,26 @@
 # Changes
 
+## 2026-10-14 — Batch 4 of the research gaps: retrieval measured, gated, expanded, with context
+
+### Why
+Retrieval of the company's standards had never been measured. Looking at the recalls showed the problem was
+precision: the bench vice (t04) recalled four unrelated standards because seed descriptions mention
+"hardened", and the Keystone cover (t07) recalled the sheet-metal guideline through the word "dfm" alone.
+(Gaps I10, I11, I12, I17.)
+
+| What | Before | After | Where |
+|---|---|---|---|
+| Metrics (I10) | none | recall@k, precision@k, MRR; 4 labelled queries; `scripts/retrieval_eval.py` table + `--check` floors (CI step) | `agentkit/retrieval/quality.py`, `packs/designreview/retrieval.toml`, `scripts/retrieval_eval.py`, `.github/workflows/ci.yaml` |
+| Relevance gate (I11) | top 5 with any score > 0 | band against the best hit (>= 0.5 correct, >= 0.3 ambiguous, else dropped); "possibly relevant" in the answer | `quality.py`, `packs/designreview/actions.py`, `templates.py` |
+| Query expansion (I12) | the change notes as written | + generic feature -> process synonyms from `retrieval.toml` | `quality.py`, `actions.py` |
+| Context chunks (I17) | a child passage searched alone | parent name + category searched with it (`index_prefix`), not shown | `agentkit/retrieval/index.py`, `hierarchy.py` |
+| Action | one function | `standards_docs` / `recall_standards` shared by the action and the evaluation | `actions.py` |
+
+Measured (configuration the agent uses vs BM25 alone): recall@5 1.00 -> 1.00, precision@5 0.72 -> 0.88,
+MRR 1.00 -> 1.00. Gate thresholds were fixed before measuring; 4 queries is a development signal.
+Verified offline: `tests_local` 818 passed; `tests/` 38 passed; batch `--repeat 3` 9 of 9; `grade --check`
+identical; mutants OK; replay calibration OK; fault matrix 13 of 13; retrieval floors ok; viewer smoke ok.
+
 ## 2026-10-14 — Batch 3 of the research gaps: injection, collateral writes, more faults, argument checks
 
 ### Why

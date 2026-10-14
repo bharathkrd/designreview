@@ -11,18 +11,18 @@ Items marked (not built yet) test a feature that does not exist today: write the
 @pytest.mark.xfail(strict=True, reason="I#") (or skip) until the feature lands.
 
 Use cases to cover:
-  Metrics (I10) -- write the small helper in the test or wait for the product one:
+  Metrics (I10, built 2026-10-14: agentkit.retrieval.recall_at_k / precision_at_k / reciprocal_rank / evaluate):
   [ ] recall@k and MRR on a 3-query hand-made table: exact values
       (e.g. relevant at rank 1, rank 3, not found -> MRR = (1 + 1/3 + 0) / 3 = 4/9)
   [ ] on the captured Suryodaya standards, the t01 change notes recall "Sheet metal bend rules" within the
       top 5 (works today; note the captured standards are name-only, so each is one short passage)
 
-  Relevance floor (I11, not built yet):
+  Relevance gate (I11, built 2026-10-14: agentkit.retrieval.gate_hits / relevance_band):
   [ ] a query that shares only one incidental word with a standard ("coffee machine warranty steel" vs
       a hot-rolled-steel bend rule) recalls nothing -- today it recalls the bend rule through "steel"
   [ ] scores map to correct / ambiguous / incorrect bands at the agreed thresholds
 
-  Query expansion (I12, not built yet):
+  Query expansion (I12, built 2026-10-14: agentkit.retrieval.expand_query, retrieval.toml [synonyms]):
   [ ] a note that says "inside radius" recalls the "minimum bend radius" standard
 
   Stable order (I14):
@@ -32,7 +32,7 @@ Use cases to cover:
   [ ] fixed 256 words, fixed 512 with overlap, header-aware, and header + topic chunking each give a
       recall@5 / MRR row; the cheapest within noise is the one used
 
-  Context-carrying chunks (I17, not built yet):
+  Context-carrying chunks (I17, built 2026-10-14: ParentChildIndex(context_keys=...), meta["index_prefix"]):
   [ ] a child passage's indexed text starts with its parent's name and category; the text shown to
       the narrator does not
 

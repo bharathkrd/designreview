@@ -375,20 +375,28 @@ about **measuring** these components and adding the **cheap, proven upgrades**, 
 - Fix: validate args against `inputSchema` in `JournaledSeatClient`; an invalid call → DECLINED, not sent.
 
 ### RAG
+> **Closed 2026-10-14 (batch 4):** `agentkit.retrieval.quality` (recall@k, precision@k, MRR); 4 hand-labelled queries in `packs/designreview/retrieval.toml`; `scripts/retrieval_eval.py` compares BM25 alone, each aid alone and all three, and `--check` (in CI) holds the agent's configuration to floors. Measured: recall@5 1.00 -> 1.00, precision@5 0.72 -> 0.88, MRR 1.00 -> 1.00. Each aid alone did not help; together they did. Four queries is a development signal, not proof (see G8).
+
 **I10. Retrieval quality is never measured** (P32, P33, P37)
 - Evidence: there is no recall@k, MRR or nDCG anywhere. `cited_standards_exist` checks that a recall
   *exists*, not that it is *relevant*.
-- Observed in the offline t01 run (2026-10-14): 100 `DesignStandard` records became 100 passages. Each
-  passage is the standard's *name* only, because the captured descriptions are empty. The run recalled
+- Observed in the offline t01 run (2026-10-14): 100 `DesignStandard` records became 100 passages.
+  *Correction (batch 4):* 77 of the 100 Suryodaya records do have a description, but each is at most 21
+  words and most are unrelated seed text ("Aluminium extrusion: order 857 at Latur ..."), which causes
+  false matches (t04 recalled four standards through "hardened" in such text). The run recalled
   "Sheet metal bend rules" (matched term `bend`), which is correct, and "Hole and thread callouts" (matched
   only `hole`, from "mounting hole pattern moved"), which is weak.
 - Fix: a small labelled qrels file per tenant: change notes → the standards that should be recalled.
   Compute recall@5 and MRR offline, and report it next to the batch score.
 
+> **Partly closed 2026-10-14 (batch 4):** `gate_hits` bands each hit against the best score (>= 0.5 correct, >= 0.3 ambiguous, else dropped; thresholds fixed before measuring); the answer marks ambiguous standards "possibly relevant". Open: an absolute floor -- a lone incidental match is still the "best" hit.
+
 **I11. No relevance gate** (P35, P36)
 - Evidence: `recall_parents` returns the top-k with any score > 0. Checked: "coffee machine warranty steel" recalls a bend-radius standard through the single word "steel".
 - Fix: a CRAG-style gate: a score / matched-term threshold → `correct` (use it), `ambiguous` (cite it as
   "possibly relevant"), `incorrect` (drop it and say so). Calibrate the threshold with the I10 labels.
+
+> **Partly closed 2026-10-14 (batch 4):** (a) synonym expansion from `retrieval.toml` (generic feature -> process vocabulary, written without looking at the labels). Open: (b) HyDE, (c) hybrid dense retrieval -- not needed while lexical recall@5 is 1.00.
 
 **I12. Single lexical query; no query expansion** (P32, P34)
 - Evidence: the query is the concatenated commit notes + blocker titles (`standards_query`).
@@ -421,6 +429,8 @@ deterministic.
   retrieval metrics.
 - Fix: run I10's recall@5 / MRR for {fixed 256, fixed 512 + sliding overlap, header-aware, header + LLM
   topic}. Keep the cheapest one within noise (P41).
+
+> **Closed 2026-10-14 (batch 4):** `ParentChildIndex(context_keys=("name", "category"))` searches every child with its parent's name and category (`meta["index_prefix"]`), never shown in the passage.
 
 **I17. Chunks lose context** (P42, P44, contextual retrieval)
 - Evidence: a child passage carries only its header path; the BM25 text does not include the parent's

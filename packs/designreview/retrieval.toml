@@ -1,0 +1,68 @@
+# Retrieval of the company's DesignStandard records (action gather_dfm_standards).
+#
+# [synonyms]  a phrase found in the query adds these terms to it (agentkit.retrieval.expand_query).
+#             Generic engineering vocabulary -- a feature or defect -> the process / standard family it
+#             belongs to -- written without looking at which records the labelled queries below expect.
+# [gate]      relevance gate over the recalled standards (agentkit.retrieval.gate_hits): a hit scoring
+#             >= keep_ratio of the best is "correct", >= ambiguous_ratio "ambiguous", else dropped.
+# [[qrels]]   hand-labelled queries for scripts/retrieval_eval.py: the change notes a task sends and the
+#             standards (base names, lower case) that SHOULD come back. Only clear cases are labelled; the
+#             set is small, so treat its scores as a development signal, not proof.
+
+context_keys = ["name", "category"]
+top_k = 5
+
+[gate]
+keep_ratio = 0.5
+ambiguous_ratio = 0.3
+
+[synonyms]
+"bend radius" = ["bend", "sheet", "metal"]
+"flange" = ["sheet", "metal", "bend"]
+"blank" = ["sheet", "metal"]
+"cracking" = ["bend"]
+"thread" = ["thread", "callouts"]
+"hole" = ["hole", "callouts"]
+"draft" = ["draft", "molding"]
+"rib" = ["rib", "molding"]
+"boss" = ["molding"]
+"wall thickness" = ["molding"]
+"pocket" = ["machining"]
+"groove" = ["machining"]
+"bore" = ["machining"]
+"cavity" = ["machining"]
+"weld" = ["weld", "welding"]
+"tolerance" = ["tolerancing", "gd&t"]
+"drawing" = ["drawing"]
+"revision" = ["revisions"]
+
+[[qrels]]
+task = "t01_battery_tray_rev_diff"
+tenant = "suryodaya"
+query = "Rev B — cell layout updated, 2.0 mm corner bend radius, mounting hole pattern moved 6 mm inboard. Rev C — corner bend radius opened from 2.0 mm to 3.0 mm to stop micro-cracking at the flange. Blank length grows 4.2 mm. 2.0 mm inside bend radius on 2.0 mm HR — cracking risk"
+relevant = ["sheet metal bend rules", "hole and thread callouts"]
+
+[[qrels]]
+task = "t04_bench_vice_no_geometry"
+tenant = "suryodaya"
+query = "Rev 2 — jaw insert hardened, screw thread changed to trapezoidal. Rev 3 — body ribbing added, 180 g weight saving."
+relevant = ["hole and thread callouts"]
+
+[[qrels]]
+task = "t06_keystone_boilerplate_notes"
+tenant = "keystone"
+query = "Revision E — drawing and model updated together Revision F — drawing and model updated together"
+relevant = ["keystone drawing standard"]
+
+[[qrels]]
+task = "t07_keystone_latest_dfm_fixes"
+tenant = "keystone"
+query = "Added bearing pocket cavity and seal groove DFM fixes: increased draft angles, added rib reinforcement"
+relevant = ["company dfm guidelines", "keystone machining dfm guidelines"]
+
+# Regression floors for `python scripts/retrieval_eval.py --check` (CI): the configuration the agent uses
+# measured 1.00 / 0.88 / 1.00 on 2026-10-14. A change that lowers any of these fails CI.
+[floors]
+"recall@5" = 1.0
+"precision@5" = 0.85
+mrr = 1.0

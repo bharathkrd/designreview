@@ -150,4 +150,5 @@ def _release(finding: Dict[str, Any], out: List[str]) -> None:
         for m in std["matches"]:
             ref = " ".join(x for x in (m.get("standard_body"), m.get("standard_number")) if x)
             out.append(f"  - {m.get('name')} [{m.get('category')}]" + (f" ({ref})" if ref else "")
+                       + (" -- possibly relevant" if m.get("band") == "ambiguous" else "")
                        + ("" if m.get("is_active") in (1, True, None) else " -- inactive"))

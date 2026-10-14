@@ -89,6 +89,11 @@ jobs:
       - name: Fault-injection matrix (each fault must be graded as expected)
         run: python scripts/ci_fault_matrix.py
 
+      # Standards retrieval on the hand-labelled queries (packs/designreview/retrieval.toml): recall@5,
+      # precision@5 and MRR of the configuration the agent uses must stay at or above the [floors].
+      - name: Retrieval quality (labelled queries, floors)
+        run: python scripts/retrieval_eval.py --check
+
       # Starts the run viewer on the CI batch (its own process, 127.0.0.1) and opens every run:
       # page + static files, batch, report, calibration, each run's records and telemetry tree;
       # also checks it stays read-only (POST -> 405) and confined (path traversal -> 404).

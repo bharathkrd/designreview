@@ -60,3 +60,21 @@ labels the matches "relevance, not compliance". Live, for the Battery Tray, "She
 ## How to test
 
 `tests/test_retrieval.py` — a scripted splitter is any object with `trailing_topic(block)`.
+
+## Retrieval quality (since 2026-10-14)
+
+- **Measured, not assumed.** `agentkit/retrieval/quality.py`: `recall_at_k`, `precision_at_k`,
+  `reciprocal_rank`, `evaluate` (means over a labelled set). The design-review pack keeps 4 hand-labelled
+  queries in `packs/designreview/retrieval.toml`; `python scripts/retrieval_eval.py` prints recall@5 /
+  precision@5 / MRR for BM25 alone, each aid alone, and all three; `--check` (a CI step) fails if the
+  agent's configuration drops below the file's `[floors]`.
+- **Relevance gate.** `gate_hits(hits, GateConfig(keep_ratio, ambiguous_ratio, min_score))` bands each hit
+  against the best one: correct / ambiguous / dropped. The action returns the band; the answer marks ambiguous
+  standards "possibly relevant".
+- **Query expansion.** `expand_query(query, synonyms)` appends the terms of every phrase found (whole words,
+  case-insensitive).
+- **Context-carrying chunks.** `ParentChildIndex(context_keys=...)` puts those parent meta values in each
+  child's `meta["index_prefix"]`; `EvidenceIndex` searches prefix + text but shows only the text.
+- Measured on 2026-10-14: recall@5 1.00 -> 1.00, precision@5 0.72 -> 0.88, MRR 1.00 -> 1.00 (each aid alone
+  did not improve precision; together they did).
+

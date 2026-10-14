@@ -11,12 +11,14 @@ relies on them.
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from agentkit.graph import RESOLVED, RunEnv, declined
 from agentkit.registry import Registry
 from agentkit.answer.quarantine import quarantine_instructions
-from agentkit.retrieval import ParentChildIndex, ParentDoc, plain_text
+from agentkit.config import read_config
+from agentkit.retrieval import GateConfig, ParentChildIndex, ParentDoc, expand_query, gate_hits, plain_text
 from agentkit.transport.safe_reads import read_all, sort_rows
 
 # Computed endpoints this pack calls that are reads despite not ending in
@@ -137,32 +139,64 @@ def standards_query(results) -> str:
     return " ".join(quarantine_instructions(p)[0] for p in parts if p)
 
 
+RETRIEVAL_TOML = Path(__file__).parent / "retrieval.toml"
+
+
+def retrieval_settings(path: Path = RETRIEVAL_TOML) -> Dict[str, Any]:
+    """retrieval.toml: context keys, synonyms, gate thresholds, labelled queries."""
+    return read_config(path)
+
+
+def standards_docs(rows: List[Dict[str, Any]]) -> List[ParentDoc]:
+    """One parent per DesignStandard record: its name and description."""
+    docs = []
+    for i, r in enumerate(rows):
+        body = "\n".join(x for x in (r.get("name") or "", plain_text(r.get("description") or "")) if x)
+        meta = {k: r.get(k) for k in ("name", "category", "standard_body", "standard_number", "is_active")}
+        # Active records first, so the per-name dedupe below keeps an active one when ranks tie.
+        meta["_rank"] = 0 if r.get("is_active") in (1, True) else 1
+        # Seed data repeats standard names across records; one hit per base name.
+        meta["base_name"] = (meta.get("name") or "").split("—")[0].strip().lower()
+        docs.append(ParentDoc(id=r.get("id") or f"row-{i}", text=body, meta=meta, entity="DesignStandard"))
+    return docs
+
+
+def recall_standards(rows: List[Dict[str, Any]], query: str, *, k: Optional[int] = None,
+                     categories: Any = None, settings: Optional[Dict[str, Any]] = None,
+                     context: bool = True, expand: bool = True, gate: bool = True) -> Dict[str, Any]:
+    """Index the standards and recall the ones relevant to `query`. The flags switch
+    each retrieval aid off for comparison (scripts/retrieval_eval.py); the action
+    always uses all three:
+      context  the record's name and category are searched with every chunk of it
+      expand   the query gets the synonym terms of retrieval.toml
+      gate     hits far below the best score are dropped; the rest carry a band"""
+    s = settings if settings is not None else retrieval_settings()
+    index = ParentChildIndex(context_keys=tuple(s.get("context_keys") or ()) if context else ())
+    index.add_documents(standards_docs(rows))
+    searched = expand_query(query, s.get("synonyms") or {}) if expand else query
+    hits = index.recall_parents(searched, k=k or int(s.get("top_k", STANDARDS_TOP_K)),
+                                where={"category": categories} if categories else None, distinct_by="base_name")
+    g = s.get("gate") or {}
+    banded = (gate_hits(hits, GateConfig(keep_ratio=float(g.get("keep_ratio", 0.5)),
+                                         ambiguous_ratio=float(g.get("ambiguous_ratio", 0.3))))
+              if gate else [(h, "correct") for h in hits])
+    return {"query": query, "searched": searched, "indexed_records": len(rows),
+            "indexed_passages": len(index.index), "dropped_by_gate": len(hits) - len(banded),
+            "matches": [{"id": h.parent.id,
+                         **{k: v for k, v in h.parent.meta.items() if not k.startswith("_") and k != "base_name"},
+                         "score": h.score, "matched_terms": h.matched, "band": band,
+                         "section": h.children[0].passage.meta.get("header_path") or [],
+                         "passage": h.parent.text[:STANDARD_TEXT_CHARS]} for h, band in banded]}
+
+
 def register_retrieval(reg: Registry) -> None:
     @reg.action("gather_dfm_standards", retries=2,
                 description="Index the company's DesignStandard records and recall those relevant to the change.")
     def gather_dfm_standards(env: RunEnv, args: Dict[str, Any], results) -> Any:
         """Search small, return whole: each standard record is a parent, its
         sections/topic chunks are the children BM25 matches against, and a
-        match returns the whole record (agentkit.retrieval.ParentChildIndex)."""
+        match returns the whole record (agentkit.retrieval.ParentChildIndex).
+        See recall_standards for the context prefix, synonyms and relevance gate."""
         rows = _all_rows(env.client, "DesignStandard.list", {})
-        docs = []
-        for i, r in enumerate(rows):
-            body = "\n".join(x for x in (r.get("name") or "", plain_text(r.get("description") or "")) if x)
-            meta = {k: r.get(k) for k in ("name", "category", "standard_body", "standard_number", "is_active")}
-            # Active records first, so the per-name dedupe below keeps an active one when ranks tie.
-            meta["_rank"] = 0 if r.get("is_active") in (1, True) else 1
-            # Seed data repeats standard names across records; one hit per base name.
-            meta["base_name"] = (meta.get("name") or "").split("—")[0].strip().lower()
-            docs.append(ParentDoc(id=r.get("id") or f"row-{i}", text=body, meta=meta, entity="DesignStandard"))
-        index = ParentChildIndex()
-        index.add_documents(docs)
         query = args.get("query") or standards_query(results)
-        categories = args.get("categories")
-        hits = index.recall_parents(query, k=args.get("k", STANDARDS_TOP_K),
-                                    where={"category": categories} if categories else None, distinct_by="base_name")
-        return {"query": query, "indexed_records": len(rows), "indexed_passages": len(index.index),
-                "matches": [{"id": h.parent.id,
-                             **{k: v for k, v in h.parent.meta.items() if not k.startswith("_") and k != "base_name"},
-                             "score": h.score, "matched_terms": h.matched,
-                             "section": h.children[0].passage.meta.get("header_path") or [],
-                             "passage": h.parent.text[:STANDARD_TEXT_CHARS]} for h in hits]}
+        return recall_standards(rows, query, k=args.get("k"), categories=args.get("categories"))
