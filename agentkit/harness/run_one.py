@@ -33,12 +33,12 @@ import argparse
 import sys
 import time
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Dict, Iterable, Optional, Tuple
 
 from agentkit.agents import answer_with_pack, plan_executor, record_steps, run_plan
 from agentkit.config import default_tenant
 from agentkit.graph import GraphStore, RunEnv, load_plan
-from agentkit.harness.tasks import TaskDef, load_task
+from agentkit.harness.tasks import ROUTED, TaskDef, load_task
 from agentkit.llm import LLMGateway
 from agentkit.record import TaskRun, dump_record, load_record
 from agentkit.record.durable_io import read_jsonl
@@ -60,6 +60,20 @@ def describe_catalog(client: Any, registry: Registry) -> Optional[dict]:
         return None
     cat = catalog()
     return {**cat.summary(), "problems": cat.check_requirements(registry.extras.get("required_tools") or {})}
+
+
+def plan_and_params(task: TaskDef, registry: Registry, client: Any,
+                    route: Optional[Dict[str, Any]] = None) -> Tuple[str, Dict[str, Any], Optional[Dict[str, Any]]]:
+    """(plan name, plan params, routing decision). A task with a plan runs it as written;
+    a task without one is routed by the pack's router from its prompt -- or, when
+    resuming or replaying, by the decision the original run recorded."""
+    if task.plan != ROUTED:
+        return task.plan, task.plan_params(), None
+    if route is None:
+        with span("step", "route") as s:  # the router's reads are tool spans under this step
+            route = registry.extras["router"].route(task.prompt, client).to_dict()
+            s.set(plan=route["plan"])
+    return route["plan"], {**task.params, **route["params"], "prompt": task.prompt}, route
 
 
 def _conclude(run: TaskRun, store: GraphStore, env: RunEnv, registry: Registry, task: TaskDef, run_dir: Path,
@@ -108,9 +122,10 @@ def run_task(task: TaskDef, tenant: str, run_dir: Path, run_id: str, *, skip_llm
                                                 extra_read_only=tuple(registry.read_only))
                 if gateway is None and not skip_llm:
                     gateway = LLMGateway()
-                env = RunEnv(client=journaled, run_id=run_id, params=task.plan_params(), dry_run=dry_run,
+                plan_name, params, run.route = plan_and_params(task, registry, journaled)
+                env = RunEnv(client=journaled, run_id=run_id, params=params, dry_run=dry_run,
                              tenant=tenant, gateway=None if skip_llm else gateway)
-                plan = load_plan(Path(registry.extras["plans_dir"]) / f"{task.plan}.toml")
+                plan = load_plan(Path(registry.extras["plans_dir"]) / f"{plan_name}.toml")
                 store = run_plan(env, registry, plan, checkpoint_path=run_dir / GRAPH_FILE,
                                  retry_backoff_s=retry_backoff_s, approve_writes=require_approval)
                 _conclude(run, store, env, registry, task, run_dir, skip_llm)
@@ -167,9 +182,10 @@ def resume_task(run_dir: Path, *, approve: Iterable[str] = (), reject: Iterable[
                                                 extra_read_only=tuple(registry.read_only), start_seq=last_seq + 1)
                 if gateway is None and not skip_llm:
                     gateway = LLMGateway()
-                env = RunEnv(client=journaled, run_id=run_id, params=task.plan_params(), dry_run=run.dry_run,
+                plan_name, params, run.route = plan_and_params(task, registry, journaled, before.get("route"))
+                env = RunEnv(client=journaled, run_id=run_id, params=params, dry_run=run.dry_run,
                              tenant=tenant, gateway=None if skip_llm else gateway)
-                plan = load_plan(Path(registry.extras["plans_dir"]) / f"{task.plan}.toml")
+                plan = load_plan(Path(registry.extras["plans_dir"]) / f"{plan_name}.toml")
                 plan_executor(env, registry, plan, checkpoint_path=run_dir / GRAPH_FILE,
                               retry_backoff_s=retry_backoff_s, approve_writes=True).continue_from(store)
                 run.warnings.append("resumed after a person answered: " + ", ".join(

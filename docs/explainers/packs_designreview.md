@@ -110,3 +110,14 @@ Meera Kulkarni, verified, then withdrawn and their sessions closed.
 ## How to test
 
 `tests/test_finding_and_claims.py`, `tests/test_verifiers.py`, `tests/test_retrieval.py`, `tests/test_handoffs.py`.
+
+## The router (since 2026-10-14)
+
+`routes.toml` (first matching pattern wins): AI review / thickness analysis -> `tool_refusal`; schedule, who
+acts, another team, hand-off -> `release_handoff`; what changed, rev X, manufacturability, DFM, ready for
+release -> `rev_diff_dfm`. `router.resolve_design_file` finds the file: a UUID in the question is used as is;
+otherwise every DesignFile is scored by the words of its name found in the question, weighted log(N/df), words in
+more than max(3, 5% of N) names ignored (seed department words); files within 10% of the best tie; named
+revisions keep files with 2+ versions and then those whose own notes carry the revisions; anything still tied,
+or nothing found, is declined with the candidates named. Tasks t10-t12 grade it.
+

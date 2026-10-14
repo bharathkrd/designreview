@@ -93,6 +93,9 @@ readiness wording with their own parsers, so an agent bug can't pass its own che
 | `t06_keystone_boilerplate_notes` | **Keystone.** Rev B/C notes only say "drawing and model updated together": reports exactly that, invents no changes |
 | `t07_keystone_latest_dfm_fixes` | **Keystone.** Notes carry no rev labels: compares the latest two versions ("DFM fixes: increased draft angles, added rib reinforcement") and recalls the company's DFM guidelines |
 | `t08_battery_tray_handoff` | NOT ready; proposes one hand-off each to **manufacturing** (cracking bend radius, weld access) and **quality** (PPAP level 3), cites exactly those items, shows the escalation each would file and files nothing; names the past-due "DFM review closed" milestone |
+| `t10_routed_battery_tray` | **Routed** (`plan = "route"`): only the question is given; the router must pick the plan and find DF-2026-00001 by name, then t01's checks hold |
+| `t11_routed_ambiguous_propeller` | **Routed refusal**: "the propeller" matches four files and no revision narrows it -- declines, naming them |
+| `t12_routed_keystone_schedule` | **Routed, Keystone**: t09's question alone; must find the housing cover (not the float arm or pivot of the same drive) |
 | `t09_keystone_no_handoff_late_schedule` | **Keystone.** Every open issue is design review's own, so it proposes **no** hand-off (inventing one fails); names three past-due critical-path milestones and never says "on track" |
 
 **Verifier self-test.** `agentkit.harness.mutants` takes passing runs, breaks one thing in a copy

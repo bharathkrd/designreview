@@ -1,0 +1,28 @@
+id = "t10_routed_battery_tray"
+description = "Routed: the task gives only the question. The router must pick rev_diff_dfm and resolve 'the Bharat EV battery tray' to DF-2026-00001 from the file list; then everything t01 checks must hold."
+pack = "packs.designreview"
+plan = "route"   # routed from the prompt (agentkit.agents.router)
+prompt = "What changed between rev B and rev C of the Bharat EV battery tray, and are there manufacturability problems?"
+
+[[verifiers]]
+name = "routed_as"
+params = { plan = "rev_diff_dfm", file_id = "39b69109-b56a-4bf4-af48-1ecf2b18f8a6" }
+
+[[verifiers]]
+name = "revision_delta_matches_db"
+params = { file_id = "39b69109-b56a-4bf4-af48-1ecf2b18f8a6", from_rev = "B", to_rev = "C" }
+
+[[verifiers]]
+name = "answer_states_change"
+params = { file_id = "39b69109-b56a-4bf4-af48-1ecf2b18f8a6", from_rev = "B", to_rev = "C" }
+
+[[verifiers]]
+name = "release_gate_matches_db"
+params = { file_id = "39b69109-b56a-4bf4-af48-1ecf2b18f8a6" }
+
+[[verifiers]]
+name = "no_geometry_claim"
+params = { file_id = "39b69109-b56a-4bf4-af48-1ecf2b18f8a6" }
+
+[[verifiers]]
+name = "answer_audited"

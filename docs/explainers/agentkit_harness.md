@@ -123,3 +123,12 @@ allow_writes, description`. Unknown keys, unknown verifiers, missing plans and d
 
 `tests/test_harness.py`, `tests/test_verifiers.py`, `tests/test_calibration.py`; offline end-to-end with
 `SimSession` (see `agentkit_sim.md`).
+
+## Routed tasks (since 2026-10-14)
+
+A task with `plan = "route"` (`agentkit.harness.tasks.ROUTED`; an empty plan is still an error) gives only the
+question. `run_one.plan_and_params()` asks the pack's `extras["router"]` (an `agentkit.agents.router.RuleRouter`)
+for the plan and its parameters inside a `route` step span (its reads are journaled tool calls); the decision is
+saved as `taskrun.route` = {plan, params, why} and resume / replay reuse it. A decline runs the pack's
+`route_declined` plan, so it ends as an ordinary refusal. The design-review check `routed_as` grades the decision.
+

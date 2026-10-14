@@ -28,6 +28,7 @@ from agentkit.config import ConfigError, default_tenant, read_config, validation
 from agentkit.registry import Registry
 
 TASK_SUFFIX = ".toml"
+ROUTED = "route"  # task.plan for a task the pack's router routes from its prompt
 
 
 class VerifierSpec(BaseModel):
@@ -41,6 +42,8 @@ class TaskDef(BaseModel):
 
     id: str = Field(min_length=1)
     pack: str = Field(min_length=1)
+    # A plan in the pack's plans dir, or ROUTED ("route"): the pack's router picks the plan and its
+    # params from the prompt (agentkit.agents.router). Empty is an error, not "routed".
     plan: str = Field(min_length=1)
     prompt: str = Field(min_length=1)
     params: Dict[str, Any] = Field(default_factory=dict)
@@ -95,7 +98,10 @@ def plan_path(registry: Registry, plan: str) -> Optional[Path]:
 
 
 def validate_task(task: TaskDef, registry: Registry, builtin: Iterable[str]) -> None:
-    path = plan_path(registry, task.plan)
+    if task.plan == ROUTED:
+        if registry.extras.get("router") is None:
+            raise ConfigError(f"task {task.id}: plan = {ROUTED!r} but the pack has no router")
+    path = plan_path(registry, task.plan) if task.plan != ROUTED else None
     if path is not None and not path.exists():
         raise ConfigError(f"task {task.id}: plan {task.plan!r} not found ({path})")
     known = set(registry.checks) | set(builtin)

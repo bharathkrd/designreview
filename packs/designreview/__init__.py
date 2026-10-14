@@ -16,6 +16,7 @@ from pathlib import Path
 
 from agentkit.registry import Registry
 from packs.designreview.actions import READ_ONLY_ENDPOINTS, register_actions, register_retrieval
+from packs.designreview.router import make_router
 from packs.designreview.checks import register_checks
 from packs.designreview.claims import CLAIM_RULES
 from packs.designreview.finding import build_finding
@@ -57,6 +58,8 @@ def register(reg: Registry) -> None:
         # Audit-gated cascade: a fast model drafts first; only a draft that fails the claim audit
         # goes on to the quality tier (agentkit.answer.compose_answer).
         narration_tiers=("fast", "quality"),
+        # Tasks with plan = "" are routed from the question (agentkit.agents.router).
+        router=make_router(),
     )
 
 

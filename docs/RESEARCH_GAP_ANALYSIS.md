@@ -75,6 +75,8 @@ evaluation*, and *baselines*.
 ## 3. Gaps (priority order, with evidence)
 
 ### P0 — validity of what is measured
+> **Closed 2026-10-14 (batch 6):** a task with `plan = "route"` gives only the question; the pack's router (`agentkit.agents.router.RuleRouter` + `packs/designreview/router.py`, routes in `routes.toml`) picks the plan and resolves the design file from the file list (IDF-weighted distinctive name words; revisions narrow a tie; still ambiguous or unknown -> declined, naming the candidates). Check `routed_as` + mutant `route_misread`; tasks t10 (battery tray), t11 ("the propeller": 4 candidates -> declined), t12 (Keystone housing cover). The router agrees with 8 of the 9 plan-given tasks; the ninth (t01) never names its part ("this part") and is rightly declined when routed.
+
 **G1. The "natural language → plan / entity" step is not evaluated** (P1 R.5/R.6, P3, P12, MAST FM-2.2)
 - Evidence: each task TOML hard-codes `plan = "rev_diff_dfm"` and `params.file_id`. The prompt reaches only
   `finding.requested_revs` (a regex) and the narrator (`run_one.py` → `task.plan_params()`).
@@ -355,6 +357,8 @@ about **measuring** these components and adding the **cheap, proven upgrades**, 
   the same pattern as the tool-catalogue fingerprint.
 
 ### DAG / orchestration
+> **Partly closed 2026-10-14 (batch 6):** (a) the plan router. Open: (b) an LLM planner arm, (c) offline plan search.
+
 **I6. Planner is rules-only; plans are hand-written per task** (P28, P29, P30)
 - Evidence: `Planner` protocol, single `RulePlanner`; the task picks the plan (see G1).
 - Fix, in steps:

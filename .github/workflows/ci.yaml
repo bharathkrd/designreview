@@ -37,7 +37,7 @@ jobs:
         os: [ubuntu-24.04, windows-2025]   # the team develops on Windows
         python: ["3.11", "3.13"]           # 3.11 is the floor (tomllib); 3.13 is the dev version
     env:
-      EXPECTED_TASKS: "9"   # change on purpose when a task is added or removed
+      EXPECTED_TASKS: "12"  # change on purpose when a task is added or removed
       REPEAT: "3"           # pass^k: every task must pass on every run
       AGENTKIT_OFFLINE: "1"
       PYTHONIOENCODING: utf-8

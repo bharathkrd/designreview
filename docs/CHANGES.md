@@ -1,5 +1,24 @@
 # Changes
 
+## 2026-10-14 — Batch 6 of the research gaps: routing a bare question (plan + design file)
+
+### Why
+Every task file named its plan and file id, so the grade measured a workflow that had already been told what to
+do -- never whether the agent understood the question or found the right part. (Gaps G1, I6a.)
+
+| What | Before | After | Where |
+|---|---|---|---|
+| Router | none | `RuleRouter`: routes (patterns -> plan, params, what to resolve) + a resolver; a decline runs `route_declined` | `agentkit/agents/router.py`, `packs/designreview/routes.toml`, `router.py`, `plans/route_declined.toml` |
+| Part resolution | file id in the task | UUID in the question, else IDF-weighted name match over the file list; revisions narrow ties (version count, then the files' own notes); ambiguous or unknown -> declined with the candidates | `packs/designreview/router.py` |
+| Harness | `plan` always a file | `plan = "route"` routes from the prompt (empty is still an error); `taskrun.route` saved; resume and replay reuse it; routing is a `route` step span | `agentkit/harness/tasks.py`, `run_one.py`, `replay.py`, `agentkit/record/run_record.py` |
+| Grading | — | check `routed_as` (plan / file / decline reason) + mutant `route_misread`; tasks t10, t11, t12; CI expects 12 tasks | `packs/designreview/checks.py`, `mutants.py`, `tasks/`, `.github/workflows/ci.yaml` |
+| Fixtures | no file list | `DesignFile.list` appended to both fixtures (read-only, via `scripts/capture_extra.py`; existing records untouched) | `packs/designreview/fixtures/*.json` |
+
+The router agrees with 8 of the 9 plan-given tasks; t01's question never names its part ("this part") and is
+declined when routed. Verified offline: 12 of 12 tasks pass on every run (`--repeat 3`); `grade --check`
+identical; mutants OK (`route_misread` 9/9); replay calibration OK; fault matrix 13 of 13; retrieval floors ok;
+viewer smoke ok; `tests_local` 858 passed (reference tests updated for 12 tasks); hand-written `tests/` 38 passed.
+
 ## 2026-10-14 — Fix: server-run variables in `.env` no longer change local logins or LLM routing
 
 Found by the live run (tests/MANUAL_TEST_LOG.md A-LIVE-01): with the official runner's `AGENTSWITCH_TOKEN` /

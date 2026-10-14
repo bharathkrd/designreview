@@ -1,0 +1,12 @@
+id = "t11_routed_ambiguous_propeller"
+description = "Routed refusal: 'the propeller' matches four design files and the question names no revision to narrow it. Correct = decline, naming the candidates and asking for the part number -- never pick one."
+pack = "packs.designreview"
+plan = "route"   # routed from the prompt (agentkit.agents.router)
+prompt = "Is the propeller ready for release?"
+
+[[verifiers]]
+name = "routed_as"
+params = { declined_because = "ambiguous" }
+
+[[verifiers]]
+name = "answer_audited"
