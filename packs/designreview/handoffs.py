@@ -30,6 +30,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from agentkit.answer.quarantine import quarantine_instructions
 from agentkit.config import ConfigError, validation_message
 from agentkit.graph import FAILED, RESOLVED, NodeResult, RunEnv, declined
 from agentkit.record import load_record
@@ -110,6 +111,12 @@ def _resolved(results: Dict[str, Any], node: str) -> Optional[Any]:
     return r.data if r is not None and r.verdict == RESOLVED else None
 
 
+def _safe(title: Any) -> str:
+    """A platform title with instruction-like sentences removed: titles are cited in the
+    finding and in the escalation a hand-off would file (agentkit.answer.quarantine)."""
+    return quarantine_instructions(title or "")[0] if isinstance(title, str) else ""
+
+
 def open_serious_items(gate_payload: Any, feedback_payload: Any) -> List[Dict[str, Any]]:
     """Release-gate blockers plus open high/critical feedback, one entry per id
     (a blocker is usually also a feedback row; it's kept once, marked blocker)."""
@@ -117,14 +124,14 @@ def open_serious_items(gate_payload: Any, feedback_payload: Any) -> List[Dict[st
     gate = gate_payload.get("result", gate_payload) if isinstance(gate_payload, dict) else {}
     for b in gate.get("blockers") or []:
         if isinstance(b, dict) and b.get("id"):
-            items[b["id"]] = {"id": b["id"], "title": b.get("title") or "", "priority": b.get("priority"),
+            items[b["id"]] = {"id": b["id"], "title": _safe(b.get("title")), "priority": b.get("priority"),
                               "status": b.get("status"), "source": "release_blocker"}
     for r in _rows(feedback_payload):
         if not r.get("id") or r["id"] in items:
             continue
         if str(r.get("status") or "").lower() in CLOSED_FEEDBACK or str(r.get("priority") or "").lower() not in SERIOUS:
             continue
-        items[r["id"]] = {"id": r["id"], "number": r.get("number"), "title": r.get("title") or "",
+        items[r["id"]] = {"id": r["id"], "number": r.get("number"), "title": _safe(r.get("title")),
                           "priority": r.get("priority"), "status": r.get("status"), "source": "feedback"}
     return list(items.values())
 
@@ -292,6 +299,8 @@ def register_handoffs(reg: Registry, table: Optional[HandoffTable] = None) -> No
     table = table or load_handoff_table()
     reg.extras["handoff_table"] = table
     reg.extras["write_tools"] = WRITE_TOOLS
+    # Probe keys a hand-off write may change; any other observed record must read the same after a write run.
+    reg.extras["writes_to"] = ("escalations:",)
     reg.extras["cleanup"] = lambda reader, run_dir=None, tenant="", dry_run=False: cleanup_escalations(
         reader, table=table, run_dir=run_dir, tenant=tenant, dry_run=dry_run)
     reg.declare_read_only(READ_ONLY_ENDPOINTS)

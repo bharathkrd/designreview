@@ -61,6 +61,7 @@ re-implemented here without it.
 
 from __future__ import annotations
 
+import contextvars
 import logging
 import threading
 import time
@@ -88,6 +89,10 @@ MODES = ("eager", "superstep")
 REQUIRES = ("resolved", "settled")
 _DECLINE_KINDS = {MISSING: "record not found", NOT_IN_SEAT: "tool not available to this seat",
                   DENIED: "access denied"}
+
+
+class ActionTimeout(Exception):
+    """One attempt of an action ran past its timeout_s."""
 
 
 class StepLimitExceeded(RuntimeError):
@@ -633,7 +638,9 @@ class LiveGraphExecutor:
             spec.attempts += 1
             tries += 1
             try:
-                return NodeResult.of(action.fn(self.env, spec.args, store.results()))
+                return NodeResult.of(self._call(action, spec, store))
+            except ActionTimeout as e:
+                return NodeResult(FAILED, reason=str(e), error_kind="timeout")
             except NodeInterrupt as pause:
                 return _Paused(pause.value)
             except SeatCallFailure as e:
@@ -651,6 +658,31 @@ class LiveGraphExecutor:
                     continue
                 logger.exception("node [%s] crashed", spec.id)
                 return NodeResult(FAILED, reason=f"{type(e).__name__}: {e}", error_kind="internal")
+
+    def _call(self, action: Any, spec: TaskSpec, store: GraphStore) -> Any:
+        """Run one attempt of an action; with `timeout_s`, give up waiting after that long.
+        A Python thread can't be killed: a timed-out attempt is abandoned (its result is
+        ignored), so actions with a timeout should only read."""
+        if not action.timeout_s:
+            return action.fn(self.env, spec.args, store.results())
+        box: Dict[str, Any] = {}
+        ctx = contextvars.copy_context()  # the node, span and telemetry context go with it
+
+        def attempt() -> None:
+            try:
+                box["value"] = ctx.run(action.fn, self.env, spec.args, store.results())
+            except BaseException as e:  # handed back to the caller's except clauses
+                box["error"] = e
+
+        worker = threading.Thread(target=attempt, name=f"node-{spec.id}", daemon=True)
+        worker.start()
+        worker.join(action.timeout_s)
+        if worker.is_alive():
+            add_event("timeout", seconds=action.timeout_s)
+            raise ActionTimeout(f"{spec.action} timed out after {action.timeout_s}s")
+        if "error" in box:
+            raise box["error"]
+        return box.get("value")
 
     def _approval(self, spec: TaskSpec, action: Any, store: GraphStore) -> Optional[Union[NodeResult, _Paused]]:
         """Before a real write: pause for a person with the write's preview.

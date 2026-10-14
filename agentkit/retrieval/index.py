@@ -56,7 +56,9 @@ class EvidenceIndex:
     def add(self, passages: Iterable[EvidencePassage]) -> int:
         n = 0
         for p in passages:
-            tf = Counter(terms(p.text))
+            # meta["index_prefix"]: words that describe where the passage sits (e.g. its document's name
+            # and category) -- searched, never shown, so a short passage still matches its context.
+            tf = Counter(terms(f"{p.meta.get('index_prefix') or ''} {p.text}"))
             self.passages.append(p)
             self._tf.append(tf)
             self._df.update(tf.keys())

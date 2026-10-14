@@ -1,0 +1,28 @@
+# How a question with no plan of its own is routed (agentkit.agents.router.RuleRouter).
+# The first route whose pattern matches the question wins (file order); `needs` are the
+# parameters packs/designreview/router.py resolves from the question (file_id: the design
+# file the question names). A question that matches no route is declined.
+
+[[routes]]
+plan = "tool_refusal"
+when_any = ['\bAI (design )?review\b', '\bAI[- ]check']
+params = { tool = "endpoint.designreview.ai_review" }
+needs = ["file_id"]
+
+[[routes]]
+plan = "tool_refusal"
+when_any = ['\bwall[- ]thickness (analysis|check)\b', '\b(run|do) an? (thickness|interference) (analysis|check)\b']
+params = { tool = "endpoint.designreview.analysis.thickness" }
+needs = ["file_id"]
+
+[[routes]]
+plan = "release_handoff"
+when_any = ['\bon schedule\b', '\bschedule\b', '\bwho (else )?(needs|has) to act\b', '\banother team\b',
+            '\bhand-?offs?\b']
+needs = ["file_id"]
+
+[[routes]]
+plan = "rev_diff_dfm"
+when_any = ['\bwhat changed\b', '\brev(ision)?s?\.?\s+[A-Z0-9]\b', '\bmanufactur', '\bDFM\b', '\blatest revision\b',
+            '\bready for release\b']
+needs = ["file_id"]

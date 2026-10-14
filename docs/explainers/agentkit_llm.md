@@ -1,69 +1,154 @@
-# `agentkit/llm/` — the LLM gateway and cost ledger
+# `agentkit/llm/` — the LLM gateway and the cost ledger
 
-*Reading order: **2nd**. Files: `gateway.py`, `economics.py`. Config: `config/routing.toml`.*
+*Reading order: **2nd**. Files: `gateway.py`, `economics.py`, `models_check.py`. Config: `config/routing.toml`.*
+*Written in ASD-STE100 (Simplified Technical English) style, 2026-10-14.*
 
-## 10,000-ft view
+## Overview
 
-One in-process client for seven providers (Gemini, Groq, Cerebras, Anthropic, NVIDIA, OpenRouter, Ollama).
-`call(prompt, …) -> str` for simple callers; `call_detailed(…) -> LLMReply` (text, provider, model,
-input/output tokens, normalised `stop_reason`, latency) for the narrator. No SDKs — plain `httpx`.
+The gateway is one in-process client for many LLM providers. It uses plain `httpx` and no provider SDK.
 
-## Why it's written this way
+- `call(prompt, ...) -> str` gives only the text. Simple callers use it.
+- `call_detailed(...) -> LLMReply` gives the text, the provider, the model, the token counts, the stop reason
+  and the latency. The narrator uses it.
 
-- **Tiers are config.** `routing.toml` lists providers (model, `model_env` override, key variable, rpm,
-  timeout) and tiers (`default`, `fast`, `quality`). It is validated by a pydantic model: an unknown provider
-  in a tier, rpm = 0, a duplicate or a misspelt key stops the gateway from starting.
-- **Retries by error class.** 429, 408, 409, 5xx, 529 (overloaded), network errors, timeouts and empty
-  replies are retried with capped backoff (0.5, 1, 2, 4, 4 … s), then the provider cools down and the next is
-  tried. 400/404/422 go straight to the next provider. 401/402/403 (bad key, no quota) cool the provider down
-  for 5 minutes — they won't fix themselves mid-run.
-- **One `llm` span per call (since 2026-10-12).** `call_detailed` records provider, model, real token counts,
-  stop_reason and cache hits on a telemetry span (never the prompt or a key); retries are span events.
-- **Offline guard (since 2026-10-12).** With `AGENTKIT_OFFLINE=1`, `call_detailed` on a gateway that would use
-  the real network raises `OfflineViolation`; the narrator re-raises it instead of falling back to the template,
-  so the run ends `error`, not with a quiet template answer. A gateway built with `transport=` (tests) is exempt.
-- **Real usage, not estimates.** Each adapter reads the provider's own token counts (Gemini's thinking tokens
-  count as output; Anthropic cache tokens count as input). The ledger prices input and output separately and
-  flags any call whose usage had to be estimated.
-- **`stop_reason` is normalised** to `end_turn | max_tokens | refusal | other`. A truncated or refused reply is
-  never cached; a refusal or an empty reply moves to the next provider; the narrator treats `max_tokens` as
-  unusable.
-- **Reasoning text is removed (since 2026-10-13).** Before: an open reasoning model that writes
-  `<think>…</think>` into its answer (DeepSeek-R1 style) passed that text to the claim audit (whose numbers
-  would then be "unsupported") and into the cache. Now `strip_reasoning()` removes `<think>`, `<thinking>` and
-  `<reasoning>` blocks right after the provider replies — before the ledger, the cache and the audit. An
-  unclosed opening tag (cut off mid-reasoning) drops the rest; a closing tag without an opener drops what
-  came before. A reply that was only reasoning is empty and moves to the next provider.
-  `LLMReply.reasoning_chars` and the `llm` span say how much was removed.
-- **Secrets stay out of logs.** The Gemini key is sent in the `x-goog-api-key` header, not the URL; every
-  error message is scrubbed of key values.
-- **TLS against the OS trust store.** httpx's bundled `certifi` list rejects this workstation's certificate
-  chain (TLS-inspecting proxy); `ssl.create_default_context()` accepts it and still verifies.
-- **Anthropic specifics.** No `temperature` for models that reject sampling parameters (Opus 5, Opus 4.7/4.8,
-  Sonnet 5, Fable); extra `max_tokens` headroom where thinking is on by default; text is taken only from
-  `text` blocks, since a `thinking` block can come first. `.env` `ANTHROPIC_MODEL` wins over the routing default.
-- **Cache** is an exact-match LRU over every parameter that changes the answer (prompt, system, temperature,
-  max_tokens, json_mode, tier), thread-safe.
+The file `config/routing.toml` has two parts:
+
+- **Providers.** Each row is one provider and one model.
+- **Tiers.** Each tier is a list of providers. The gateway tries them in that sequence.
+
+## Providers and tiers (2026-10-14)
+
+| Row | Model | API | Key variable | Tier use |
+|---|---|---|---|---|
+| `openai_luna` | gpt-6-luna | OpenAI (by URL) | `OPENAI_API_KEY2` | fast: 1st |
+| `openai_sol` | gpt-6.1-sol | OpenAI (by URL) | `OPENAI_API_KEY2` | quality, default: 1st |
+| `deepseek_flash` | deepseek-flash | DeepSeek (by URL) | `DEEPSEEK_API_KEY` | fast: 2nd |
+| `deepseek` | deepseek-v4-pro | DeepSeek (by URL) | `DEEPSEEK_API_KEY` | quality, default: 2nd |
+| `moonshot` | kimi-k2.6 | Moonshot (by URL) | `MOONSHOT_API_KEY` | all tiers: 3rd |
+| `gemini_lite` | gemini-3.5-flash-lite | Gemini (native) | `GEMINI_API_KEY_2` | fast: 4th |
+| `gemini` | gemini-3-flash-preview | Gemini (native) | `GEMINI_API_KEY_2` | quality, default: 4th |
+| `anthropic_haiku` | claude-haiku-5-5 | Anthropic (native) | `ANTHROPIC_API_KEY` | fast: 5th |
+| `anthropic` | claude-sonnet-5-5 | Anthropic (native) | `ANTHROPIC_API_KEY` | quality, default: 5th |
+| `groq`, `cerebras`, `nvidia`, `openrouter` | see `routing.toml` | OpenAI-compatible | own key | after the five above |
+| `lmstudio` | google/gemma-4-e4b | local server (by URL) | none | second to last |
+| `ollama` | gemma4:latest | local server | none | last |
+
+The **fast** tier gives the cheap first draft. The **quality** tier gets a draft only when the claim audit
+rejects the cheap draft. The **default** tier is for other callers.
+
+The gateway also adds an `openai` row when the official runner injects `OPENAI_API_KEY` into the process.
+That row then goes first in each tier. A copy of `OPENAI_API_KEY` in `.env` does not move it.
+
+Each row can change its model through its `model_env` variable in `.env`. For example,
+`GEMINI_MODEL=gemini-3.8-flash` changes the `gemini` row.
+
+## Row settings
+
+| Setting | Use |
+|---|---|
+| `model`, `model_env` | The model. The `.env` variable in `model_env` overrides `model`. |
+| `key_env`, `keyless` | The key variable. A `keyless` row (a local server) sends no Authorization header. |
+| `url`, `url_env` | Any OpenAI-compatible endpoint. Give the base URL or the full `.../chat/completions` URL. `url_env` overrides `url`. |
+| `api` | `"anthropic"` or `"gemini"`. A second row on that native API, under its own name. |
+| `temperature` | A fixed temperature. Use it for a model that accepts one value only (kimi-k2.6: 1). |
+| `max_tokens_field` | `"max_completion_tokens"` for OpenAI reasoning models. They reject `max_tokens`. |
+| `reasoning_effort` | Sent as is. gpt-6-luna accepts `"none"`. The lowest value for gpt-6.1-sol is `"low"`. |
+| `rpm`, `timeout` | The request limit for each minute, and the request timeout in seconds. |
+
+A row with its own name has its own place in a tier, its own rate state and its own cool-down. Thus a busy
+`anthropic_haiku` does not stop `anthropic`.
+
+## Which model answered
+
+The run folder keeps the provider and the model for each LLM call:
+
+| File | Contents |
+|---|---|
+| `llm_ledger.json` | One entry for each call: provider, model, tokens, cost, latency, stop reason. |
+| `telemetry.json` | One `llm` span for each call: tier, provider, model, tokens, stop reason. |
+| `taskrun.json` | The narrate step: the provider and the model that wrote the answer, and the same for each attempt. |
+| `report.md` (batch) | The Performance table has a "Models (provider:model)" column. |
+
+The gateway never writes a prompt or a key to these files.
+
+## Design decisions
+
+- **Tiers are configuration.** A pydantic model validates `routing.toml`. These errors stop the gateway
+  before it starts: an unknown provider in a tier, `rpm = 0`, a duplicate row, a misspelt setting.
+- **Retries by error class.** The gateway retries 429, 408, 409, 5xx, 529, network errors, timeouts and
+  empty replies. The wait between attempts is 0.5, 1, 2, 4 and 4 seconds. Then the provider cools down, and
+  the gateway tries the next provider.
+- **No retry for a bad request.** For 400, 404 and 422, the gateway goes to the next provider immediately.
+- **Long cool-down for account errors.** For 401, 402 and 403 (bad key, no credit), the provider cools down
+  for 5 minutes. These errors do not stop during a run.
+- **Real token counts.** Each adapter reads the token counts that the provider sends. Gemini thinking tokens
+  count as output tokens. Anthropic cache tokens count as input tokens. The ledger shows each call that has
+  estimated counts.
+- **One stop reason.** The gateway changes each provider's stop reason to `end_turn`, `max_tokens`,
+  `refusal` or `other`. The cache does not keep a cut-off reply or a refusal.
+- **The gateway removes reasoning text.** Some open models write `<think>...</think>` into the answer.
+  `strip_reasoning()` removes these blocks before the ledger, the cache and the audit see the text.
+- **No temperature for Claude 5.x.** Claude Opus 5, Sonnet 5, Haiku 5, Fable and Opus 4.7/4.8 reject the
+  `temperature` parameter. The gateway does not send it to these models.
+- **Keys stay out of logs.** The Gemini key goes in the `x-goog-api-key` header, not in the URL. The gateway
+  removes key values from each error message.
+- **TLS uses the operating-system trust store.** The `certifi` list in httpx rejects the certificate chain on
+  this workstation. `ssl.create_default_context()` accepts that chain and still verifies it.
+- **Offline guard.** When `AGENTKIT_OFFLINE=1`, a real network call raises `OfflineViolation`. The narrator
+  does not catch it. Thus an offline run that tries to use an LLM fails, and the failure is visible.
+- **Exact-match cache.** The cache key has each parameter that can change the answer: prompt, system prompt,
+  temperature, `max_tokens`, JSON mode and tier.
+
+## Cost controls
+
+- **Audit-gated cascade.** The pack sets the narration tiers to `("fast", "quality")`. The fast tier writes
+  one draft. If the claim audit accepts it, that draft is the answer. If the audit rejects it, the quality
+  tier gets the draft and the audit's correction note. The quality tier can write a draft and one rewrite.
+- **The template is the last step.** If no draft passes, the template gives the answer.
+- **Budget.** `max_llm_cost_usd_per_run` in `config/project.toml` sets a cost limit for each run. The
+  variable `AGENTKIT_MAX_LLM_COST_USD` overrides it. No new call starts after the ledger reaches the limit.
+- **Cache-friendly prompts.** The stable text is in the system prompt. The data of each run comes after it.
+  Anthropic requests mark a system prompt of 4096 characters or more as cacheable.
+- **Prices.** `economics.py` has a price for each row, in USD for each million tokens. The prices are
+  approximate. Local rows cost 0.
+
+## `.env` values and child processes
+
+`load_env()` copies `.env` into the process environment. It does not change a variable that the process
+already has. It also writes the names that it copied to `AGENTKIT_DOTENV_KEYS`.
+
+The batch runs each task in a child process. The child gets the copied values in its environment. The child
+reads `AGENTKIT_DOTENV_KEYS` and thus knows that these values came from `.env`. Without this list, the child
+used the `.env` copy of `OPENAI_API_KEY` as a runner key and put `openai` first in each tier.
 
 ## Key types
 
 | Name | Purpose |
 |---|---|
-| `LLMGateway(routing_path, transport=, max_attempts=, sleep=, env=)` | the client; `transport` lets tests use `httpx.MockTransport` |
-| `LLMReply` | text + provider + model + tokens + stop_reason (`.complete`) + `reasoning_chars` |
-| `strip_reasoning(text) -> (text, removed)` | the reasoning filter |
-| `ProviderFault(provider, status, retryable)` | internal classified failure |
-| `RoutingConfig` / `ProviderSpec` | pydantic models for `routing.toml` |
-| `RateState` | per-provider rpm window + cooldown (thread-safe) |
-| `CostLedger` / `LedgerEntry` | per-call provider, model, tokens, cost, latency |
+| `LLMGateway(routing_path, transport=, max_attempts=, sleep=, env=)` | The client. Tests give `transport=httpx.MockTransport(...)`. |
+| `LLMReply` | Text, provider, model, tokens, stop reason (`.complete`), `reasoning_chars`. |
+| `ProviderSpec`, `RoutingConfig` | The pydantic models for `routing.toml`. |
+| `chat_url(base)` | Adds `/chat/completions` to a base URL. |
+| `strip_reasoning(text) -> (text, removed)` | The reasoning filter. |
+| `ProviderFault(provider, status, retryable)` | An internal, classified failure. |
+| `RateState` | The request window and the cool-down of one row. |
+| `CostLedger`, `LedgerEntry` | The provider, model, tokens, cost and latency of each call. |
 
-## Operating notes (checked 2026-09-28)
+## Operating notes (2026-10-14)
 
-Groq and Cerebras serve `gpt-oss-120b` (not `llama-3.3-70b`); NVIDIA retired `meta/llama-3.3-70b-instruct`
-on 2026-08-26 — if `.env` still sets `NVIDIA_MODEL` to it, remove the line. Cerebras returns HTTP 402 when
-the key has no quota; the gateway cools it down and moves on.
+- `GEMINI_API_KEY` has no prepaid credit (HTTP 402). The Gemini rows use `GEMINI_API_KEY_2`, a free-tier key.
+- On the free tier, the pro models have no quota (HTTP 429). Gemini 3.5 to 3.8 Flash were busy (HTTP 503).
+- Cerebras sends HTTP 402. The account needs payment.
+- NVIDIA retired `meta/llama-3.3-70b-instruct` on 2026-08-26. Remove `NVIDIA_MODEL` from `.env`, or set a
+  model that NVIDIA lists.
 
 ## How to test
 
-`tests/test_llm_gateway.py` (offline, `httpx.MockTransport`); `-m gateway_live` for one real call per provider.
-`python -m agentkit.llm.gateway [tier]` prints which providers have keys and makes one tiny call.
+1. Run `python -m agentkit.llm.models_check`. It reads the model list of each provider. It costs no tokens.
+   A configured model that the list does not have shows as `RETIRED`.
+2. Run `python -m agentkit.llm.gateway [tier]`. It shows the providers that have keys and makes one small call.
+3. Run `python -m pytest tests_local/test_url_providers.py tests_local/test_llm_gateway.py -q`. These tests
+   are offline. They use `httpx.MockTransport`.
+4. Run `python -m pytest tests_local -m gateway_live -q` for one real call to each provider.
+
+The hand-written template for this module is `tests/test_llm_gateway.py`.

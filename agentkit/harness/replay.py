@@ -49,7 +49,7 @@ from agentkit.clock import frozen_now
 from agentkit.graph import GraphStore, NodeResult, RunEnv, load_plan
 from agentkit.harness.checks import specs_for
 from agentkit.harness.grade import grade_run
-from agentkit.harness.run_one import GRAPH_FILE
+from agentkit.harness.run_one import GRAPH_FILE, plan_and_params
 from agentkit.harness.tasks import TaskDef
 from agentkit.record import TaskRun, dump_record, load_record
 from agentkit.record.durable_io import read_jsonl
@@ -111,12 +111,13 @@ def replay_run(run_dir: Path, update: Dict[str, NodeResult], out_dir: Path, *, c
         with use_tracer(tracer), span("task", task.id, tenant=tenant, dry_run=True, pack=task.pack, plan=task.plan,
                                       replay_of=original.get("run_id"), replaced=sorted(update)) as root:
             try:
-                plan = load_plan(Path(registry.extras["plans_dir"]) / f"{task.plan}.toml")
+                plan_name, params, run.route = plan_and_params(task, registry, client, original.get("route"))
+                plan = load_plan(Path(registry.extras["plans_dir"]) / f"{plan_name}.toml")
                 fork = GraphStore.load(run_dir / GRAPH_FILE, registry).fork(
                     update, checkpoint_path=out_dir / GRAPH_FILE, run_id=run_id)
                 journaled = JournaledSeatClient(client, out_dir / JOURNAL_FILE,
                                                 extra_read_only=tuple(registry.read_only), start_seq=last_seq + 1)
-                env = RunEnv(client=journaled, run_id=run_id, params=task.plan_params(), dry_run=True,
+                env = RunEnv(client=journaled, run_id=run_id, params=params, dry_run=True,
                              tenant=tenant, gateway=gateway)
                 plan_executor(env, registry, plan, checkpoint_path=out_dir / GRAPH_FILE,
                               retry_backoff_s=0).continue_from(fork)

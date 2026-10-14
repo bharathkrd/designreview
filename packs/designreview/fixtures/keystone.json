@@ -2,7 +2,7 @@
   "format": "agentkit-seat-fixture-v1",
   "tenant": "keystone",
   "captured_at": "2026-10-12T12:52:54+00:00",
-  "note": "3 task(s) of packs.designreview",
+  "note": "3 task(s) of packs.designreview; +1 call(s) via scripts/capture_extra.py",
   "tools": [
     "AccountPlan.get",
     "AccountPlan.list",
@@ -31527,6 +31527,1917 @@
           ]
         }
       ],
+      "error_kind": null,
+      "error": null
+    },
+    {
+      "channel": "mcp",
+      "op": "DesignFile.list",
+      "args": "{\"limit\": 100, \"offset\": 0}",
+      "result": {
+        "data": [
+          {
+            "id": "2d0e5ad1-84fb-4c23-b5d6-c87c6848e1d9",
+            "number": "DF-2026-00030",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Formed Bracket Weldment \u2014 Pre-Coat",
+            "project_id": "f1a31baf-9c29-4beb-829a-c8a770f33355",
+            "file_type": "cad_assembly",
+            "format": "step",
+            "original_file": "uploads/designreview/seed-b49d565db4bbddaa214f2b76c67eddd7/original.stp",
+            "gltf_file": "uploads/designreview/seed-b49d565db4bbddaa214f2b76c67eddd7/wireframe.gltf",
+            "drawing_file": null,
+            "representation": "wireframe",
+            "thumbnail": "uploads/designreview/seed-b49d565db4bbddaa214f2b76c67eddd7/thumb.png",
+            "metadata_json": {
+              "schema": "AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }",
+              "protocol": "AP214",
+              "file_name": "Open CASCADE Shape Model",
+              "timestamp": "2008-07-24T15:00:20",
+              "originating_system": "Open CASCADE Model",
+              "distinct_products": 9,
+              "occurrence_links": 13,
+              "is_assembly": true,
+              "part_count": 18
+            },
+            "assembly_tree_json": {
+              "root": {
+                "part_number": "as1",
+                "name": "as1",
+                "quantity": 1,
+                "children": [
+                  {
+                    "part_number": "rod-assembly",
+                    "name": "rod-assembly",
+                    "quantity": 1,
+                    "children": [
+                      {
+                        "part_number": "nut",
+                        "name": "nut",
+                        "quantity": 2,
+                        "children": []
+                      },
+                      {
+                        "part_number": "rod",
+                        "name": "rod",
+                        "quantity": 1,
+                        "children": []
+                      }
+                    ]
+                  },
+                  {
+                    "part_number": "l-bracket-assembly",
+                    "name": "l-bracket-assembly",
+                    "quantity": 2,
+                    "children": [
+                      {
+                        "part_number": "nut-bolt-assembly",
+                        "name": "nut-bolt-assembly",
+                        "quantity": 3,
+                        "children": [
+                          {
+                            "part_number": "bolt",
+                            "name": "bolt",
+                            "quantity": 1,
+                            "children": []
+                          },
+                          {
+                            "part_number": "nut",
+                            "name": "nut",
+                            "quantity": 1,
+                            "children": []
+                          }
+                        ]
+                      },
+                      {
+                        "part_number": "l-bracket",
+                        "name": "l-bracket",
+                        "quantity": 1,
+                        "children": []
+                      }
+                    ]
+                  },
+                  {
+                    "part_number": "plate",
+                    "name": "plate",
+                    "quantity": 1,
+                    "children": []
+                  }
+                ]
+              }
+            },
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 433606,
+            "part_count": 18,
+            "current_version": 3,
+            "has_pmi": 0,
+            "has_brep": 0,
+            "status": "approved",
+            "released_version_id": null,
+            "released_at": "2026-06-20",
+            "item_id": "ea59e549-bd11-45c6-ab67-85240f7cdf43",
+            "created_at": "2026-09-16T16:27:37.925662",
+            "updated_at": "2026-09-16T16:27:43.774863",
+            "created_by": null,
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "OEM Weldment Program \u2014 2026",
+            "_item_id_display": "Formed Bracket Weldment, pre-coat",
+            "_display": "Formed Bracket Weldment \u2014 Pre-Coat",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "f50421fa-919c-47aa-995e-e93e502c7574",
+            "number": "DF-2026-00029",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Laser Blank 14 ga \u2014 Mixed Nest",
+            "project_id": "f1a31baf-9c29-4beb-829a-c8a770f33355",
+            "file_type": "drawing_2d",
+            "format": "dxf",
+            "original_file": "uploads/designreview/seed-60deea8cdbfedc5fec6c9ccb813517e1/original.dxf",
+            "gltf_file": null,
+            "drawing_file": "uploads/designreview/seed-60deea8cdbfedc5fec6c9ccb813517e1/drawing.json",
+            "representation": "drawing",
+            "thumbnail": "uploads/designreview/seed-60deea8cdbfedc5fec6c9ccb813517e1/thumb.png",
+            "metadata_json": null,
+            "assembly_tree_json": null,
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 130334,
+            "part_count": 22,
+            "current_version": 2,
+            "has_pmi": 1,
+            "has_brep": 0,
+            "status": "approved",
+            "released_version_id": null,
+            "released_at": "2026-06-20",
+            "item_id": "5ebddcb0-03ff-4b1c-895e-cd417ad5b726",
+            "created_at": "2026-09-16T16:27:37.922942",
+            "updated_at": "2026-09-16T16:27:43.767699",
+            "created_by": null,
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "OEM Weldment Program \u2014 2026",
+            "_item_id_display": "Laser Blank, 14 ga \u2014 mixed nest",
+            "_display": "Laser Blank 14 ga \u2014 Mixed Nest",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "1d40c653-46ea-4015-b63e-85ed46485664",
+            "number": "DF-2026-00028",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Welded Frame Subassembly \u2014 Pre-Coat",
+            "project_id": "f1a31baf-9c29-4beb-829a-c8a770f33355",
+            "file_type": "cad_assembly",
+            "format": "step",
+            "original_file": "uploads/designreview/seed-23d6114f222a0ab5c1a7376faabc2bd7/original.stp",
+            "gltf_file": "uploads/designreview/seed-23d6114f222a0ab5c1a7376faabc2bd7/wireframe.gltf",
+            "drawing_file": null,
+            "representation": "wireframe",
+            "thumbnail": "uploads/designreview/seed-23d6114f222a0ab5c1a7376faabc2bd7/thumb.png",
+            "metadata_json": {
+              "schema": "AP203_CONFIGURATION_CONTROLLED_3D_DESIGN_OF_MECHANICAL_PARTS_AND_ASSEMBLIES_MIM_LF",
+              "protocol": "AP203",
+              "file_name": "AS1_PE_ASM",
+              "timestamp": "2008-09-04T",
+              "originating_system": "PRO/ENGINEER BY PARAMETRIC TECHNOLOGY CORPORATION, 2008340",
+              "distinct_products": 9,
+              "occurrence_links": 13,
+              "is_assembly": true,
+              "part_count": 18
+            },
+            "assembly_tree_json": {
+              "root": {
+                "part_number": "AS1_PE_ASM",
+                "name": "AS1_PE_ASM",
+                "quantity": 1,
+                "children": [
+                  {
+                    "part_number": "PLATE",
+                    "name": "PLATE",
+                    "quantity": 1,
+                    "children": []
+                  },
+                  {
+                    "part_number": "L_BRACKET_ASSEMBLY_ASM",
+                    "name": "L_BRACKET_ASSEMBLY_ASM",
+                    "quantity": 2,
+                    "children": [
+                      {
+                        "part_number": "L-BRACKET",
+                        "name": "L-BRACKET",
+                        "quantity": 1,
+                        "children": []
+                      },
+                      {
+                        "part_number": "NUT_BOLT_ASSEMBLY_ASM",
+                        "name": "NUT_BOLT_ASSEMBLY_ASM",
+                        "quantity": 3,
+                        "children": [
+                          {
+                            "part_number": "BOLT",
+                            "name": "BOLT",
+                            "quantity": 1,
+                            "children": []
+                          },
+                          {
+                            "part_number": "NUT",
+                            "name": "NUT",
+                            "quantity": 1,
+                            "children": []
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "part_number": "ROD_ASM",
+                    "name": "ROD_ASM",
+                    "quantity": 1,
+                    "children": [
+                      {
+                        "part_number": "ROD",
+                        "name": "ROD",
+                        "quantity": 1,
+                        "children": []
+                      },
+                      {
+                        "part_number": "NUT",
+                        "name": "NUT",
+                        "quantity": 2,
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 136663,
+            "part_count": 18,
+            "current_version": 2,
+            "has_pmi": 0,
+            "has_brep": 0,
+            "status": "approved",
+            "released_version_id": null,
+            "released_at": "2026-06-20",
+            "item_id": "78803712-89a2-4b8a-9300-b7900554adc8",
+            "created_at": "2026-09-16T16:27:37.919845",
+            "updated_at": "2026-09-16T16:27:43.762351",
+            "created_by": null,
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "OEM Weldment Program \u2014 2026",
+            "_item_id_display": "Welded Frame Subassembly, pre-coat",
+            "_display": "Welded Frame Subassembly \u2014 Pre-Coat",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "d4420239-5209-43bd-8ed4-2c1fb26126c0",
+            "number": "DF-2026-00027",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Hydraulic Manifold Mount \u2014 Inspection Drawing",
+            "project_id": "f1a31baf-9c29-4beb-829a-c8a770f33355",
+            "file_type": "drawing_2d",
+            "format": "dxf",
+            "original_file": "uploads/designreview/seed-d7d7300ca043a48177dc36f1eaf275b7/original.dxf",
+            "gltf_file": null,
+            "drawing_file": "uploads/designreview/seed-d7d7300ca043a48177dc36f1eaf275b7/drawing.json",
+            "representation": "drawing",
+            "thumbnail": "uploads/designreview/seed-d7d7300ca043a48177dc36f1eaf275b7/thumb.png",
+            "metadata_json": null,
+            "assembly_tree_json": null,
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 133398,
+            "part_count": 49,
+            "current_version": 4,
+            "has_pmi": 1,
+            "has_brep": 0,
+            "status": "approved",
+            "released_version_id": null,
+            "released_at": "2026-06-20",
+            "item_id": "15d39d1f-82a8-4125-a6ed-7fd0abeab2d0",
+            "created_at": "2026-09-16T16:27:37.917070",
+            "updated_at": "2026-09-16T16:27:43.757192",
+            "created_by": null,
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "OEM Weldment Program \u2014 2026",
+            "_item_id_display": "Hydraulic Manifold Mount, machined",
+            "_display": "Hydraulic Manifold Mount \u2014 Inspection Drawing",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "5f3c30f5-0af7-4cd8-bb54-576f701e136c",
+            "number": "DF-2026-00026",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Hydraulic Manifold Mount \u2014 Machined Part",
+            "project_id": "f1a31baf-9c29-4beb-829a-c8a770f33355",
+            "file_type": "cad_part",
+            "format": "step",
+            "original_file": "uploads/designreview/seed-f6ac266d08fb00d6c75a6870ece1b2ad/original.stp",
+            "gltf_file": "uploads/designreview/seed-f6ac266d08fb00d6c75a6870ece1b2ad/wireframe.gltf",
+            "drawing_file": null,
+            "representation": "wireframe",
+            "thumbnail": "uploads/designreview/seed-f6ac266d08fb00d6c75a6870ece1b2ad/thumb.png",
+            "metadata_json": {
+              "schema": "AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }",
+              "protocol": "AP214",
+              "file_name": "E:\\\\Public\\\\Archive_PDES\\\\TR22\\\\NativeFiles\\\\s1\\\\MAINBODY_BACK.stp",
+              "timestamp": "2008-08-18T12:41:46+00:00",
+              "originating_system": "CATIA V5 STEP",
+              "distinct_products": 1,
+              "occurrence_links": 0,
+              "is_assembly": false,
+              "part_count": 1
+            },
+            "assembly_tree_json": {
+              "root": {
+                "part_number": "MAINBODY_BACK",
+                "name": "MAINBODY_BACK",
+                "quantity": 1,
+                "children": []
+              }
+            },
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 113822,
+            "part_count": 1,
+            "current_version": 6,
+            "has_pmi": 0,
+            "has_brep": 0,
+            "status": "approved",
+            "released_version_id": null,
+            "released_at": "2026-06-20",
+            "item_id": "15d39d1f-82a8-4125-a6ed-7fd0abeab2d0",
+            "created_at": "2026-09-16T16:27:37.914595",
+            "updated_at": "2026-09-16T16:27:43.724487",
+            "created_by": null,
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "OEM Weldment Program \u2014 2026",
+            "_item_id_display": "Hydraulic Manifold Mount, machined",
+            "_display": "Hydraulic Manifold Mount \u2014 Machined Part",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "27711dc5-6d29-4603-b803-f03212dcb024",
+            "number": "DF-2026-00025",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Cab Step Frame \u2014 Weldment",
+            "project_id": "f1a31baf-9c29-4beb-829a-c8a770f33355",
+            "file_type": "cad_assembly",
+            "format": "step",
+            "original_file": "uploads/designreview/seed-23d6114f222a0ab5c1a7376faabc2bd7/original.stp",
+            "gltf_file": "uploads/designreview/seed-23d6114f222a0ab5c1a7376faabc2bd7/wireframe.gltf",
+            "drawing_file": null,
+            "representation": "wireframe",
+            "thumbnail": "uploads/designreview/seed-23d6114f222a0ab5c1a7376faabc2bd7/thumb.png",
+            "metadata_json": {
+              "schema": "AP203_CONFIGURATION_CONTROLLED_3D_DESIGN_OF_MECHANICAL_PARTS_AND_ASSEMBLIES_MIM_LF",
+              "protocol": "AP203",
+              "file_name": "AS1_PE_ASM",
+              "timestamp": "2008-09-04T",
+              "originating_system": "PRO/ENGINEER BY PARAMETRIC TECHNOLOGY CORPORATION, 2008340",
+              "distinct_products": 9,
+              "occurrence_links": 13,
+              "is_assembly": true,
+              "part_count": 18
+            },
+            "assembly_tree_json": {
+              "root": {
+                "part_number": "AS1_PE_ASM",
+                "name": "AS1_PE_ASM",
+                "quantity": 1,
+                "children": [
+                  {
+                    "part_number": "PLATE",
+                    "name": "PLATE",
+                    "quantity": 1,
+                    "children": []
+                  },
+                  {
+                    "part_number": "L_BRACKET_ASSEMBLY_ASM",
+                    "name": "L_BRACKET_ASSEMBLY_ASM",
+                    "quantity": 2,
+                    "children": [
+                      {
+                        "part_number": "L-BRACKET",
+                        "name": "L-BRACKET",
+                        "quantity": 1,
+                        "children": []
+                      },
+                      {
+                        "part_number": "NUT_BOLT_ASSEMBLY_ASM",
+                        "name": "NUT_BOLT_ASSEMBLY_ASM",
+                        "quantity": 3,
+                        "children": [
+                          {
+                            "part_number": "BOLT",
+                            "name": "BOLT",
+                            "quantity": 1,
+                            "children": []
+                          },
+                          {
+                            "part_number": "NUT",
+                            "name": "NUT",
+                            "quantity": 1,
+                            "children": []
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "part_number": "ROD_ASM",
+                    "name": "ROD_ASM",
+                    "quantity": 1,
+                    "children": [
+                      {
+                        "part_number": "ROD",
+                        "name": "ROD",
+                        "quantity": 1,
+                        "children": []
+                      },
+                      {
+                        "part_number": "NUT",
+                        "name": "NUT",
+                        "quantity": 2,
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 136663,
+            "part_count": 18,
+            "current_version": 3,
+            "has_pmi": 0,
+            "has_brep": 0,
+            "status": "approved",
+            "released_version_id": null,
+            "released_at": "2026-06-20",
+            "item_id": "0ded07fc-e41d-45ef-9768-876300685b97",
+            "created_at": "2026-09-16T16:27:37.912253",
+            "updated_at": "2026-09-16T16:27:43.693594",
+            "created_by": null,
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "OEM Weldment Program \u2014 2026",
+            "_item_id_display": "Cab Step Frame, powder coated",
+            "_display": "Cab Step Frame \u2014 Weldment",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "2d7386ee-ae44-41ae-81a5-69b636c1a62a",
+            "number": "DF-2026-00024",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Skid-Steer Quick-Attach Plate \u2014 Machined Detail",
+            "project_id": "f1a31baf-9c29-4beb-829a-c8a770f33355",
+            "file_type": "drawing_2d",
+            "format": "dxf",
+            "original_file": "uploads/designreview/seed-f1ff847ffef1c50531d3f1b5594f8665/original.dxf",
+            "gltf_file": null,
+            "drawing_file": "uploads/designreview/seed-f1ff847ffef1c50531d3f1b5594f8665/drawing.json",
+            "representation": "drawing",
+            "thumbnail": "uploads/designreview/seed-f1ff847ffef1c50531d3f1b5594f8665/thumb.png",
+            "metadata_json": null,
+            "assembly_tree_json": null,
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 343110,
+            "part_count": 30,
+            "current_version": 2,
+            "has_pmi": 1,
+            "has_brep": 0,
+            "status": "ready",
+            "released_version_id": null,
+            "released_at": null,
+            "item_id": "f89bcb6a-5c15-43b8-ba0b-e111f9629466",
+            "created_at": "2026-09-16T16:27:37.909208",
+            "updated_at": "2026-09-16T16:27:43.682837",
+            "created_by": null,
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "OEM Weldment Program \u2014 2026",
+            "_item_id_display": "Skid-Steer Quick-Attach Plate",
+            "_display": "Skid-Steer Quick-Attach Plate \u2014 Machined Detail",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "940b5943-86f1-488d-834a-f0aee1004e82",
+            "number": "DF-2026-00023",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Grain Cart Ladder Guard \u2014 Weldment",
+            "project_id": "f1a31baf-9c29-4beb-829a-c8a770f33355",
+            "file_type": "cad_part",
+            "format": "step",
+            "original_file": "uploads/designreview/seed-f6ac266d08fb00d6c75a6870ece1b2ad/original.stp",
+            "gltf_file": "uploads/designreview/seed-f6ac266d08fb00d6c75a6870ece1b2ad/wireframe.gltf",
+            "drawing_file": null,
+            "representation": "wireframe",
+            "thumbnail": "uploads/designreview/seed-f6ac266d08fb00d6c75a6870ece1b2ad/thumb.png",
+            "metadata_json": {
+              "schema": "AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }",
+              "protocol": "AP214",
+              "file_name": "E:\\\\Public\\\\Archive_PDES\\\\TR22\\\\NativeFiles\\\\s1\\\\MAINBODY_BACK.stp",
+              "timestamp": "2008-08-18T12:41:46+00:00",
+              "originating_system": "CATIA V5 STEP",
+              "distinct_products": 1,
+              "occurrence_links": 0,
+              "is_assembly": false,
+              "part_count": 1
+            },
+            "assembly_tree_json": {
+              "root": {
+                "part_number": "MAINBODY_BACK",
+                "name": "MAINBODY_BACK",
+                "quantity": 1,
+                "children": []
+              }
+            },
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 113822,
+            "part_count": 1,
+            "current_version": 3,
+            "has_pmi": 0,
+            "has_brep": 0,
+            "status": "approved",
+            "released_version_id": null,
+            "released_at": "2026-06-20",
+            "item_id": "5bc32c9c-3f7a-4816-9453-402d60739656",
+            "created_at": "2026-09-16T16:27:37.906315",
+            "updated_at": "2026-09-16T16:27:43.677361",
+            "created_by": null,
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "OEM Weldment Program \u2014 2026",
+            "_item_id_display": "Grain Cart Ladder Guard Weldment",
+            "_display": "Grain Cart Ladder Guard \u2014 Weldment",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "53237544-fdcc-4c5d-b189-f738cd0d3d3d",
+            "number": "DF-2026-00022",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Combine Header Auger Bracket \u2014 Gusset Detail",
+            "project_id": "f1a31baf-9c29-4beb-829a-c8a770f33355",
+            "file_type": "drawing_2d",
+            "format": "dxf",
+            "original_file": "uploads/designreview/seed-d7d7300ca043a48177dc36f1eaf275b7/original.dxf",
+            "gltf_file": null,
+            "drawing_file": "uploads/designreview/seed-d7d7300ca043a48177dc36f1eaf275b7/drawing.json",
+            "representation": "drawing",
+            "thumbnail": "uploads/designreview/seed-d7d7300ca043a48177dc36f1eaf275b7/thumb.png",
+            "metadata_json": null,
+            "assembly_tree_json": null,
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 133398,
+            "part_count": 49,
+            "current_version": 3,
+            "has_pmi": 1,
+            "has_brep": 0,
+            "status": "ready",
+            "released_version_id": null,
+            "released_at": null,
+            "item_id": "c0580577-148c-47ff-a590-7c50f60a0777",
+            "created_at": "2026-09-16T16:27:37.903305",
+            "updated_at": "2026-09-16T16:27:43.665669",
+            "created_by": null,
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "OEM Weldment Program \u2014 2026",
+            "_item_id_display": "Combine Header Auger Bracket Assembly",
+            "_display": "Combine Header Auger Bracket \u2014 Gusset Detail",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "99c870a0-b6aa-4176-8362-7f875d889b71",
+            "number": "DF-2026-00021",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Combine Header Auger Bracket \u2014 Weldment",
+            "project_id": "f1a31baf-9c29-4beb-829a-c8a770f33355",
+            "file_type": "cad_assembly",
+            "format": "step",
+            "original_file": "uploads/designreview/seed-62def60d839f86962f721b4a06df0774/original.stp",
+            "gltf_file": "uploads/designreview/seed-62def60d839f86962f721b4a06df0774/wireframe.gltf",
+            "drawing_file": null,
+            "representation": "wireframe",
+            "thumbnail": "uploads/designreview/seed-62def60d839f86962f721b4a06df0774/thumb.png",
+            "metadata_json": {
+              "schema": "AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }",
+              "protocol": "AP214",
+              "file_name": "Open CASCADE Shape Model",
+              "timestamp": "2008-07-24T15:03:24",
+              "originating_system": "Open CASCADE Model",
+              "distinct_products": 5,
+              "occurrence_links": 6,
+              "is_assembly": true,
+              "part_count": 7
+            },
+            "assembly_tree_json": {
+              "root": {
+                "part_number": "l-bracket assembly",
+                "name": "l-bracket assembly",
+                "quantity": 1,
+                "children": [
+                  {
+                    "part_number": "nut-bolt assembly",
+                    "name": "nut-bolt assembly",
+                    "quantity": 3,
+                    "children": [
+                      {
+                        "part_number": "nut",
+                        "name": "nut",
+                        "quantity": 1,
+                        "children": []
+                      },
+                      {
+                        "part_number": "bolt",
+                        "name": "bolt",
+                        "quantity": 1,
+                        "children": []
+                      }
+                    ]
+                  },
+                  {
+                    "part_number": "l-bracket",
+                    "name": "l-bracket",
+                    "quantity": 1,
+                    "children": []
+                  }
+                ]
+              }
+            },
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 221913,
+            "part_count": 7,
+            "current_version": 4,
+            "has_pmi": 0,
+            "has_brep": 0,
+            "status": "ready",
+            "released_version_id": null,
+            "released_at": null,
+            "item_id": "c0580577-148c-47ff-a590-7c50f60a0777",
+            "created_at": "2026-09-16T16:27:37.900326",
+            "updated_at": "2026-09-16T16:27:43.655571",
+            "created_by": null,
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "OEM Weldment Program \u2014 2026",
+            "_item_id_display": "Combine Header Auger Bracket Assembly",
+            "_display": "Combine Header Auger Bracket \u2014 Weldment",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "353e2998-65e1-447e-a9da-5b61de7d23bf",
+            "number": "DF-2026-00020",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Tillage Toolbar Mounting Plate 22in \u2014 Weldment",
+            "project_id": "f1a31baf-9c29-4beb-829a-c8a770f33355",
+            "file_type": "cad_assembly",
+            "format": "step",
+            "original_file": "uploads/designreview/seed-be159c459a93748a1c5d891394760a7e/original.stp",
+            "gltf_file": "uploads/designreview/seed-be159c459a93748a1c5d891394760a7e/wireframe.gltf",
+            "drawing_file": null,
+            "representation": "wireframe",
+            "thumbnail": "uploads/designreview/seed-be159c459a93748a1c5d891394760a7e/thumb.png",
+            "metadata_json": {
+              "schema": "AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }",
+              "protocol": "AP214",
+              "file_name": "DM1_PE_ASM",
+              "timestamp": "2009-01-12T",
+              "originating_system": "PRO/ENGINEER BY PARAMETRIC TECHNOLOGY CORPORATION, 2008490",
+              "distinct_products": 8,
+              "occurrence_links": 6,
+              "is_assembly": true,
+              "part_count": 7
+            },
+            "assembly_tree_json": {
+              "root": {
+                "part_number": "DM1_PE_ASM",
+                "name": "DM1_PE_ASM",
+                "quantity": 1,
+                "children": [
+                  {
+                    "part_number": "L-BRACKET",
+                    "name": "L-BRACKET",
+                    "quantity": 1,
+                    "children": []
+                  },
+                  {
+                    "part_number": "NBA_ASM",
+                    "name": "NBA_ASM",
+                    "quantity": 3,
+                    "children": [
+                      {
+                        "part_number": "BOLT",
+                        "name": "BOLT",
+                        "quantity": 1,
+                        "children": []
+                      },
+                      {
+                        "part_number": "NUT",
+                        "name": "NUT",
+                        "quantity": 1,
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 77136,
+            "part_count": 7,
+            "current_version": 5,
+            "has_pmi": 0,
+            "has_brep": 0,
+            "status": "approved",
+            "released_version_id": null,
+            "released_at": "2026-06-20",
+            "item_id": "0e76ef68-1d8f-4589-ab1c-04e0bb440346",
+            "created_at": "2026-09-16T16:27:37.897440",
+            "updated_at": "2026-09-16T16:27:43.642969",
+            "created_by": null,
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "OEM Weldment Program \u2014 2026",
+            "_item_id_display": "Tillage Toolbar Mounting Plate, 22in",
+            "_display": "Tillage Toolbar Mounting Plate 22in \u2014 Weldment",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "331d3363-5164-4204-95ed-4523f9d41755",
+            "number": "DF-2026-00019",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Jig Bracket Cast \u2014 Purchased Part Reference",
+            "project_id": "71949d4c-116d-464b-ac61-599a04dcac70",
+            "file_type": "cad_assembly",
+            "format": "step",
+            "original_file": "uploads/designreview/seed-62def60d839f86962f721b4a06df0774/original.stp",
+            "gltf_file": "uploads/designreview/seed-62def60d839f86962f721b4a06df0774/wireframe.gltf",
+            "drawing_file": null,
+            "representation": "wireframe",
+            "thumbnail": "uploads/designreview/seed-62def60d839f86962f721b4a06df0774/thumb.png",
+            "metadata_json": {
+              "schema": "AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }",
+              "protocol": "AP214",
+              "file_name": "Open CASCADE Shape Model",
+              "timestamp": "2008-07-24T15:03:24",
+              "originating_system": "Open CASCADE Model",
+              "distinct_products": 5,
+              "occurrence_links": 6,
+              "is_assembly": true,
+              "part_count": 7
+            },
+            "assembly_tree_json": {
+              "root": {
+                "part_number": "l-bracket assembly",
+                "name": "l-bracket assembly",
+                "quantity": 1,
+                "children": [
+                  {
+                    "part_number": "nut-bolt assembly",
+                    "name": "nut-bolt assembly",
+                    "quantity": 3,
+                    "children": [
+                      {
+                        "part_number": "nut",
+                        "name": "nut",
+                        "quantity": 1,
+                        "children": []
+                      },
+                      {
+                        "part_number": "bolt",
+                        "name": "bolt",
+                        "quantity": 1,
+                        "children": []
+                      }
+                    ]
+                  },
+                  {
+                    "part_number": "l-bracket",
+                    "name": "l-bracket",
+                    "quantity": 1,
+                    "children": []
+                  }
+                ]
+              }
+            },
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 221913,
+            "part_count": 7,
+            "current_version": 1,
+            "has_pmi": 0,
+            "has_brep": 0,
+            "status": "ready",
+            "released_version_id": null,
+            "released_at": null,
+            "item_id": "bc49e18f-7a20-43e5-83ac-1b41dc7684ea",
+            "created_at": "2026-09-16T16:27:37.894280",
+            "updated_at": "2026-09-16T16:27:43.629031",
+            "created_by": null,
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "Keystone Fixture Line \u2014 2026 Catalog",
+            "_item_id_display": "Jig Bracket, Cast \u2014 kit component",
+            "_display": "Jig Bracket Cast \u2014 Purchased Part Reference",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "77cccda8-55ca-4a5f-957f-84cb88f165a4",
+            "number": "DF-2026-00018",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Machinist Bench Bracket Set \u2014 Flat Pattern",
+            "project_id": "71949d4c-116d-464b-ac61-599a04dcac70",
+            "file_type": "cad_assembly",
+            "format": "step",
+            "original_file": "uploads/designreview/seed-23d6114f222a0ab5c1a7376faabc2bd7/original.stp",
+            "gltf_file": "uploads/designreview/seed-23d6114f222a0ab5c1a7376faabc2bd7/wireframe.gltf",
+            "drawing_file": null,
+            "representation": "wireframe",
+            "thumbnail": "uploads/designreview/seed-23d6114f222a0ab5c1a7376faabc2bd7/thumb.png",
+            "metadata_json": {
+              "schema": "AP203_CONFIGURATION_CONTROLLED_3D_DESIGN_OF_MECHANICAL_PARTS_AND_ASSEMBLIES_MIM_LF",
+              "protocol": "AP203",
+              "file_name": "AS1_PE_ASM",
+              "timestamp": "2008-09-04T",
+              "originating_system": "PRO/ENGINEER BY PARAMETRIC TECHNOLOGY CORPORATION, 2008340",
+              "distinct_products": 9,
+              "occurrence_links": 13,
+              "is_assembly": true,
+              "part_count": 18
+            },
+            "assembly_tree_json": {
+              "root": {
+                "part_number": "AS1_PE_ASM",
+                "name": "AS1_PE_ASM",
+                "quantity": 1,
+                "children": [
+                  {
+                    "part_number": "PLATE",
+                    "name": "PLATE",
+                    "quantity": 1,
+                    "children": []
+                  },
+                  {
+                    "part_number": "L_BRACKET_ASSEMBLY_ASM",
+                    "name": "L_BRACKET_ASSEMBLY_ASM",
+                    "quantity": 2,
+                    "children": [
+                      {
+                        "part_number": "L-BRACKET",
+                        "name": "L-BRACKET",
+                        "quantity": 1,
+                        "children": []
+                      },
+                      {
+                        "part_number": "NUT_BOLT_ASSEMBLY_ASM",
+                        "name": "NUT_BOLT_ASSEMBLY_ASM",
+                        "quantity": 3,
+                        "children": [
+                          {
+                            "part_number": "BOLT",
+                            "name": "BOLT",
+                            "quantity": 1,
+                            "children": []
+                          },
+                          {
+                            "part_number": "NUT",
+                            "name": "NUT",
+                            "quantity": 1,
+                            "children": []
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "part_number": "ROD_ASM",
+                    "name": "ROD_ASM",
+                    "quantity": 1,
+                    "children": [
+                      {
+                        "part_number": "ROD",
+                        "name": "ROD",
+                        "quantity": 1,
+                        "children": []
+                      },
+                      {
+                        "part_number": "NUT",
+                        "name": "NUT",
+                        "quantity": 2,
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 136663,
+            "part_count": 18,
+            "current_version": 2,
+            "has_pmi": 0,
+            "has_brep": 0,
+            "status": "approved",
+            "released_version_id": null,
+            "released_at": "2026-06-20",
+            "item_id": "972ded4e-0d84-4ec9-9bb2-ebf098bbe9be",
+            "created_at": "2026-09-16T16:27:37.891413",
+            "updated_at": "2026-09-16T16:27:43.626019",
+            "created_by": null,
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "Keystone Fixture Line \u2014 2026 Catalog",
+            "_item_id_display": "Machinist Bench Bracket Set",
+            "_display": "Machinist Bench Bracket Set \u2014 Flat Pattern",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "ae0f5933-df01-4601-b302-badcefaf0d40",
+            "number": "DF-2026-00017",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Angle Plate 6x8 Ground \u2014 Part",
+            "project_id": "71949d4c-116d-464b-ac61-599a04dcac70",
+            "file_type": "cad_part",
+            "format": "step",
+            "original_file": "uploads/designreview/seed-2735a36cc800c9cf9d971a0245b4c03c/original.stp",
+            "gltf_file": "uploads/designreview/seed-2735a36cc800c9cf9d971a0245b4c03c/wireframe.gltf",
+            "drawing_file": null,
+            "representation": "wireframe",
+            "thumbnail": "uploads/designreview/seed-2735a36cc800c9cf9d971a0245b4c03c/thumb.png",
+            "metadata_json": {
+              "schema": "AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }",
+              "protocol": "AP214",
+              "file_name": "\\\\\\\\db116dsp\\\\home\\\\ArchivePublic\\\\Archive_PDES\\\\TR26\\\\native\\\\SG\\\\sg1-c5-214.stp",
+              "timestamp": "2010-08-27T15:05:34+00:00",
+              "originating_system": "CATIA V5 STEP Exchange",
+              "distinct_products": 1,
+              "occurrence_links": 0,
+              "is_assembly": false,
+              "part_count": 1
+            },
+            "assembly_tree_json": {
+              "root": {
+                "part_number": "SG1",
+                "name": "SG1",
+                "quantity": 1,
+                "children": []
+              }
+            },
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 23354,
+            "part_count": 1,
+            "current_version": 3,
+            "has_pmi": 0,
+            "has_brep": 0,
+            "status": "approved",
+            "released_version_id": null,
+            "released_at": "2026-06-20",
+            "item_id": "9bf21cc2-b01b-4878-9773-968288f9f0a6",
+            "created_at": "2026-09-16T16:27:37.888454",
+            "updated_at": "2026-09-16T16:27:43.618471",
+            "created_by": null,
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "Keystone Fixture Line \u2014 2026 Catalog",
+            "_item_id_display": "Angle Plate, Ground 6x8in",
+            "_display": "Angle Plate 6x8 Ground \u2014 Part",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "88346476-00ec-4c2f-80fa-1d41e996817a",
+            "number": "DF-2026-00016",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Toggle Clamp Set \u2014 Assembly",
+            "project_id": "71949d4c-116d-464b-ac61-599a04dcac70",
+            "file_type": "cad_part",
+            "format": "step",
+            "original_file": "uploads/designreview/seed-e61a28709a7d31fdf3f72863a79628e8/original.stp",
+            "gltf_file": "uploads/designreview/seed-e61a28709a7d31fdf3f72863a79628e8/wireframe.gltf",
+            "drawing_file": null,
+            "representation": "wireframe",
+            "thumbnail": "uploads/designreview/seed-e61a28709a7d31fdf3f72863a79628e8/thumb.png",
+            "metadata_json": {
+              "schema": "AUTOMOTIVE_DESIGN",
+              "protocol": "AP214",
+              "file_name": "hollow_cube_5mm_wall.stp",
+              "timestamp": "2026-03-29T00:00:00",
+              "distinct_products": 1,
+              "occurrence_links": 0,
+              "is_assembly": false,
+              "part_count": 1
+            },
+            "assembly_tree_json": {
+              "root": {
+                "part_number": "HollowCube5mmWall",
+                "name": "HollowCube5mmWall",
+                "quantity": 1,
+                "children": []
+              }
+            },
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 7986,
+            "part_count": 1,
+            "current_version": 2,
+            "has_pmi": 0,
+            "has_brep": 0,
+            "status": "approved",
+            "released_version_id": null,
+            "released_at": "2026-06-20",
+            "item_id": "fd54e997-f1b6-4c1a-905a-3ddabf9e7e9b",
+            "created_at": "2026-09-16T16:27:37.885779",
+            "updated_at": "2026-09-16T16:27:43.607726",
+            "created_by": null,
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "Keystone Fixture Line \u2014 2026 Catalog",
+            "_item_id_display": "Toggle Clamp Set, 4-Piece Heavy Duty",
+            "_display": "Toggle Clamp Set \u2014 Assembly",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "1c3dc966-6369-422d-97a5-fa61a9a6fd90",
+            "number": "DF-2026-00015",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Precision V-Block Pair 2in \u2014 Detail",
+            "project_id": "71949d4c-116d-464b-ac61-599a04dcac70",
+            "file_type": "drawing_2d",
+            "format": "dxf",
+            "original_file": "uploads/designreview/seed-d7d7300ca043a48177dc36f1eaf275b7/original.dxf",
+            "gltf_file": null,
+            "drawing_file": "uploads/designreview/seed-d7d7300ca043a48177dc36f1eaf275b7/drawing.json",
+            "representation": "drawing",
+            "thumbnail": "uploads/designreview/seed-d7d7300ca043a48177dc36f1eaf275b7/thumb.png",
+            "metadata_json": null,
+            "assembly_tree_json": null,
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 133398,
+            "part_count": 49,
+            "current_version": 2,
+            "has_pmi": 1,
+            "has_brep": 0,
+            "status": "approved",
+            "released_version_id": null,
+            "released_at": "2026-06-20",
+            "item_id": "748a80a8-a3cc-4fa2-bd6d-6fa3dd743f11",
+            "created_at": "2026-09-16T16:27:37.882910",
+            "updated_at": "2026-09-16T16:27:43.602416",
+            "created_by": null,
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "Keystone Fixture Line \u2014 2026 Catalog",
+            "_item_id_display": "Precision V-Block Pair, 2in Hardened",
+            "_display": "Precision V-Block Pair 2in \u2014 Detail",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "5afe5421-bef0-4e34-8a78-48dfbbbd6862",
+            "number": "DF-2026-00014",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Adjustable Weld Square 12in \u2014 Detail",
+            "project_id": "71949d4c-116d-464b-ac61-599a04dcac70",
+            "file_type": "drawing_2d",
+            "format": "dxf",
+            "original_file": "uploads/designreview/seed-d7d7300ca043a48177dc36f1eaf275b7/original.dxf",
+            "gltf_file": null,
+            "drawing_file": "uploads/designreview/seed-d7d7300ca043a48177dc36f1eaf275b7/drawing.json",
+            "representation": "drawing",
+            "thumbnail": "uploads/designreview/seed-d7d7300ca043a48177dc36f1eaf275b7/thumb.png",
+            "metadata_json": null,
+            "assembly_tree_json": null,
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 133398,
+            "part_count": 49,
+            "current_version": 3,
+            "has_pmi": 1,
+            "has_brep": 0,
+            "status": "approved",
+            "released_version_id": null,
+            "released_at": "2026-06-20",
+            "item_id": "4b21c280-fcf1-4b61-9236-04dc2f1f4fb0",
+            "created_at": "2026-09-16T16:27:37.880191",
+            "updated_at": "2026-09-16T16:27:43.597412",
+            "created_by": null,
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "Keystone Fixture Line \u2014 2026 Catalog",
+            "_item_id_display": "Adjustable Weld Square, 12in",
+            "_display": "Adjustable Weld Square 12in \u2014 Detail",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "466c7d0f-1d82-416f-ba1e-1a69835d18ed",
+            "number": "DF-2026-00013",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Weld Table Starter Kit \u2014 Assembly",
+            "project_id": "71949d4c-116d-464b-ac61-599a04dcac70",
+            "file_type": "cad_part",
+            "format": "step",
+            "original_file": "uploads/designreview/seed-2735a36cc800c9cf9d971a0245b4c03c/original.stp",
+            "gltf_file": "uploads/designreview/seed-2735a36cc800c9cf9d971a0245b4c03c/wireframe.gltf",
+            "drawing_file": null,
+            "representation": "wireframe",
+            "thumbnail": "uploads/designreview/seed-2735a36cc800c9cf9d971a0245b4c03c/thumb.png",
+            "metadata_json": {
+              "schema": "AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }",
+              "protocol": "AP214",
+              "file_name": "\\\\\\\\db116dsp\\\\home\\\\ArchivePublic\\\\Archive_PDES\\\\TR26\\\\native\\\\SG\\\\sg1-c5-214.stp",
+              "timestamp": "2010-08-27T15:05:34+00:00",
+              "originating_system": "CATIA V5 STEP Exchange",
+              "distinct_products": 1,
+              "occurrence_links": 0,
+              "is_assembly": false,
+              "part_count": 1
+            },
+            "assembly_tree_json": {
+              "root": {
+                "part_number": "SG1",
+                "name": "SG1",
+                "quantity": 1,
+                "children": []
+              }
+            },
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 23354,
+            "part_count": 1,
+            "current_version": 4,
+            "has_pmi": 0,
+            "has_brep": 0,
+            "status": "approved",
+            "released_version_id": null,
+            "released_at": "2026-06-20",
+            "item_id": "2eed013b-0b6d-44a6-8be0-e376039a01f1",
+            "created_at": "2026-09-16T16:27:37.873894",
+            "updated_at": "2026-09-16T16:27:43.588494",
+            "created_by": null,
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "Keystone Fixture Line \u2014 2026 Catalog",
+            "_item_id_display": "Keystone Fixture Kit \u2014 Weld Table Starter Set",
+            "_display": "Weld Table Starter Kit \u2014 Assembly",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "0eaa3eb9-1cea-4528-9bd7-43dc680301db",
+            "number": "DF-2026-00012",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Toolbar Hitch Pin \u2014 Machining Drawing (DXF)",
+            "project_id": "38b3102e-cc3e-405b-970b-63d2829fd729",
+            "file_type": "drawing_2d",
+            "format": "dxf",
+            "original_file": "uploads/designreview/seed-f1ff847ffef1c50531d3f1b5594f8665/original.dxf",
+            "gltf_file": "",
+            "drawing_file": "uploads/designreview/seed-f1ff847ffef1c50531d3f1b5594f8665/drawing.json",
+            "representation": "drawing",
+            "thumbnail": "uploads/designreview/seed-f1ff847ffef1c50531d3f1b5594f8665/thumb.png",
+            "metadata_json": null,
+            "assembly_tree_json": null,
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 343110,
+            "part_count": 30,
+            "current_version": 1,
+            "has_pmi": 0,
+            "has_brep": 0,
+            "status": "ready",
+            "released_version_id": null,
+            "released_at": null,
+            "item_id": null,
+            "created_at": "2026-09-16T16:27:26.220696",
+            "updated_at": "2026-09-16T16:27:26.296691",
+            "created_by": "4c42bf26-13d1-42a3-871a-02d669b9da59",
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "Tillage Toolbar \u2014 Structural Redesign",
+            "_display": "Toolbar Hitch Pin \u2014 Machining Drawing (DXF)",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "ca76201a-d267-458a-a77b-a1971b86e8fc",
+            "number": "DF-2026-00011",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Tillage Toolbar \u2014 Hitch Housing (STEP master)",
+            "project_id": "38b3102e-cc3e-405b-970b-63d2829fd729",
+            "file_type": "cad_part",
+            "format": "step",
+            "original_file": "uploads/designreview/seed-1a122ad0610ece314c062c173f5e517f/original.stp",
+            "gltf_file": "uploads/designreview/seed-1a122ad0610ece314c062c173f5e517f/wireframe.gltf",
+            "drawing_file": null,
+            "representation": "wireframe",
+            "thumbnail": "uploads/designreview/seed-1a122ad0610ece314c062c173f5e517f/thumb.png",
+            "metadata_json": {
+              "schema": "AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }",
+              "protocol": "AP214",
+              "file_name": "io1.stp",
+              "timestamp": "2008-05-07T16:14:57",
+              "distinct_products": 1,
+              "occurrence_links": 0,
+              "is_assembly": false,
+              "part_count": 1
+            },
+            "assembly_tree_json": {
+              "root": {
+                "part_number": "io1",
+                "name": "io1",
+                "quantity": 1,
+                "children": []
+              }
+            },
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 41720,
+            "part_count": 1,
+            "current_version": 1,
+            "has_pmi": 0,
+            "has_brep": 0,
+            "status": "ready",
+            "released_version_id": null,
+            "released_at": null,
+            "item_id": null,
+            "created_at": "2026-09-16T16:27:26.202652",
+            "updated_at": "2026-09-16T16:27:26.293786",
+            "created_by": "4c42bf26-13d1-42a3-871a-02d669b9da59",
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "Tillage Toolbar \u2014 Structural Redesign",
+            "_display": "Tillage Toolbar \u2014 Hitch Housing (STEP master)",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "b37511c0-0d3c-4f4f-abcd-61815f5666cb",
+            "number": "DF-2026-00010",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Prototype Bracket \u2014 3D Print Ready",
+            "project_id": "f9dc45e9-d79a-4dd2-a401-8d34e3679bab",
+            "file_type": "cad_part",
+            "format": "stl",
+            "original_file": "uploads/designreview/seed-d73d63fffdc647b5099d07f9af1b5d65/original.stl",
+            "gltf_file": "uploads/designreview/seed-d73d63fffdc647b5099d07f9af1b5d65/original.stl",
+            "drawing_file": null,
+            "representation": "solid",
+            "thumbnail": "uploads/designreview/seed-d73d63fffdc647b5099d07f9af1b5d65/thumb.png",
+            "metadata_json": null,
+            "assembly_tree_json": null,
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 44784,
+            "part_count": 1,
+            "current_version": 1,
+            "has_pmi": 0,
+            "has_brep": 0,
+            "status": "ready",
+            "released_version_id": null,
+            "released_at": null,
+            "item_id": null,
+            "created_at": "2026-09-16T16:27:26.138192",
+            "updated_at": "2026-09-16T16:27:26.289777",
+            "created_by": "4c42bf26-13d1-42a3-871a-02d669b9da59",
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "Weld Fixture Line \u2014 Modular Table Kit",
+            "_display": "Prototype Bracket \u2014 3D Print Ready",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "e730bc81-e38f-45df-8b60-8e9946c323e1",
+            "number": "DF-2026-00009",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Weld Table Kit \u2014 Top Plate",
+            "project_id": "f9dc45e9-d79a-4dd2-a401-8d34e3679bab",
+            "file_type": "cad_part",
+            "format": "gltf",
+            "original_file": "uploads/designreview/seed-7e105b1dc75eb1365bf2102c793c92f3/original.glb",
+            "gltf_file": "uploads/designreview/seed-7e105b1dc75eb1365bf2102c793c92f3/original.glb",
+            "drawing_file": null,
+            "representation": "solid",
+            "thumbnail": "uploads/designreview/seed-7e105b1dc75eb1365bf2102c793c92f3/thumb.png",
+            "metadata_json": null,
+            "assembly_tree_json": null,
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 1664,
+            "part_count": 1,
+            "current_version": 2,
+            "has_pmi": 1,
+            "has_brep": 0,
+            "status": "ready",
+            "released_version_id": null,
+            "released_at": null,
+            "item_id": null,
+            "created_at": "2026-09-16T16:27:26.113628",
+            "updated_at": "2026-09-16T16:27:26.286111",
+            "created_by": "4c42bf26-13d1-42a3-871a-02d669b9da59",
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "Weld Fixture Line \u2014 Modular Table Kit",
+            "_display": "Weld Table Kit \u2014 Top Plate",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "82827bc7-0386-42b1-9e60-62e898224d84",
+            "number": "DF-2026-00008",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Toolbar Hitch Pin \u2014 Detail Drawing",
+            "project_id": "38b3102e-cc3e-405b-970b-63d2829fd729",
+            "file_type": "drawing_2d",
+            "format": "pdf",
+            "original_file": null,
+            "gltf_file": null,
+            "drawing_file": null,
+            "representation": null,
+            "thumbnail": null,
+            "metadata_json": null,
+            "assembly_tree_json": null,
+            "conversion_status": "pending",
+            "conversion_error": null,
+            "file_size_bytes": null,
+            "part_count": 0,
+            "current_version": 1,
+            "has_pmi": 1,
+            "has_brep": 0,
+            "status": "uploaded",
+            "released_version_id": null,
+            "released_at": null,
+            "item_id": null,
+            "created_at": "2026-09-16T16:27:26.105406",
+            "updated_at": "2026-09-16T16:27:26.105406",
+            "created_by": "4c42bf26-13d1-42a3-871a-02d669b9da59",
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "Tillage Toolbar \u2014 Structural Redesign",
+            "_display": "Toolbar Hitch Pin \u2014 Detail Drawing",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "e69f42e9-7475-4014-8b5e-39c34dd38e75",
+            "number": "DF-2026-00007",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Toolbar Frame \u2014 FEA Stress Results",
+            "project_id": "38b3102e-cc3e-405b-970b-63d2829fd729",
+            "file_type": "simulation",
+            "format": "gltf",
+            "original_file": "uploads/designreview/seed-aa9da359bc3339c00bc1c40bc9b7bc15/original.glb",
+            "gltf_file": "uploads/designreview/seed-aa9da359bc3339c00bc1c40bc9b7bc15/original.glb",
+            "drawing_file": null,
+            "representation": "solid",
+            "thumbnail": "uploads/designreview/seed-aa9da359bc3339c00bc1c40bc9b7bc15/thumb.png",
+            "metadata_json": null,
+            "assembly_tree_json": null,
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 8961340,
+            "part_count": 1,
+            "current_version": 2,
+            "has_pmi": 0,
+            "has_brep": 0,
+            "status": "ready",
+            "released_version_id": null,
+            "released_at": null,
+            "item_id": null,
+            "created_at": "2026-09-16T16:27:26.102972",
+            "updated_at": "2026-09-16T16:27:26.282394",
+            "created_by": "4c42bf26-13d1-42a3-871a-02d669b9da59",
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "Tillage Toolbar \u2014 Structural Redesign",
+            "_display": "Toolbar Frame \u2014 FEA Stress Results",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "cbf927d2-551f-4f58-8191-fc8b3c55432d",
+            "number": "DF-2026-00006",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Tillage Toolbar \u2014 Weldment",
+            "project_id": "38b3102e-cc3e-405b-970b-63d2829fd729",
+            "file_type": "cad_assembly",
+            "format": "gltf",
+            "original_file": "uploads/designreview/seed-a102f0e8a6a4cf4673013d7aec0e9334/original.glb",
+            "gltf_file": "uploads/designreview/seed-a102f0e8a6a4cf4673013d7aec0e9334/original.glb",
+            "drawing_file": null,
+            "representation": "solid",
+            "thumbnail": "uploads/designreview/seed-a102f0e8a6a4cf4673013d7aec0e9334/thumb.png",
+            "metadata_json": null,
+            "assembly_tree_json": null,
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 9872848,
+            "part_count": 3,
+            "current_version": 4,
+            "has_pmi": 1,
+            "has_brep": 0,
+            "status": "ready",
+            "released_version_id": null,
+            "released_at": null,
+            "item_id": null,
+            "created_at": "2026-09-16T16:27:26.035230",
+            "updated_at": "2026-09-16T16:27:26.278812",
+            "created_by": "4c42bf26-13d1-42a3-871a-02d669b9da59",
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "Tillage Toolbar \u2014 Structural Redesign",
+            "_display": "Tillage Toolbar \u2014 Weldment",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "f27f4fda-342b-42ec-8562-e2f10e5d999f",
+            "number": "DF-2026-00005",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Ergonomic Grip \u2014 Sculpted Mesh",
+            "project_id": "7e04ca05-1b78-4c34-85c3-2462100d91cc",
+            "file_type": "cad_part",
+            "format": "gltf",
+            "original_file": "uploads/designreview/seed-20a405cd91612f4d8fa145897020ad9b/original.glb",
+            "gltf_file": "uploads/designreview/seed-20a405cd91612f4d8fa145897020ad9b/original.glb",
+            "drawing_file": null,
+            "representation": "solid",
+            "thumbnail": "uploads/designreview/seed-20a405cd91612f4d8fa145897020ad9b/thumb.png",
+            "metadata_json": null,
+            "assembly_tree_json": null,
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 8328156,
+            "part_count": 1,
+            "current_version": 1,
+            "has_pmi": 0,
+            "has_brep": 0,
+            "status": "ready",
+            "released_version_id": null,
+            "released_at": null,
+            "item_id": null,
+            "created_at": "2026-09-16T16:27:25.953672",
+            "updated_at": "2026-09-16T16:27:26.275121",
+            "created_by": "4c42bf26-13d1-42a3-871a-02d669b9da59",
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "Combine Header \u2014 Auger Drive Program",
+            "_display": "Ergonomic Grip \u2014 Sculpted Mesh",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "eb6fb002-3ede-4367-b448-0815a8c2d470",
+            "number": "DF-2026-00004",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Float Pivot \u2014 Motion Study",
+            "project_id": "7e04ca05-1b78-4c34-85c3-2462100d91cc",
+            "file_type": "cad_part",
+            "format": "gltf",
+            "original_file": "uploads/designreview/seed-7ca1de55b669c6e9a7e96799aa587c3e/original.glb",
+            "gltf_file": "uploads/designreview/seed-7ca1de55b669c6e9a7e96799aa587c3e/original.glb",
+            "drawing_file": null,
+            "representation": "solid",
+            "thumbnail": "uploads/designreview/seed-7ca1de55b669c6e9a7e96799aa587c3e/thumb.png",
+            "metadata_json": null,
+            "assembly_tree_json": null,
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 5822628,
+            "part_count": 3,
+            "current_version": 1,
+            "has_pmi": 0,
+            "has_brep": 0,
+            "status": "ready",
+            "released_version_id": null,
+            "released_at": null,
+            "item_id": null,
+            "created_at": "2026-09-16T16:27:25.912655",
+            "updated_at": "2026-09-16T16:27:26.271659",
+            "created_by": "4c42bf26-13d1-42a3-871a-02d669b9da59",
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "Combine Header \u2014 Auger Drive Program",
+            "_display": "Float Pivot \u2014 Motion Study",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "23fd86ab-0244-4946-add5-b8a6ba88ce38",
+            "number": "DF-2026-00003",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Auger Drive \u2014 Float Arm Drawing",
+            "project_id": "7e04ca05-1b78-4c34-85c3-2462100d91cc",
+            "file_type": "drawing_2d",
+            "format": "pdf",
+            "original_file": null,
+            "gltf_file": null,
+            "drawing_file": null,
+            "representation": null,
+            "thumbnail": null,
+            "metadata_json": null,
+            "assembly_tree_json": null,
+            "conversion_status": "pending",
+            "conversion_error": null,
+            "file_size_bytes": null,
+            "part_count": 0,
+            "current_version": 2,
+            "has_pmi": 1,
+            "has_brep": 0,
+            "status": "uploaded",
+            "released_version_id": null,
+            "released_at": null,
+            "item_id": null,
+            "created_at": "2026-09-16T16:27:25.436819",
+            "updated_at": "2026-09-16T16:27:25.436819",
+            "created_by": "4c42bf26-13d1-42a3-871a-02d669b9da59",
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "Combine Header \u2014 Auger Drive Program",
+            "_display": "Auger Drive \u2014 Float Arm Drawing",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "f91b59ec-f242-484d-8da2-fc3d59815264",
+            "number": "DF-2026-00002",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Auger Drive \u2014 Float Pivot Assembly",
+            "project_id": "7e04ca05-1b78-4c34-85c3-2462100d91cc",
+            "file_type": "cad_assembly",
+            "format": "gltf",
+            "original_file": "uploads/designreview/seed-ede18ef392c949a6e7d09dc745edba09/original.glb",
+            "gltf_file": "uploads/designreview/seed-ede18ef392c949a6e7d09dc745edba09/original.glb",
+            "drawing_file": null,
+            "representation": "solid",
+            "thumbnail": "uploads/designreview/seed-ede18ef392c949a6e7d09dc745edba09/thumb.png",
+            "metadata_json": null,
+            "assembly_tree_json": null,
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 1838084,
+            "part_count": 29,
+            "current_version": 2,
+            "has_pmi": 0,
+            "has_brep": 0,
+            "status": "ready",
+            "released_version_id": null,
+            "released_at": null,
+            "item_id": null,
+            "created_at": "2026-09-16T16:27:25.434239",
+            "updated_at": "2026-09-16T16:27:26.268497",
+            "created_by": "4c42bf26-13d1-42a3-871a-02d669b9da59",
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "Combine Header \u2014 Auger Drive Program",
+            "_display": "Auger Drive \u2014 Float Pivot Assembly",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          },
+          {
+            "id": "d3156003-4c06-49b4-b299-08478874cebb",
+            "number": "DF-2026-00001",
+            "company_id": "c1e47d8d-b849-4187-9a32-4103d3dece4a",
+            "name": "Auger Drive \u2014 Housing Cover",
+            "project_id": "7e04ca05-1b78-4c34-85c3-2462100d91cc",
+            "file_type": "cad_part",
+            "format": "gltf",
+            "original_file": "uploads/designreview/seed-ac2b27fc0f8ad949f621e9feeb158590/original.glb",
+            "gltf_file": "uploads/designreview/seed-ac2b27fc0f8ad949f621e9feeb158590/original.glb",
+            "drawing_file": null,
+            "representation": "solid",
+            "thumbnail": "uploads/designreview/seed-ac2b27fc0f8ad949f621e9feeb158590/thumb.png",
+            "metadata_json": null,
+            "assembly_tree_json": null,
+            "conversion_status": "completed",
+            "conversion_error": null,
+            "file_size_bytes": 3773916,
+            "part_count": 1,
+            "current_version": 3,
+            "has_pmi": 1,
+            "has_brep": 0,
+            "status": "ready",
+            "released_version_id": null,
+            "released_at": null,
+            "item_id": null,
+            "created_at": "2026-09-16T16:27:24.990328",
+            "updated_at": "2026-09-16T16:27:26.264675",
+            "created_by": "4c42bf26-13d1-42a3-871a-02d669b9da59",
+            "updated_by": null,
+            "source_email_message_id": null,
+            "source_email_attachment_id": null,
+            "_company_id_display": "Keystone Precision Works LLC",
+            "_project_id_display": "Combine Header \u2014 Auger Drive Program",
+            "_display": "Auger Drive \u2014 Housing Cover",
+            "_permissions": {
+              "write": true,
+              "delete": false
+            },
+            "_can_create": true,
+            "_readonly_fields": [
+              "source_email_message_id",
+              "source_email_attachment_id"
+            ]
+          }
+        ],
+        "total": 30,
+        "limit": 100,
+        "offset": 0
+      },
       "error_kind": null,
       "error": null
     }

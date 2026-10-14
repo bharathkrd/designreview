@@ -21,7 +21,9 @@ What a pack can rely on:
 - `read_all(client, tool, filters, safe_keys)` -- page a `.list` tool through
   `client.invoke_tool` (so every page is journaled) with `split_filters`, then
   re-check every filter in code. Returns {"data": rows, "total": len(rows)},
-  the shape a single `.list` page has.
+  the shape a single `.list` page has, plus "complete": False and
+  "server_total" when the server said there were more rows than it returned
+  (a short page before the total was reached -- a partial payload).
 
 Provenance: the defensive-read idea (send only exact filters, page in full,
 re-check filters and do "not equal" in code) is referred from an outside
@@ -103,7 +105,7 @@ def read_all(client: Any, tool: str, filters: Optional[Mapping[str, Any]] = None
     filters = dict(filters or {})
     server, _ = split_filters(filters, safe_keys)
     rows: List[Dict[str, Any]] = []
-    offset = 0
+    offset, server_total = 0, None
     for _ in range(max_pages):
         payload = client.invoke_tool(tool, {**server, "limit": page, "offset": offset})
         batch = payload.get("data") if isinstance(payload, dict) else payload
@@ -112,7 +114,12 @@ def read_all(client: Any, tool: str, filters: Optional[Mapping[str, Any]] = None
         rows.extend(r for r in batch if isinstance(r, dict))
         offset += len(batch)
         total = payload.get("total") if isinstance(payload, dict) else None
-        if not batch or len(batch) < page or (total is not None and offset >= int(total)):
+        if isinstance(total, (int, float)) or (isinstance(total, str) and total.isdigit()):
+            server_total = int(total)
+        if not batch or len(batch) < page or (server_total is not None and offset >= server_total):
             break
+    out: Dict[str, Any] = {}
+    if server_total is not None and offset < server_total:
+        out = {"complete": False, "server_total": server_total, "received": offset}
     rows = recheck(rows, **filters)  # every filter re-checked here, server-side ones included
-    return {"data": rows, "total": len(rows)}
+    return {"data": rows, "total": len(rows), **out}

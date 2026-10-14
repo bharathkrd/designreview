@@ -27,6 +27,7 @@ What a caller can rely on:
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import logging
@@ -38,13 +39,13 @@ import time
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Literal, Optional, Tuple
 
 import httpx
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-from agentkit.config import CONFIG_DIR, ConfigError, load_env, read_config, validation_message
+from agentkit.config import CONFIG_DIR, ConfigError, from_process, load_env, read_config, validation_message
 from agentkit.llm.economics import CostLedger
 from agentkit.telemetry.spans import add_event, span
 from agentkit.transport.wire import refuse_if_offline
@@ -60,10 +61,12 @@ FAILURE_COOLDOWN_S = 20.0
 AUTH_COOLDOWN_S = 300.0
 ANTHROPIC_VERSION = "2023-06-01"
 # Current Claude models that reject temperature/top_p/top_k with a 400.
-_NO_SAMPLING_MODELS = re.compile(r"^claude-(opus-5|opus-4-[78]|sonnet-5|fable|mythos)", re.I)
+_NO_SAMPLING_MODELS = re.compile(r"^claude-(opus-5|opus-4-[78]|sonnet-5|haiku-5|fable|mythos)", re.I)
 # Models with thinking on by default: thinking spends max_tokens, so keep headroom.
 _THINKING_DEFAULT_MODELS = re.compile(r"^claude-(opus-5|fable|mythos)", re.I)
 MIN_TOKENS_THINKING = 16000
+# About the provider's smallest cacheable prompt (~1024 tokens at ~4 characters per token).
+ANTHROPIC_CACHE_MIN_CHARS = 4096
 
 
 class ProviderSpec(BaseModel):
@@ -77,11 +80,30 @@ class ProviderSpec(BaseModel):
     keyless: bool = False
     rpm: int = Field(60, gt=0)
     timeout: float = Field(60.0, gt=0)
+    # Any OpenAI-compatible endpoint: `url` (base, e.g. https://host/v1, or the full .../chat/completions);
+    # `url_env` (if set in the environment) overrides it. Built-in providers ignore both.
+    url: Optional[str] = None
+    url_env: Optional[str] = None
+    # Some models accept one temperature only (Moonshot's kimi-k2.6: 1): sent instead of the caller's.
+    temperature: Optional[float] = Field(None, ge=0)
+    # Reasoning models (OpenAI gpt-6-*): the output cap is "max_completion_tokens" and it includes the
+    # reasoning tokens; `reasoning_effort` is sent as is (gpt-6-luna takes "none", gpt-6.1-sol "low" at least).
+    max_tokens_field: Literal["max_tokens", "max_completion_tokens"] = "max_tokens"
+    reasoning_effort: Optional[str] = None
+    # A second row on a native API (another model, its own tier place, rate state and cool-down):
+    # api = "anthropic" or "gemini" uses that provider's adapter under this row's name.
+    api: Optional[Literal["anthropic", "gemini"]] = None
 
     @property
     def is_keyless(self) -> bool:
         # keyless = true, or (JSON test configs) an explicit "key_env": null
         return self.keyless or ("key_env" in self.model_fields_set and self.key_env is None)
+
+
+def chat_url(base: str) -> str:
+    """https://host/v1 -> https://host/v1/chat/completions (a full endpoint is kept as is)."""
+    base = base.rstrip("/")
+    return base if base.endswith("/chat/completions") else f"{base}/chat/completions"
 
 
 class RoutingConfig(BaseModel):
@@ -259,6 +281,19 @@ class LLMGateway:
             "nvidia": self._openai_compat("https://integrate.api.nvidia.com/v1/chat/completions", "nvidia"),
             "openrouter": self._openai_compat("https://openrouter.ai/api/v1/chat/completions", "openrouter"),
         }
+        native = {"anthropic": self._call_anthropic, "gemini": self._call_gemini}
+        for p in self._config.providers:
+            base = self.base_url(p.name)
+            if p.name in self._adapters:
+                continue
+            if p.api:
+                self._adapters[p.name] = functools.partial(native[p.api], provider=p.name)
+            elif base:
+                self._adapters[p.name] = self._openai_compat(chat_url(base), p.name)
+        # The official runner injects OPENAI_* into the process: that endpoint then goes first in every
+        # tier. The same key copied into .env only makes "openai" available to tiers that name it.
+        key = self._env.get("OPENAI_API_KEY")
+        self._openai_first = bool(key) and not (self._env is os.environ and from_process("OPENAI_API_KEY") is None)
         if self._env.get("OPENAI_API_KEY"):
             base = self._env.get("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
             url = f"{base}/chat/completions" if not base.endswith("/chat/completions") else base
@@ -277,6 +312,13 @@ class LLMGateway:
         env_name = (spec.key_env if spec else None) or f"{provider.upper()}_API_KEY"
         return self._env.get(env_name) or None
 
+    def base_url(self, provider: str) -> str:
+        """The configured OpenAI-compatible base URL of a routing.toml row ("" when it has none)."""
+        spec = self._providers.get(provider)
+        if spec is None:
+            return ""
+        return ((self._env.get(spec.url_env) if spec.url_env else None) or spec.url or "").rstrip("/")
+
     def model_for(self, provider: str) -> str:
         spec = self._providers.get(provider)
         if spec is None:
@@ -290,7 +332,7 @@ class LLMGateway:
     def candidate_order(self, tier: str) -> List[str]:
         tiers = self._config.tiers
         order = list(tiers.get(tier) or tiers.get("default") or DEFAULT_TIER_ORDER)
-        if "openai" in self._adapters and "openai" not in order:
+        if "openai" in self._adapters and "openai" not in order and self._openai_first:
             order.insert(0, "openai")
         return order
 
@@ -349,7 +391,9 @@ class LLMGateway:
                 state.record_call()
                 t0 = time.time()
                 try:
-                    reply = adapter(key, model, prompt, system_prompt, temperature, max_tokens, json_mode)
+                    fixed = self._providers[provider].temperature if provider in self._providers else None
+                    reply = adapter(key, model, prompt, system_prompt,
+                                    temperature if fixed is None else fixed, max_tokens, json_mode)
                 except ProviderFault as fault:
                     msg = self._scrub(str(fault))
                     if fault.retryable and attempt < self.max_attempts - 1:
@@ -394,7 +438,8 @@ class LLMGateway:
 
     # ---- adapters -------------------------------------------------------------
 
-    def _call_gemini(self, key, model, prompt, system_prompt, temp, max_tok, json_mode) -> LLMReply:
+    def _call_gemini(self, key, model, prompt, system_prompt, temp, max_tok, json_mode,
+                     provider: str = "gemini") -> LLMReply:
         model = model or "gemini-2.5-flash"
         body: Dict[str, Any] = {"contents": [{"role": "user", "parts": [{"text": prompt}]}],
                                 "generationConfig": {"temperature": temp, "maxOutputTokens": max_tok}}
@@ -402,22 +447,23 @@ class LLMGateway:
             body["systemInstruction"] = {"parts": [{"text": system_prompt}]}
         if json_mode:
             body["generationConfig"]["responseMimeType"] = "application/json"
-        data = self._post("gemini", f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+        data = self._post(provider, f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
                           {"x-goog-api-key": key, "Content-Type": "application/json"}, body)
         cands = data.get("candidates") or []
         if not cands:
             block = (data.get("promptFeedback") or {}).get("blockReason")
-            return LLMReply("", "gemini", model, "refusal" if block else "other")
+            return LLMReply("", provider, model, "refusal" if block else "other")
         parts = (cands[0].get("content") or {}).get("parts") or []
         text = "".join(p.get("text", "") for p in parts if not p.get("thought"))
         usage = data.get("usageMetadata") or {}
         out = usage.get("candidatesTokenCount")
         if out is not None and usage.get("thoughtsTokenCount"):
             out += usage["thoughtsTokenCount"]
-        return LLMReply(text, "gemini", model, _norm_stop(cands[0].get("finishReason")),
+        return LLMReply(text, provider, model, _norm_stop(cands[0].get("finishReason")),
                         usage.get("promptTokenCount"), out)
 
-    def _call_anthropic(self, key, model, prompt, system_prompt, temp, max_tok, json_mode) -> LLMReply:
+    def _call_anthropic(self, key, model, prompt, system_prompt, temp, max_tok, json_mode,
+                        provider: str = "anthropic") -> LLMReply:
         model = model or "claude-opus-5"
         body: Dict[str, Any] = {"model": model, "messages": [{"role": "user", "content": prompt}],
                                 "max_tokens": max(max_tok, MIN_TOKENS_THINKING) if _THINKING_DEFAULT_MODELS.match(model)
@@ -428,7 +474,11 @@ class LLMGateway:
             body["temperature"] = temp
         if json_mode:
             body["system"] = (body.get("system", "") + "\n\nRespond with a single JSON object and nothing else.").strip()
-        data = self._post("anthropic", "https://api.anthropic.com/v1/messages",
+        if len(body.get("system") or "") >= ANTHROPIC_CACHE_MIN_CHARS:
+            # A long, stable system prompt is marked cacheable: later calls with the same prefix
+            # read it from the provider's cache (cheaper, faster). Shorter prompts can't be cached.
+            body["system"] = [{"type": "text", "text": body["system"], "cache_control": {"type": "ephemeral"}}]
+        data = self._post(provider, "https://api.anthropic.com/v1/messages",
                           {"x-api-key": key, "anthropic-version": ANTHROPIC_VERSION,
                            "content-type": "application/json"}, body)
         text = "".join(b.get("text", "") for b in data.get("content") or [] if b.get("type") == "text")
@@ -436,7 +486,7 @@ class LLMGateway:
         tin = usage.get("input_tokens")
         if tin is not None:
             tin += (usage.get("cache_read_input_tokens") or 0) + (usage.get("cache_creation_input_tokens") or 0)
-        return LLMReply(text, "anthropic", data.get("model", model), _norm_stop(data.get("stop_reason")),
+        return LLMReply(text, provider, data.get("model", model), _norm_stop(data.get("stop_reason")),
                         tin, usage.get("output_tokens"))
 
     def _openai_compat(self, url: str, provider_name: Optional[str] = None) -> Callable[..., LLMReply]:
@@ -448,10 +498,17 @@ class LLMGateway:
         def call(key, model, prompt, system_prompt, temp, max_tok, json_mode) -> LLMReply:
             messages = ([{"role": "system", "content": system_prompt}] if system_prompt else []) + \
                        [{"role": "user", "content": prompt}]
-            body: Dict[str, Any] = {"model": model, "messages": messages, "temperature": temp, "max_tokens": max_tok}
+            spec = self._providers.get(provider)
+            body: Dict[str, Any] = {"model": model, "messages": messages, "temperature": temp,
+                                    (spec.max_tokens_field if spec else "max_tokens"): max_tok}
+            if spec is not None and spec.reasoning_effort:
+                body["reasoning_effort"] = spec.reasoning_effort
             if json_mode and provider in ("groq", "cerebras"):
                 body["response_format"] = {"type": "json_object"}
-            data = self._post(provider, url, {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}, body)
+            headers = {"Content-Type": "application/json"}
+            if key:  # a keyless local server (LM Studio) gets no Authorization header
+                headers["Authorization"] = f"Bearer {key}"
+            data = self._post(provider, url, headers, body)
             choices = data.get("choices") or []
             if not choices:
                 return LLMReply("", provider, model, "other")

@@ -31,6 +31,20 @@ class ConfigError(ValueError):
     """A config/plan/task file that is missing, unreadable or invalid."""
 
 
+# Variables load_env() copied in from .env (name -> value), so callers can tell them from
+# variables the process was started with (e.g. injected by the official harness runner).
+_FROM_DOTENV: Dict[str, str] = {}
+# The names above, passed to child processes (the batch runs each task in one): a child inherits
+# the copied values in its environment and would otherwise take them for injected ones.
+DOTENV_KEYS_ENV = "AGENTKIT_DOTENV_KEYS"
+
+
+def from_process(name: str) -> Optional[str]:
+    """os.getenv(name), but None when the value only came from .env via load_env()."""
+    value = os.getenv(name)
+    return None if value is not None and _FROM_DOTENV.get(name) == value else value
+
+
 def load_env(path: Optional[Path] = None) -> None:
     """Load PROJECT_ROOT/.env once, without overriding variables already set
     in the process. Falls back to a tiny parser if python-dotenv is absent."""
@@ -40,15 +54,24 @@ def load_env(path: Optional[Path] = None) -> None:
     env_path = path or PROJECT_ROOT / ".env"
     if env_path.exists():
         try:
-            from dotenv import load_dotenv
+            from dotenv import dotenv_values
 
-            load_dotenv(dotenv_path=env_path, override=False)
+            pairs = {k: v for k, v in dotenv_values(env_path).items() if v is not None}
         except ImportError:
+            pairs = {}
             for line in env_path.read_text(encoding="utf-8").splitlines():
                 line = line.strip()
                 if line and not line.startswith("#") and "=" in line:
                     key, val = line.split("=", 1)
-                    os.environ.setdefault(key.strip(), val.strip())
+                    pairs.setdefault(key.strip(), val.strip())
+        inherited = set(filter(None, os.environ.get(DOTENV_KEYS_ENV, "").split(",")))
+        for key, val in pairs.items():
+            if key not in os.environ:  # never override what the process already has
+                os.environ[key] = val
+                _FROM_DOTENV[key] = val
+            elif key in inherited and os.environ[key] == val:  # a parent copied it from .env
+                _FROM_DOTENV[key] = val
+        os.environ[DOTENV_KEYS_ENV] = ",".join(sorted(_FROM_DOTENV))
     if path is None:
         _env_loaded = True
 
@@ -121,6 +144,18 @@ def default_pack(path: Path = PROJECT_PATH) -> str:
     return str(pack)
 
 
+def llm_budget_usd(path: Path = PROJECT_PATH) -> Optional[float]:
+    """The most one run may spend on LLM calls (config/project.toml:
+    max_llm_cost_usd_per_run; AGENTKIT_MAX_LLM_COST_USD overrides). None = no cap."""
+    raw = os.getenv("AGENTKIT_MAX_LLM_COST_USD")
+    if raw is None and Path(path).exists():
+        raw = read_config(path).get("max_llm_cost_usd_per_run")
+    try:
+        return float(raw) if raw not in (None, "") else None
+    except (TypeError, ValueError):
+        raise ConfigError(f"max LLM cost per run must be a number, got {raw!r}") from None
+
+
 def default_tenant(path: Path = PROJECT_PATH) -> str:
     """The tenant to use when none is named (config/project.toml: default_tenant)."""
     tenant = read_config(path).get("default_tenant") if Path(path).exists() else None
@@ -142,10 +177,16 @@ class TenantLogin:
 
 def tenant_login(name: str, tenants_path: Path = TENANTS_PATH) -> TenantLogin:
     """Resolve one tenant's URL + credentials. Raises ValueError for an
-    unknown tenant or a missing password (naming the variable to set)."""
-    token = os.getenv("AGENTSWITCH_TOKEN")
-    base_url = os.getenv("AGENTSWITCH_BASE_URL")
-    active_instance = os.getenv("AGENTSWITCH_INSTANCE", "").lower()
+    unknown tenant or a missing password (naming the variable to set).
+
+    Token mode (no password; the runner's bearer token is used) applies only when
+    AGENTSWITCH_TOKEN / AGENTSWITCH_BASE_URL were given to the PROCESS -- as the
+    official harness runner does. Copies of them in .env are ignored: before, the
+    first call (before .env was loaded) used the password and later calls an empty
+    one, so the same run logged in two different ways."""
+    token = from_process("AGENTSWITCH_TOKEN")
+    base_url = from_process("AGENTSWITCH_BASE_URL")
+    active_instance = (from_process("AGENTSWITCH_INSTANCE") or "").lower()
     if token and base_url and (not active_instance or active_instance == name.lower()):
         instance = active_instance or name.lower()
         email = os.getenv("AS_EMAIL", "team21@theschoolofai.in")

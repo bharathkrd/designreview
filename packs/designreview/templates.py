@@ -33,6 +33,11 @@ def plain_rendering(finding: Dict[str, Any]) -> str:
         _handoffs(finding["handoffs"], out)
     for d in finding.get("declines") or []:
         out.append(f"- Not available to this seat: {d.get('node')} -- {d.get('reason')}.")
+    held = finding.get("quarantined") or []
+    if held:
+        places = sorted({q.get("where") for q in held})
+        out.append(f"- Withheld: {len(held)} sentence(s) in the platform's text read as instructions to the "
+                   f"reader rather than facts, and were left out ({'; '.join(places)}).")
     return "\n".join(out)
 
 
@@ -90,7 +95,9 @@ def _handoffs(h: Dict[str, Any], out: List[str]) -> None:
 def _what_changed(delta: Dict[str, Any], out: List[str]) -> None:
     out.append("")
     out.append("What changed")
-    if delta.get("outcome") == "answered":
+    if delta.get("outcome") == "partial" and delta.get("versions"):
+        out.append(f"- Incomplete: {delta.get('reason')}; the comparison below may miss versions.")
+    if delta.get("outcome") == "answered" or (delta.get("outcome") == "partial" and delta.get("versions")):
         versions = {v["version_number"]: v for v in delta.get("versions") or []}
         req = delta.get("requested")
         frm, to = versions.get(delta.get("from_version")), versions.get(delta.get("to_version"))
@@ -131,6 +138,8 @@ def _release(finding: Dict[str, Any], out: List[str]) -> None:
     elif dfm.get("failed_checklists_note"):
         out.append(f"- Failed DFM checklists: {dfm['failed_checklists_note']}.")
     fb = dfm.get("feedback") or {}
+    if dfm.get("outcome") == "partial":
+        out.append(f"- Feedback list incomplete: {dfm.get('reason')}; open items may be missing below.")
     serious = fb.get("open_high_or_critical") or []
     if serious:
         out.append(f"- {len(serious)} open high/critical feedback item(s) on this file (of {fb.get('total')} total).")
@@ -141,4 +150,5 @@ def _release(finding: Dict[str, Any], out: List[str]) -> None:
         for m in std["matches"]:
             ref = " ".join(x for x in (m.get("standard_body"), m.get("standard_number")) if x)
             out.append(f"  - {m.get('name')} [{m.get('category')}]" + (f" ({ref})" if ref else "")
+                       + (" -- possibly relevant" if m.get("band") == "ambiguous" else "")
                        + ("" if m.get("is_active") in (1, True, None) else " -- inactive"))

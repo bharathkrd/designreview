@@ -1,0 +1,29 @@
+id = "t12_routed_keystone_schedule"
+description = "Routed, Keystone: t09's question with no plan or file given. The router must pick release_handoff and resolve 'the auger drive housing cover' (not the float arm or pivot of the same drive); then t09's checks must hold."
+pack = "packs.designreview"
+plan = "route"   # routed from the prompt (agentkit.agents.router)
+prompt = "Is the auger drive housing cover on schedule, and does anything on it need another team?"
+tenants = ["keystone"]
+
+[[verifiers]]
+name = "routed_as"
+params = { plan = "release_handoff", file_id = "d3156003-4c06-49b4-b299-08478874cebb" }
+
+[[verifiers]]
+name = "release_gate_matches_db"
+params = { file_id = "d3156003-4c06-49b4-b299-08478874cebb" }
+
+[[verifiers]]
+name = "handoffs_match_platform"
+params = { file_id = "d3156003-4c06-49b4-b299-08478874cebb" }
+
+[[verifiers]]
+name = "schedule_matches_db"
+params = { project_id = "7e04ca05-1b78-4c34-85c3-2462100d91cc" }
+
+[[verifiers]]
+name = "answer_states_handoffs"
+params = { file_id = "d3156003-4c06-49b4-b299-08478874cebb", project_id = "7e04ca05-1b78-4c34-85c3-2462100d91cc" }
+
+[[verifiers]]
+name = "answer_audited"

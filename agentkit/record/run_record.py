@@ -72,6 +72,8 @@ class TaskRun:
     # {fingerprint, count, problems}: the seat's tools/list when the run started
     # (agentkit.transport.catalog); None when the client can't describe it.
     tool_catalog: Optional[Dict[str, Any]] = None
+    # {plan, params, why}: how a task with no plan of its own was routed (agentkit.agents.router)
+    route: Optional[Dict[str, Any]] = None
 
     def add_step(self, kind: str, target: str, ok: bool, detail: Any = None, **extra: Any) -> Step:
         step = Step(kind=kind, target=target, ok=ok, detail=detail,

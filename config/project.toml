@@ -6,3 +6,8 @@ default_pack = "packs.designreview"
 
 # The tenant used when a task file or CLI doesn't name one (see config/tenants.toml).
 default_tenant = "suryodaya"
+
+# The most one run may spend on LLM calls, in US dollars (estimated from the cost ledger).
+# When the next call would start past it, the answer is the deterministic template instead.
+# AGENTKIT_MAX_LLM_COST_USD overrides this; remove the line for no cap.
+max_llm_cost_usd_per_run = 0.25

@@ -17,12 +17,12 @@ Use cases to cover:
   [ ] the cost ledger adds up input and output tokens per provider and the summary cost matches
       the price table
 
-  Audit-gated cascade (I1, not built yet):
+  Audit-gated cascade (I1, built 2026-10-14: compose_answer(tiers=...)):
   [ ] the cheap tier's draft passes the audit -> the quality tier is never called
   [ ] the cheap draft fails the audit -> the quality tier is called; the template only if both fail
   [ ] the ledger shows which tier answered, so cost per passing answer can be reported
 
-  Prompt caching (I2, not built yet):
+  Prompt caching (I2, built 2026-10-14: stable system prompt first; gateway ANTHROPIC_CACHE_MIN_CHARS):
   [ ] two narrations with different findings send byte-identical prefixes (system prompt + instructions);
       the finding comes after the cache breakpoint
   [ ] an Anthropic request with a long enough system prompt carries a cache_control block;
@@ -36,10 +36,10 @@ Use cases to cover:
   [ ] a tag to a path that is not in the finding, or whose value differs -> audit fails
   [ ] tags are removed from the text the user sees
 
-  Model drift (I5, not built yet):
+  Model drift (I5, built 2026-10-14: agentkit.llm.models_check.check / model_ids):
   [ ] a provider model list (faked) that no longer has the configured model -> preflight reports it
 
-  Budgets (I8, not built yet):
+  Budgets (I8, built 2026-10-14: registry.action(timeout_s=), config.llm_budget_usd, compose_answer(max_cost_usd=)):
   [ ] an action that sleeps past its timeout_s ends FAILED with the reason; the other branch still
       finishes (requires="settled")
   [ ] a run whose ledger passes max_cost_usd stops calling the LLM and answers with the template,

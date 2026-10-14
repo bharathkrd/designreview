@@ -120,13 +120,16 @@ class ParentChildIndex:
     def __init__(self, child_splitter: Optional[Callable[[ParentDoc], List[EvidencePassage]]] = None,
                  parent_splitter: Optional[Callable[[ParentDoc], List[ParentDoc]]] = None,
                  id_key: str = "parent_id", child_meta_fields: Optional[Sequence[str]] = None,
-                 index: Optional[EvidenceIndex] = None):
+                 index: Optional[EvidenceIndex] = None, context_keys: Sequence[str] = ()):
         self.child_splitter = child_splitter or section_children()
         self.parent_splitter = parent_splitter
         self.id_key = id_key
         self.child_meta_fields = None if child_meta_fields is None else tuple(child_meta_fields)
         self.index = index or EvidenceIndex()
         self.parents: Dict[str, ParentDoc] = {}
+        # Parent meta values prefixed to every child's INDEX text (not its display text): contextual
+        # chunks without an LLM -- a child that never names its document still matches it.
+        self.context_keys = tuple(context_keys)
 
     def __len__(self) -> int:
         return len(self.parents)
@@ -141,9 +144,11 @@ class ParentChildIndex:
                 self.parents[parent.id] = parent
                 inherited = (dict(parent.meta) if self.child_meta_fields is None
                              else {k: parent.meta[k] for k in self.child_meta_fields if k in parent.meta})
+                prefix = " ".join(str(parent.meta[k]) for k in self.context_keys if parent.meta.get(k))
                 children = [replace(c, source_id=c.source_id or parent.id,
                                     source_entity=c.source_entity or parent.entity,
-                                    meta={**inherited, **c.meta, self.id_key: parent.id})
+                                    meta={**inherited, **c.meta, self.id_key: parent.id,
+                                          **({"index_prefix": prefix} if prefix else {})})
                             for c in self.child_splitter(parent)]
                 added += self.index.add(children)
         return added

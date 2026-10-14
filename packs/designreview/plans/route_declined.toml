@@ -1,0 +1,10 @@
+# The router could not route the question (no matching plan, or the design file it names is
+# not found or ambiguous). One node records the refusal; the run ends as an ordinary decline.
+
+name = "route_declined"
+params = ["reason"]
+
+[[nodes]]
+id = "route"
+action = "decline"
+args = { reason = "{reason}" }

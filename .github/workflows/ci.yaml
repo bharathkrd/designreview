@@ -37,7 +37,7 @@ jobs:
         os: [ubuntu-24.04, windows-2025]   # the team develops on Windows
         python: ["3.11", "3.13"]           # 3.11 is the floor (tomllib); 3.13 is the dev version
     env:
-      EXPECTED_TASKS: "9"   # change on purpose when a task is added or removed
+      EXPECTED_TASKS: "12"  # change on purpose when a task is added or removed
       REPEAT: "3"           # pass^k: every task must pass on every run
       AGENTKIT_OFFLINE: "1"
       PYTHONIOENCODING: utf-8
@@ -89,6 +89,11 @@ jobs:
       - name: Fault-injection matrix (each fault must be graded as expected)
         run: python scripts/ci_fault_matrix.py
 
+      # Standards retrieval on the hand-labelled queries (packs/designreview/retrieval.toml): recall@5,
+      # precision@5 and MRR of the configuration the agent uses must stay at or above the [floors].
+      - name: Retrieval quality (labelled queries, floors)
+        run: python scripts/retrieval_eval.py --check
+
       # Starts the run viewer on the CI batch (its own process, 127.0.0.1) and opens every run:
       # page + static files, batch, report, calibration, each run's records and telemetry tree;
       # also checks it stays read-only (POST -> 405) and confined (path traversal -> 404).
@@ -115,6 +120,25 @@ jobs:
           path: runs/
           retention-days: 14
           if-no-files-found: ignore
+
+  # The architecture document and the explainers are written in ASD-STE100 (Simplified Technical
+  # English). scripts/ste_check.py examines the rules that a program can measure: sentence and
+  # paragraph length, passive voice, contractions, common unapproved words. Standard library only.
+  docs-style:
+    name: docs style (ASD-STE100)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Check docs/ARCHITECTURE.md, docs/EXPLAINERS.md and docs/explainers/
+        run: python scripts/ste_check.py
 
   secret-scan:
     name: secret scan (full history)
