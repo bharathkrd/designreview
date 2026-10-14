@@ -1,7 +1,7 @@
 """
 Check Markdown docs against the measurable writing rules of ASD-STE100 (Simplified Technical English).
 
-    python scripts/ste_check.py                   # docs/ARCHITECTURE.md, docs/EXPLAINERS.md, docs/explainers/*.md
+    python scripts/ste_check.py                   # README.md, docs/ARCHITECTURE.md, docs/EXPLAINERS.md, docs/explainers/*.md
     python scripts/ste_check.py docs/x.md ...     # the given files
     python scripts/ste_check.py --detail          # also each finding (CI always prints them)
 
@@ -36,7 +36,8 @@ from pathlib import Path
 from typing import Iterator, List, Tuple
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_FILES = [ROOT / "docs" / "ARCHITECTURE.md", ROOT / "docs" / "EXPLAINERS.md",
+DEFAULT_FILES = [ROOT / "README.md", ROOT / "docs" / "ARCHITECTURE.md", ROOT / "docs" / "COST_ACCURACY.md",
+                 ROOT / "docs" / "EXPLAINERS.md",
                  *sorted((ROOT / "docs" / "explainers").glob("*.md"))]
 
 MAX_DESCRIPTIVE = 25
@@ -99,8 +100,9 @@ def sentences(block: str) -> List[str]:
     b = CODE.sub("CODE", block)
     b = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", b)
     b = re.sub(r"\b(e\.g|i\.e|etc|vs)\.", r"\1", b)
-    b = re.sub(r"([.!?:])\*\*\s+", r"\1 ", b)  # a bold lead-in ("**Do X.** Then ...") is its own sentence
-    return [s for s in re.split(r"(?<=[.!?])\s+(?=[A-Z*`(\"])", b) if re.search(r"[A-Za-z]", s)]
+    # a bold lead-in ("**Do X.** then ...") is its own sentence, whatever the case of the next word
+    b = re.sub(r"([.!?:])\*\*\s+", "\\1\n", b)
+    return [s for s in re.split(r"\n|(?<=[.!?])\s+(?=[A-Z*`(\"])", b) if re.search(r"[A-Za-z]", s)]
 
 
 def words(sentence: str) -> List[str]:
@@ -137,7 +139,7 @@ def check_file(path: Path) -> Tuple[int, List[Finding]]:
 
 def main(argv: List[str] = None) -> int:
     ap = argparse.ArgumentParser(description="Check Markdown docs against the measurable ASD-STE100 rules.")
-    ap.add_argument("files", nargs="*", type=Path, help="default: docs/ARCHITECTURE.md, docs/EXPLAINERS.md and docs/explainers/*.md")
+    ap.add_argument("files", nargs="*", type=Path, help="default: README.md, docs/ARCHITECTURE.md, docs/EXPLAINERS.md and docs/explainers/*.md")
     ap.add_argument("--detail", action="store_true", help="print each finding (on in GitHub Actions)")
     args = ap.parse_args(argv)
     files = args.files or DEFAULT_FILES

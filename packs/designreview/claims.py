@@ -126,8 +126,10 @@ FILED_CLAIM_RE = re.compile(
     # "... has been escalated", "manufacturing was notified"
     r"|\b(?:has|have|was|were)\s+(?:been\s+)?" + _DONE + r"escalated\b"
     r"|\b(?:has|have|was|were)\s+(?:been\s+)?" + _DONE + r"(?:notified|informed|alerted)\b(?!\s+by\b)", re.I)
-FILED_NEGATION_RE = re.compile(r"\b(?:not|never|nothing|none|no\s+one|would|will|could|should|if|once|when|"
-                               r"proposed?)\b|n't", re.I)
+# "No hand-offs have been filed." also denies (live, 2026-10-15): "no" counts when it qualifies the
+# hand-off itself, so "I filed it; no further action" is still a claim.
+FILED_NEGATION_RE = re.compile(r"\b(?:not|never|nothing|none|no\s+one|no\s+(?:\w+\s+){0,2}(?:hand-?offs?|escalations?|tickets?)\b|would|will|could|should|if|"
+                               r"once|when|proposed?)\b|n't", re.I)
 ON_TRACK_RE = re.compile(r"\bon\s+(?:track|schedule|time)\b|\bno\s+(?:schedule\s+)?(?:delays?|slippage)\b", re.I)
 
 

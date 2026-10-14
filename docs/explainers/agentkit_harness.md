@@ -216,6 +216,7 @@ loads: unknown keys, unknown verifiers, missing plans and duplicate ids.
 | `python -m agentkit.harness.mutants [batch-dir]` | Calibration. Exit code 1 on MISSED or UNEXERCISED. |
 | `python -m agentkit.harness.replay --calibrate <batch-dir> --sim <fixtures>` | End-to-end calibration. Exit code 1 on a missed fault or a failed control. |
 | `python -m agentkit.harness.replay <run-dir> (--fault name \| --node id --result file.json) [--sim f] [--out d] [--llm]` | One replay, with a grade. |
+| `python -m agentkit.harness.pareto <batch-dir> ... [--out f.md]` | Cost against accuracy, one row for each batch, with the Pareto frontier. Report only. See `docs/COST_ACCURACY.md`. |
 | `python -m agentkit.harness.preflight [--tenant t] [--fixture f]` | Live and read-only. Examines that the seat has the tools that the pack lists, and compares the catalogue fingerprint with that of the fixture. |
 | `python -m agentkit.harness.run_one --task t.toml --run-dir d --run-id id [--write [--require-approval]]` | One task, one folder. |
 | `python -m agentkit.harness.run_one --resume d --approve node [--reject node]` | Completes a paused run. |

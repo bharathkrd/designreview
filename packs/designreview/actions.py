@@ -178,7 +178,8 @@ def recall_standards(rows: List[Dict[str, Any]], query: str, *, k: Optional[int]
                                 where={"category": categories} if categories else None, distinct_by="base_name")
     g = s.get("gate") or {}
     banded = (gate_hits(hits, GateConfig(keep_ratio=float(g.get("keep_ratio", 0.5)),
-                                         ambiguous_ratio=float(g.get("ambiguous_ratio", 0.3))))
+                                         ambiguous_ratio=float(g.get("ambiguous_ratio", 0.3)),
+                                         min_terms=int(g.get("min_terms", 1))))
               if gate else [(h, "correct") for h in hits])
     return {"query": query, "searched": searched, "indexed_records": len(rows),
             "indexed_passages": len(index.index), "dropped_by_gate": len(hits) - len(banded),

@@ -164,6 +164,8 @@ evaluation*, and *baselines*.
 **G10. No failure-mode taxonomy** (P8, P4) — tag every check/mutant with a mode; count failures by mode. **Closed 2026-10-14 (batch 2):** `FAILURE_MODES`, every check tagged (mutants through their target), `fail_modes` per run, "Failures by mode" table.
 **G11. Efficiency not graded** (P2, P9, ToolBench) — tool calls/steps are report-only; add `tool_call_budget`
 (no duplicate identical reads; calls ≤ plan maximum). **Partly closed 2026-10-14 (batch 2):** built-in `tool_call_budget` (no repeated identical read unless a write came between) with mutant `duplicate_read`. Open: a per-plan call maximum.
+> **Closed 2026-10-15:** `python -m agentkit.harness.pareto <batches>` (cost, pass rate with a Wilson interval, partial credit, answer sources, escalations, the Pareto frontier) and the write-up [`COST_ACCURACY.md`](COST_ACCURACY.md). Result: all seven live arms, the $0 template arm included, pass 12 of 12, so the template arm is the frontier; the checks grade facts, which code calculates. The LLM arms differ only in cost (10x, mostly hidden reasoning tokens). Open: a calibrated check for the quality of the text.
+
 **G12. No cost–accuracy Pareto** (P2) — template agent = $0 baseline vs each LLM route; cost per *passing*
 task; answer-source mix (LLM / rewritten / template).
 **G13. No predictability signal** (P19) — agent emits no confidence or coverage score, so calibration and
@@ -342,6 +344,8 @@ about **measuring** these components and adding the **cheap, proven upgrades**, 
 - Fix (eval-time only): sample N drafts; compute agreement of the *audited facts* (semantic-entropy style).
   Report whether disagreement predicts audit failure (links to G13).
 
+> **Closed 2026-10-15:** optional `[@finding.path]` citations. `check_citations` (in `audit_narrative`) fails a path that is not in the finding, or a quantity of the cited sentence that is not a number of the cited value; `strip_citations` removes them before the answer is shown (the attempts keep them). The pack's narration prompt asks for one after each sentence with a quantity. Live (gpt-6-luna, 12 tasks): 7 citations, none wrong, no tag shown.
+
 **I4. No citation-level grounding in the prose**
 - Evidence: the audit checks numbers, ids and required facts, but a sentence is not tied to the finding path
   it came from.
@@ -367,6 +371,8 @@ about **measuring** these components and adding the **cheap, proven upgrades**, 
   - (b) an experimental LLM planner that emits a `GraphPatch`, validated against the allowlist, and is
     compared on the harness;
   - (c) later, AFlow-style offline search over plan variants scored by the harness, never online.
+
+> **Closed 2026-10-15:** a plan rule may fire on a verdict alone (`verdict = "failed"`, `"declined"`, `"handed_off"`). `rev_diff_dfm` reads the failed checklists when the release gate cannot be read (`requires = "settled"`); the verdict stays unknown -- nothing stands in for the gate. The fault scenario "release gate never readable" still grades `fail` on `release_gate_matches_db` only.
 
 **I7. No replanning on failure** (P28 replanning, P29)
 - Evidence: a FAILED node only retries; there is no alternative path.
@@ -403,6 +409,8 @@ about **measuring** these components and adding the **cheap, proven upgrades**, 
   Compute recall@5 and MRR offline, and report it next to the batch score.
 
 > **Partly closed 2026-10-14 (batch 4):** `gate_hits` bands each hit against the best score (>= 0.5 correct, >= 0.3 ambiguous, else dropped; thresholds fixed before measuring); the answer marks ambiguous standards "possibly relevant". Open: an absolute floor -- a lone incidental match is still the "best" hit.
+
+> **Closed 2026-10-15 (absolute floor):** `GateConfig.min_terms` -- a hit must match at least that many distinct query terms (`retrieval.toml`: 2). "coffee machine warranty steel" no longer keeps the bend-radius standard. The agent's configuration still measures recall@5 1.00, precision@5 0.88, MRR 1.00.
 
 **I11. No relevance gate** (P35, P36)
 - Evidence: `recall_parents` returns the top-k with any score > 0. Checked: "coffee machine warranty steel" recalls a bend-radius standard through the single word "steel".

@@ -371,7 +371,9 @@ _CLAIMS_FILED = re.compile(r"\b(?:I|we)(?:'ve|\s+have)?\s+(?:already\s+|now\s+)?
                            r"|\b(?:escalations?|hand-?offs?|tickets?)\b[^.]{0,40}\b(?:has|have|was|were)\s+(?:been\s+)?"
                            r"(?:filed|raised|sent|created|opened|submitted)\b(?!\s+by\b)"
                            r"|\b(?:has|have|was|were)\s+(?:been\s+)?(?:escalated|notified)\b(?!\s+by\b)", re.I)
-_HEDGE = re.compile(r"\b(?:not|never|nothing|none|no\s+one|would|will|could|should|if|once|proposed?)\b|n't", re.I)
+# "no" denies only when it qualifies the hand-off itself ("No hand-offs have been filed.", live 2026-10-15).
+_HEDGE = re.compile(r"\b(?:not|never|nothing|none|no\s+one|no\s+(?:\w+\s+){0,2}(?:hand-?offs?|escalations?|tickets?)\b|would|will|could|should|if|once|"
+                    r"proposed?)\b|n't", re.I)
 _ON_TRACK = re.compile(r"\bon\s+(?:track|schedule|time)\b", re.I)
 _LATE = re.compile(r"\boverdue\b|\bpast[\s-]+due\b|\blate\b|\bbehind\b|\bmissed\b|\bslipp\w*", re.I)
 

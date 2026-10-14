@@ -81,6 +81,11 @@ Written in ASD-STE100 (Simplified Technical English) style, 2026-10-14.*
 - **Optional fields in the checkpoint (since 2026-10-13).** `graph.json` can also have `channels`, but only
   when a plan declares channels. A paused node can have `interrupt` and `resume`. Ordinary runs write the
   same file as before.
+- **Fallback rules (since 2026-10-15).** A rule can watch a verdict other than `resolved`:
+  `verdict = "failed"`, `"declined"` or `"handed_off"`. For such a rule, the verdict alone is enough as the
+  condition, because a node that did not resolve has no data to test. A rule on a resolved node still needs a
+  data condition (`nonempty`, `equals`, `truthy` or `falsy`). A fallback node usually sets
+  `requires = "settled"`, because the node that it waits for did not resolve.
 - **Plans and rules are data.** Pydantic validates them (`PlanModel`, `NodeModel`, `RuleModel`, `WhenModel`).
   The loader rejects unknown keys, a bad `requires`, and a rule with no condition or no effect. Run
   parameters fill placeholders such as `"{file_id}"`, and their types stay the same. An unknown placeholder

@@ -87,7 +87,9 @@ class EqualsModel(_Strict):
 
 class WhenModel(_Strict):
     node: str
-    verdict: str = "resolved"
+    # The verdict the node must end with. A rule on "failed" (or "declined") is a fallback: the
+    # verdict alone can be its condition, since a node that did not resolve has no data to test.
+    verdict: Literal["resolved", "declined", "failed", "handed_off"] = "resolved"
     nonempty: Optional[Union[str, List[str]]] = None
     equals: Optional[EqualsModel] = None
     truthy: Optional[str] = None
@@ -95,8 +97,10 @@ class WhenModel(_Strict):
 
     @model_validator(mode="after")
     def _has_a_condition(self) -> "WhenModel":
-        if not any(v is not None for v in (self.nonempty, self.equals, self.truthy, self.falsy)):
-            raise ValueError("a rule needs at least one condition: nonempty, equals, truthy or falsy")
+        if self.verdict == "resolved" and not any(v is not None for v in
+                                                  (self.nonempty, self.equals, self.truthy, self.falsy)):
+            raise ValueError("a rule on a resolved node needs at least one condition: "
+                             "nonempty, equals, truthy or falsy")
         return self
 
 

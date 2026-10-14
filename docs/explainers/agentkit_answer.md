@@ -59,9 +59,26 @@ gives LLM text that the audit did not accept.
 The loop skips a tier that has no available provider. Before each call, `compose_answer` compares the money that the
 ledger spent with `max_cost_usd`.
 
+## Citations (since 2026-10-15)
+
+The LLM can add a citation after a sentence: `[@path]`, where the path is a path in the finding. An example is
+`Rev C opened the bend radius to 3.0 mm [@revision_delta.versions[2].commit_message].`
+
+- **The audit examines each citation** (`check_citations`). The path must exist in the finding. Each quantity
+  in the cited sentence must be a number of a cited value. A wrong citation fails the audit. The correction
+  note names it.
+- **Citations are optional.** A text without citations passes as before. The template has no citations.
+- **The other checks read the text without citations.** Thus the `[1]` in a path is not a quantity or an id.
+- **The reader never sees a citation.** `strip_citations` removes them from the answer. The attempts in the
+  run record keep them as evidence.
+- **The `@` character marks a citation.** Thus a plain `[1]` in the prose is not a citation.
+
+The design-review prompt asks for a citation after each sentence with a quantity. On 2026-10-15, gpt-6-luna
+wrote 7 citations in 12 live answers. None was wrong.
+
 ## What the run records
 
-`compose_answer` gives `text`, `source` (`"llm"` or `"template"`), `tier`, `provider`, `model`,
+`compose_answer` gives `text` (without citations), `source` (`"llm"` or `"template"`), `tier`, `provider`, `model`,
 `fallback_reason`, `attempts` and `audit`. Each attempt has its `tier`, `provider`, `model` and audit.
 
 The narrate step in `taskrun.json` keeps all of these, except the text of the attempts. Thus each run shows
