@@ -1,5 +1,16 @@
 # Changes
 
+## 2026-10-14 — The docs in ASD-STE100, and a CI check for it
+
+| What | Before | After | Where |
+|---|---|---|---|
+| Explainers | long sentences (up to 81 words), passive voice, contractions | all 16 explainers and the index in ASD-STE100 style, with content brought up to date | `docs/EXPLAINERS.md`, `docs/explainers/` |
+| Architecture | last updated in batch 2; old provider list; "one rewrite" | in ASD-STE100 style; the router, the cascade, the quarantine, argument validation, action timeouts, the retrieval gate, providers as config rows, 6 generic checks, 30 mutants | `docs/ARCHITECTURE.md` |
+| STE check | none | `scripts/ste_check.py`: sentence length (25 words; 20 for instructions), paragraphs (6 sentences), passive voice, contractions, common unapproved words; quoted text keeps its wording. GitHub annotations and a job-summary table in CI | `scripts/ste_check.py` |
+| CI | — | job `docs style (ASD-STE100)` runs the check on the 18 docs | `.github/workflows/ci.yaml` |
+
+The check measures only the rules that a program can measure. It does not have the full STE dictionary.
+
 ## 2026-10-14 — Tier order: OpenAI, DeepSeek, Moonshot, Gemini, Anthropic
 
 `fast`: openai_luna, deepseek_flash, moonshot, gemini_lite, anthropic_haiku, then groq, cerebras, nvidia, lmstudio,
