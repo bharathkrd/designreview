@@ -1,5 +1,20 @@
 # Changes
 
+## 2026-10-14 — Fix: server-run variables in `.env` no longer change local logins or LLM routing
+
+Found by the live run (tests/MANUAL_TEST_LOG.md A-LIVE-01): with the official runner's `AGENTSWITCH_TOKEN` /
+`AGENTSWITCH_BASE_URL` / `AGENTSWITCH_INSTANCE` and `OPENAI_*` copied into `.env`, the first `tenant_login()`
+(before `.env` was loaded) used the password and every later one an empty password -> Suryodaya logins 401; and
+`OPENAI_API_KEY` put `openai` first in every tier, overriding `config/routing.toml`.
+
+| What | Before | After | Where |
+|---|---|---|---|
+| Token mode | any `AGENTSWITCH_TOKEN` visible at call time -- including one `load_env()` had just copied from `.env` | only variables the process was started with (`from_process()`; `load_env()` records what it copied) | `agentkit/config.py` |
+| OpenAI first | whenever `OPENAI_API_KEY` is set | only when the key was injected into the process; a `.env` copy makes `openai` available to tiers that name it | `agentkit/llm/gateway.py` |
+
+Verified: live read-only suite with `.env` unchanged: 48 passed, 3 failed (the provider accounts: Gemini and
+Cerebras billing, a retired NVIDIA model in `.env`), was 14 passed / 7 failed / 30 errors; `tests_local` 841 passed.
+
 ## 2026-10-14 — Batch 5 of the research gaps: audit-gated cascade, budgets, cache-friendly prompts, retired models
 
 ### Why

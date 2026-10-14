@@ -44,7 +44,7 @@ import httpx
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-from agentkit.config import CONFIG_DIR, ConfigError, load_env, read_config, validation_message
+from agentkit.config import CONFIG_DIR, ConfigError, from_process, load_env, read_config, validation_message
 from agentkit.llm.economics import CostLedger
 from agentkit.telemetry.spans import add_event, span
 from agentkit.transport.wire import refuse_if_offline
@@ -261,6 +261,10 @@ class LLMGateway:
             "nvidia": self._openai_compat("https://integrate.api.nvidia.com/v1/chat/completions", "nvidia"),
             "openrouter": self._openai_compat("https://openrouter.ai/api/v1/chat/completions", "openrouter"),
         }
+        # The official runner injects OPENAI_* into the process: that endpoint then goes first in every
+        # tier. The same key copied into .env only makes "openai" available to tiers that name it.
+        key = self._env.get("OPENAI_API_KEY")
+        self._openai_first = bool(key) and not (self._env is os.environ and from_process("OPENAI_API_KEY") is None)
         if self._env.get("OPENAI_API_KEY"):
             base = self._env.get("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
             url = f"{base}/chat/completions" if not base.endswith("/chat/completions") else base
@@ -292,7 +296,7 @@ class LLMGateway:
     def candidate_order(self, tier: str) -> List[str]:
         tiers = self._config.tiers
         order = list(tiers.get(tier) or tiers.get("default") or DEFAULT_TIER_ORDER)
-        if "openai" in self._adapters and "openai" not in order:
+        if "openai" in self._adapters and "openai" not in order and self._openai_first:
             order.insert(0, "openai")
         return order
 
