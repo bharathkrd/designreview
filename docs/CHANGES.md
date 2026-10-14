@@ -1,5 +1,25 @@
 # Changes
 
+## 2026-10-14 — Batch 2 of the research gaps: reliability statistics, partial credit, failure modes, repeated reads
+
+### Why
+"9 of 9 tasks pass on every run" was the only batch result: no way to tell a flaky task from a broken one, no
+sense of how much 9 tasks prove, no partial credit, no view of *what kind* of mistake failed, and nothing
+stopped an agent from doing the same read twice. (Gaps G3, G9, G10, G11 in `docs/RESEARCH_GAP_ANALYSIS.md`.)
+
+| What | Before | After | Where |
+|---|---|---|---|
+| pass@k / pass^k (G3) | `pass_all` only | per task, k = 1..n: pass@k = 1 - C(n-c,k)/C(n,k), pass^k = C(c,k)/C(n,k), exact fractions; mean pass^k; "Reliability" table when tasks ran more than once | `agentkit/harness/grade.py` |
+| Error bars (G3) | none | 95% Wilson interval for tasks passing every run (9 of 9 -> 0.70 to 1.00); run pass rate with a standard error clustered by task; one line in `report.md` under the unchanged CI line | `grade.py` |
+| Partial credit (G9) | pass/fail only | `score.json` `partial` = 0.5 * passed/applicable + 0.5 * (run passed); "Partial credit" column | `grade.py` |
+| Failure modes (G10) | — | `FAILURE_MODES` (wrong_fact, fabrication, ignored_evidence, policy_breach, premature_stop, verification_gap, inefficiency); `registry.check(..., failure_mode=)`, unknown modes rejected; every check tagged; `score.json` `fail_modes`; "Failures by mode" table | `agentkit/registry.py`, `agentkit/harness/checks.py`, `packs/designreview/checks.py` |
+| Repeated reads (G11) | not checked | built-in check `tool_call_budget`: an identical successful read may not repeat unless a write came between; built-in mutant `duplicate_read`. A replay records `replay_start_seq` in `replay.json` so only its own calls count | `checks.py`, `agentkit/harness/mutants.py`, `agentkit/harness/replay.py` |
+| Scorer version | `agentkit-grade-v1` | `agentkit-grade-v2` (new fields only; pass/fail rules unchanged) | `grade.py` |
+
+Verified offline: hand-written `tests/` 38 passed; `tests_local` 767 passed; batch `--repeat 3` 9 of 9;
+`grade --check` identical; mutants OK (`duplicate_read` 21/21); replay calibration OK; fault matrix 7 of 7;
+viewer smoke ok.
+
 ## 2026-10-14 — Batch 1 of the research gaps: compare the revs the question names; a refusal needs its lookup
 
 | What | Before | After | Where |

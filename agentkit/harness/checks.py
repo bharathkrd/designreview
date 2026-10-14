@@ -17,11 +17,16 @@ Statuses:
          error NEVER counts as a pass.
 
 Built-in checks (every task gets them): run_completed, tool_calls_policy,
-answer_present.
+answer_present, tool_call_budget.
+
+Every check has a failure mode (agentkit.registry.FAILURE_MODES) -- what kind
+of mistake its failure points at. The grader counts failures by mode; the
+mode never changes a score.
 """
 
 from __future__ import annotations
 
+import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
@@ -60,6 +65,7 @@ class RunBundle:
     after: Dict[str, Any]
     read_only_tools: frozenset = frozenset()
     write_tools: frozenset = frozenset()  # the pack's write allowlist (extras["write_tools"])
+    replay: Optional[Dict[str, Any]] = None  # replay.json, when this run is a replay (agentkit.harness.replay)
 
     @classmethod
     def load(cls, run_dir: Path, read_only_tools=(), write_tools=()) -> "RunBundle":
@@ -72,7 +78,8 @@ class RunBundle:
         return cls(run_dir=run_dir, task=opt("task.json") or {}, taskrun=opt("taskrun.json") or {},
                    graph=opt("graph.json"), journal=read_journal(run_dir / JOURNAL_FILE),
                    before=opt("ground_truth_before.json") or {}, after=opt("ground_truth_after.json") or {},
-                   read_only_tools=frozenset(read_only_tools), write_tools=frozenset(write_tools))
+                   read_only_tools=frozenset(read_only_tools), write_tools=frozenset(write_tools),
+                   replay=opt("replay.json"))
 
     # ---- convenience -------------------------------------------------------
 
@@ -146,11 +153,54 @@ def check_answer_present(b: RunBundle, _p: Dict[str, Any]) -> List[CheckOutcome]
     return [CheckOutcome("answer_present", "answer", "pass", f"{len(b.answer)} chars, source={src}")]
 
 
+def check_tool_call_budget(b: RunBundle, _p: Dict[str, Any]) -> List[CheckOutcome]:
+    """No wasted reads: the same read (tool + arguments) may succeed only once,
+    unless a write happened in between (the state may have changed, so a
+    re-read is right). A failed call retried with the same arguments is fine.
+    In a replay only the replay's own calls count: its journal starts with the
+    original run's calls, which the original run was graded on."""
+    start = (b.replay or {}).get("replay_start_seq") or 0
+    seen, repeated = set(), []
+    for e in (e for e in b.journal if (e.get("seq") or 0) >= start):
+        tool = e.get("tool")
+        if not tool:
+            continue
+        if not is_read_tool(tool, b.read_only_tools):
+            seen.clear()  # after a write, a fresh read is not waste
+            continue
+        if not e.get("ok"):
+            continue
+        key = (tool, json.dumps(e.get("args") or {}, sort_keys=True, default=str))
+        if key in seen:
+            repeated.append(tool)
+        seen.add(key)
+    if repeated:
+        return [CheckOutcome("tool_call_budget", "repeated_reads", "fail",
+                             f"identical read(s) repeated: {', '.join(sorted(set(repeated)))}")]
+    return [CheckOutcome("tool_call_budget", "repeated_reads", "pass",
+                         f"{len(b.tools_called())} call(s), no identical read repeated")]
+
+
 BUILTIN_CHECKS: Dict[str, Callable[[RunBundle, Dict[str, Any]], List[CheckOutcome]]] = {
     "run_completed": check_run_completed,
     "tool_calls_policy": check_tool_calls_policy,
     "answer_present": check_answer_present,
+    "tool_call_budget": check_tool_call_budget,
 }
+BUILTIN_FAILURE_MODES: Dict[str, str] = {
+    "run_completed": "premature_stop",
+    "tool_calls_policy": "policy_breach",
+    "answer_present": "premature_stop",
+    "tool_call_budget": "inefficiency",
+}
+
+
+def failure_mode_of(check: str, registry: Registry) -> str:
+    """The failure mode of a built-in or pack check ("" if the pack gave none)."""
+    if check in BUILTIN_FAILURE_MODES:
+        return BUILTIN_FAILURE_MODES[check]
+    spec = registry.checks.get(check)
+    return getattr(spec, "failure_mode", "") if spec else ""
 
 
 def specs_for(task: Dict[str, Any]) -> List[Dict[str, Any]]:

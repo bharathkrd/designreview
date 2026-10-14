@@ -105,6 +105,9 @@ evaluation*, and *baselines*.
   - make the null agent a standing baseline in `report.md` that must score 0 of N (P1 R.13), so a future
     check change can't silently let it through.
 
+> **Partly closed 2026-10-14 (batch 2):** pass@k / pass^k curves (exact fractions), the Wilson interval and the
+> clustered standard error are in `batch_score.json` and `report.md`. Open: an LLM-on batch, so repeats differ.
+
 **G3. pass^k is trivially 1 in CI; no curves, no error bars** (P3, P5, P17, P18, P19)
 - CI runs `--skip-llm`, so 3 repeats are deterministic — the only stochastic part (narration) is never in CI.
   Last LLM batches in `runs/` are 2026-09-30.
@@ -148,10 +151,10 @@ evaluation*, and *baselines*.
   question templates to raise N.
 
 ### P2 — richer metrics and analysis
-**G9. Binary run score, no partial credit** (P9) — add S_partial (report-only, never a gate).
-**G10. No failure-mode taxonomy** (P8, P4) — tag every check/mutant with a mode; count failures by mode.
+**G9. Binary run score, no partial credit** (P9) — add S_partial (report-only, never a gate). **Closed 2026-10-14 (batch 2):** `score.json` `partial`, report column.
+**G10. No failure-mode taxonomy** (P8, P4) — tag every check/mutant with a mode; count failures by mode. **Closed 2026-10-14 (batch 2):** `FAILURE_MODES`, every check tagged (mutants through their target), `fail_modes` per run, "Failures by mode" table.
 **G11. Efficiency not graded** (P2, P9, ToolBench) — tool calls/steps are report-only; add `tool_call_budget`
-(no duplicate identical reads; calls ≤ plan maximum).
+(no duplicate identical reads; calls ≤ plan maximum). **Partly closed 2026-10-14 (batch 2):** built-in `tool_call_budget` (no repeated identical read unless a write came between) with mutant `duplicate_read`. Open: a per-plan call maximum.
 **G12. No cost–accuracy Pareto** (P2) — template agent = $0 baseline vs each LLM route; cost per *passing*
 task; answer-source mix (LLM / rewritten / template).
 **G13. No predictability signal** (P19) — agent emits no confidence or coverage score, so calibration and

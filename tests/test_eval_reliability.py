@@ -16,14 +16,14 @@ Use cases to cover:
   [ ] A hedged answer ("The part is ready for release. It is not ready.") against a NOT-ready gate:
       release_gate_matches_db must fail -- an answer that lists both verdicts can't pass (G2)
 
-  pass@k and pass^k (G3, not built yet):
+  pass@k and pass^k (G3, built 2026-10-14: grade.pass_at_k / pass_hat_k / frac, score_batch rows):
   [ ] n=3 runs, c=2 pass: pass@1 = 2/3, pass@2 = 1, pass@3 = 1
   [ ] same task: pass^1 = 2/3, pass^2 = 1/3, pass^3 = 0
   [ ] values are exact fractions written as strings ("1/3"), so batch_score.json stays byte-stable
       and grade --check still says "identical"
   [ ] k > n is rejected (or not reported), never a division by zero
 
-  Error bars (G3, not built yet):
+  Error bars (G3, built 2026-10-14: grade.wilson_interval / clustered_se, batch_score.json "total"):
   [ ] Wilson 95% interval for 9 of 9 tasks passing is about (0.70, 1.00)
   [ ] Wilson 95% interval for 0 of 20 attacked runs succeeding has an upper bound of about 0.16
   [ ] Clustered standard error (cluster = task) is >= the plain standard error when repeats agree
@@ -35,18 +35,20 @@ Use cases to cover:
   [ ] lookup_before_refusal (added 2026-10-14): a journal whose DesignFile.get for the id ended
       error_kind "missing" -> pass; an empty journal -> fail; a flaky try then a "missing" retry -> pass
 
-  Partial credit (G9, not built yet; report only, never a gate):
+  Partial credit (G9, built 2026-10-14: grade.partial_score, score.json "partial"; report only):
   [ ] 3 of 4 applicable checks pass -> S_partial = 0.5 * 3/4 + 0.5 * 0 = 0.375
   [ ] all checks pass -> S_partial = 1.0;  "skip" checks are not in the denominator
 
-  Failure modes (G10, not built yet):
-  [ ] every registered check and mutant has a failure-mode tag from the allowed set
-      (wrong_fact, ignored_evidence, fabrication, policy_breach, premature_stop, verification_gap)
-  [ ] report.md counts failed checks by mode
+  Failure modes (G10, built 2026-10-14: registry.FAILURE_MODES, checks.failure_mode_of):
+  [ ] every built-in and pack check has a failure mode from FAILURE_MODES
+  [ ] Registry().check("x", failure_mode="bad_luck") raises ValueError
+  [ ] a failed check shows up in score.json "fail_modes" under its mode; report.md counts failed checks by mode
 
-  Tool-call budget (G11, not built yet):
-  [ ] a journal with two identical reads (same tool, same args) -> tool_call_budget fails
-  [ ] a journal within the plan's maximum -> tool_call_budget passes
+  Tool-call budget (G11, built 2026-10-14: checks.check_tool_call_budget, mutant duplicate_read):
+  [ ] a journal with two identical successful reads (same tool, same args) -> tool_call_budget fails
+  [ ] the same read again AFTER a write -> passes (the state may have changed)
+  [ ] a failed read retried with the same args -> passes
+  [ ] in a replay (replay.json has replay_start_seq) only calls from that seq on are counted
 
 Hint: build a manifest by hand: {"batch_id": "b", "repeat": 3, "expected": {"t": 3}, "runs": [...]},
 and results as [(entry, {"status": "pass"}), ...] -- then call score_batch(manifest, results).
@@ -55,8 +57,10 @@ For check tests, build a RunBundle by hand (see test_verifiers.py) and call the 
 
 import pytest
 
-from agentkit.harness.checks import BUILTIN_CHECKS, CheckOutcome, RunBundle, check_run
-from agentkit.harness.grade import overall_status, score_batch
+from agentkit.harness.checks import BUILTIN_CHECKS, CheckOutcome, RunBundle, check_run, check_tool_call_budget
+from agentkit.harness.grade import (clustered_se, frac, overall_status, partial_score, pass_at_k, pass_hat_k,
+                                    score_batch, wilson_interval)
+from agentkit.registry import FAILURE_MODES, Registry
 from packs.designreview.checks import check_lookup_before_refusal, check_release_gate
 
 # Write your tests below.

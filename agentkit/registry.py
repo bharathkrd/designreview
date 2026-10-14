@@ -24,6 +24,18 @@ import importlib
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterable, Optional, Set
 
+# What kind of mistake a failed check points at. Adapted from a published taxonomy of agent
+# failures (task-verification and specification failures), reduced to what a saved run can show:
+#   wrong_fact        a fact the agent stated differs from the platform
+#   fabrication       something stated that no evidence supports (invented value, record, claim)
+#   ignored_evidence  evidence the agent read but left out of the answer
+#   policy_breach     the agent did something it must not (a write in a dry run, an absent tool)
+#   premature_stop    the run ended without finishing (crash, no answer)
+#   verification_gap  a conclusion reached without the check that supports it (refused without looking)
+#   inefficiency      wasted work (the same read repeated)
+FAILURE_MODES = ("wrong_fact", "fabrication", "ignored_evidence", "policy_breach", "premature_stop",
+                 "verification_gap", "inefficiency")
+
 
 @dataclass(frozen=True)
 class ActionSpec:
@@ -49,6 +61,7 @@ class CheckDef:
     name: str
     check: Callable[..., Any]
     observes: Callable[[Dict[str, Any]], Any] = lambda params: []
+    failure_mode: str = ""  # one of FAILURE_MODES; reported per failed check, never scored
 
 
 @dataclass(frozen=True)
@@ -103,12 +116,15 @@ class Registry:
     def probe(self, name: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         return self._into(self.probes, name)
 
-    def check(self, name: str, observes: Optional[Callable[[Dict[str, Any]], Any]] = None
-              ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    def check(self, name: str, observes: Optional[Callable[[Dict[str, Any]], Any]] = None,
+              failure_mode: str = "") -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+        if failure_mode and failure_mode not in FAILURE_MODES:
+            raise ValueError(f"check {name!r}: unknown failure_mode {failure_mode!r}; one of {FAILURE_MODES}")
+
         def deco(fn: Callable[..., Any]) -> Callable[..., Any]:
             if name in self.checks:
                 raise ValueError(f"{name!r} registered twice")
-            self.checks[name] = CheckDef(name, fn, observes or (lambda params: []))
+            self.checks[name] = CheckDef(name, fn, observes or (lambda params: []), failure_mode)
             return fn
         return deco
 

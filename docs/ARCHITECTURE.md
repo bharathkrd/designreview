@@ -143,7 +143,7 @@ Each extension point is a small interface, so a new domain *or* a new platform p
 | Checkpoints | `CheckpointSaver` (`put`, `get`, `list`) | `graph.json` (latest), `MemorySaver`, `JsonlSaver` | e.g. a database saver |
 | Retrieval | `EvidenceIndex`, `ParentChildIndex` with a pluggable splitter | BM25 + verbatim-suffix chunking | another splitter or index behind the same calls |
 | Telemetry | handler hooks `on_{chain,tool,llm,retriever}_{start,end,error}` | `Tracer` → `telemetry.json` | another handler (e.g. an exporter) |
-| Grading | probes + pure checks over a saved run folder | 13 design-review checks + 3 generic ones (`run_completed`, `tool_calls_policy`, `answer_present`) | the pack's own checks |
+| Grading | probes + pure checks over a saved run folder | 13 design-review checks + 4 generic ones (`run_completed`, `tool_calls_policy`, `answer_present`, `tool_call_budget`); each tagged with a failure mode | the pack's own checks |
 
 ## 5. Properties every pack gets for free
 
