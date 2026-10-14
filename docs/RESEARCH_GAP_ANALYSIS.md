@@ -164,6 +164,8 @@ evaluation*, and *baselines*.
 **G10. No failure-mode taxonomy** (P8, P4) — tag every check/mutant with a mode; count failures by mode. **Closed 2026-10-14 (batch 2):** `FAILURE_MODES`, every check tagged (mutants through their target), `fail_modes` per run, "Failures by mode" table.
 **G11. Efficiency not graded** (P2, P9, ToolBench) — tool calls/steps are report-only; add `tool_call_budget`
 (no duplicate identical reads; calls ≤ plan maximum). **Partly closed 2026-10-14 (batch 2):** built-in `tool_call_budget` (no repeated identical read unless a write came between) with mutant `duplicate_read`. Open: a per-plan call maximum.
+> **Closed 2026-10-15:** `python -m agentkit.harness.pareto <batches>` (cost, pass rate with a Wilson interval, partial credit, answer sources, escalations, the Pareto frontier) and the write-up [`COST_ACCURACY.md`](COST_ACCURACY.md). Result: all seven live arms, the $0 template arm included, pass 12 of 12, so the template arm is the frontier; the checks grade facts, which code calculates. The LLM arms differ only in cost (10x, mostly hidden reasoning tokens). Open: a calibrated check for the quality of the text.
+
 **G12. No cost–accuracy Pareto** (P2) — template agent = $0 baseline vs each LLM route; cost per *passing*
 task; answer-source mix (LLM / rewritten / template).
 **G13. No predictability signal** (P19) — agent emits no confidence or coverage score, so calibration and

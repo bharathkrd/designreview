@@ -36,7 +36,8 @@ from pathlib import Path
 from typing import Iterator, List, Tuple
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_FILES = [ROOT / "README.md", ROOT / "docs" / "ARCHITECTURE.md", ROOT / "docs" / "EXPLAINERS.md",
+DEFAULT_FILES = [ROOT / "README.md", ROOT / "docs" / "ARCHITECTURE.md", ROOT / "docs" / "COST_ACCURACY.md",
+                 ROOT / "docs" / "EXPLAINERS.md",
                  *sorted((ROOT / "docs" / "explainers").glob("*.md"))]
 
 MAX_DESCRIPTIVE = 25
@@ -99,8 +100,9 @@ def sentences(block: str) -> List[str]:
     b = CODE.sub("CODE", block)
     b = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", b)
     b = re.sub(r"\b(e\.g|i\.e|etc|vs)\.", r"\1", b)
-    b = re.sub(r"([.!?:])\*\*\s+", r"\1 ", b)  # a bold lead-in ("**Do X.** Then ...") is its own sentence
-    return [s for s in re.split(r"(?<=[.!?])\s+(?=[A-Z*`(\"])", b) if re.search(r"[A-Za-z]", s)]
+    # a bold lead-in ("**Do X.** then ...") is its own sentence, whatever the case of the next word
+    b = re.sub(r"([.!?:])\*\*\s+", "\\1\n", b)
+    return [s for s in re.split(r"\n|(?<=[.!?])\s+(?=[A-Z*`(\"])", b) if re.search(r"[A-Za-z]", s)]
 
 
 def words(sentence: str) -> List[str]:

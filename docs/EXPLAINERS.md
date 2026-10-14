@@ -19,6 +19,7 @@ Other documents:
 
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) tells how generic the architecture is: the pack seam, the extension
   points and the limits. Read it first.
+- [`COST_ACCURACY.md`](COST_ACCURACY.md) compares the cost and the accuracy of each LLM route (gap G12).
 - [`RESEARCH_GAP_ANALYSIS.md`](RESEARCH_GAP_ANALYSIS.md) compares the harness, the evals and the
   implementation with published arXiv practice. It also lists the gaps and the tests that remain.
 
