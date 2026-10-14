@@ -1,9 +1,10 @@
 # `agentkit/harness/` — tasks, ground truth, grading, self-test
 
 *Reading order: **7th**. Files: `tasks.py`, `ground_truth.py`, `run_one.py`, `batch.py`, `checks.py`,
-`grade.py`, `mutants.py`, `replay.py`, `cleanup.py` (+ `agentkit/clock.py`). Domain checks live in `packs/designreview/checks.py`.*
+`grade.py`, `mutants.py`, `replay.py`, `cleanup.py`, and `agentkit/clock.py`. The domain checks are in
+`packs/designreview/checks.py`. Written in ASD-STE100 (Simplified Technical English) style, 2026-10-14.*
 
-## 10,000-ft view
+## Overview
 
 ```
 task.toml ──► ground truth BEFORE (harness's own login)
@@ -15,137 +16,222 @@ task.toml ──► ground truth BEFORE (harness's own login)
           ──► replay --calibrate (node fault → re-run downstream → grade) ──► replay_calibration.json
 ```
 
-## Why it's written this way
+## Ground truth and grading
 
-- **Verifiers read the database, not the agent's prose** — the brief's grading bar. The harness captures what
-  the platform says with its **own** login: REST for records, a separate MCP session for the POST-only
-  release-readiness endpoint. A failed read is recorded with its error kind (a `missing` record is itself
-  ground truth for a refusal task), and flaky reads are retried.
-- **Everything on disk before scoring.** Checks are pure functions over the run folder: no network, no LLM.
-  A verifier bug is fixed by re-grading saved runs, never by re-running the agent.
-- **Five statuses.** `pass`, `fail`, `drift` (the claim matched the platform before the run but not after —
-  the data moved under the run), `skip`, `error` (ground truth unavailable or the check crashed). `error`
-  never counts as a pass. Task status: any fail/error → fail; only drift → drift; else pass.
-- **Built-in checks for every task:** `run_completed`, `tool_calls_policy` (from the journal: a dry run may
-  only read; a write run may only write through the pack's `write_tools` allowlist), `answer_present`, and
-  `tool_call_budget` (since 2026-10-14: the same read -- tool and arguments -- may succeed only once unless a
-  write happened in between; a retried failure is fine; in a replay only the replay's own calls count, from
-  `replay.json`'s `replay_start_seq`). Built-in mutant `duplicate_read` proves it can fail.
-- **Injection and state checks (since 2026-10-14).** `injection_resisted` reads `sim.json` (the faults an
-  offline run was given): text planted with `inject_text` must not reach the answer or the finding, and a dry run
-  must not write; skipped when nothing was injected. `unexpected_state_change`: in a write run, every observed
-  record must be unchanged except under the pack's `extras["writes_to"]` prefixes; skipped in a dry run. Mutants
-  `injection_echoed` and `stray_state_change` prove both can fail.
-- **Failure modes (since 2026-10-14).** Every check has a `failure_mode` (`agentkit.registry.FAILURE_MODES`:
-  wrong_fact, fabrication, ignored_evidence, policy_breach, premature_stop, verification_gap, inefficiency),
-  given at `registry.check(name, failure_mode=...)`; an unknown mode is a registration error. `score.json` has
-  `fail_modes` (failed checks counted by mode) and `report.md` a "Failures by mode" table. Never scored.
-- **Writes are opt-in twice.** A run writes only when the batch has `--write` *and* the task sets
-  `allow_writes = true`; every other run is a dry run, where write actions are previewed, never called.
-  `--write` is live only (a fixture can't take writes).
-- **Clean-up after the evidence.** In a write run the "after" ground truth is captured first, so the record of
-  what was filed is on disk. Then the pack's `cleanup` (in `registry.extras`) undoes it and writes
-  `cleanup.json`. `--keep-writes` skips this, and `python -m agentkit.harness.cleanup` does it later (or for a
-  crashed run).
-- **Subprocess per task** so an agent crash can't take the batch down; the running-record is the evidence.
-- **Unique batch ids.** The batch folder is claimed with an exclusive `mkdir`; a same-second collision gets
-  `-2`, `-3`… (two batches once overwrote each other before this).
-- **pass^k (since 2026-10-12).** `--repeat N` runs every task N times (run ids `<batch>-<task>-<tenant>-r<n>`;
-  unchanged when N=1). A task counts as passing only if **every** run of it passed — every tenant, every
-  repeat. A crashed run, a missing `taskrun.json`, a harness error or a run the manifest expected but never
-  recorded (`manifest.expected`) is a failed run. `report.md` says `**P of T tasks pass on every run.**`
-  (the line CI checks); `batch_score.json` holds the same numbers without timestamps.
-  *Before:* one run per task; `report.md` had only the per-run table, so "all tasks ran and passed" could not
-  be checked mechanically.
-- **Reliability statistics (since 2026-10-14; `agentkit-grade-v2`).** Reported, never part of pass/fail:
-  - per task, for k = 1..n (n runs expected, c passed; a missing run counts as failed):
-    pass@k = 1 - C(n-c, k)/C(n, k) (at least one of k passes) and pass^k = C(c, k)/C(n, k) (all k pass),
-    unbiased, stored as exact fractions (`"1/3"`) so `batch_score.json` stays byte-stable;
-  - a 95% Wilson interval for the share of tasks passing every run (9 of 9 -> 0.70 to 1.00);
-  - the run pass rate with a standard error clustered by task: sqrt(sum over tasks of (sum of (s - mean))^2) / n;
-  - per run, `partial` = 0.5 * (passed / applicable checks) + 0.5 * (run passed) -- partial credit.
-  `report.md` gains the interval line (under the line CI greps, which is unchanged), a "Partial credit"
-  column, a "Reliability" table (pass@1, pass@n, pass^n per task) when tasks ran more than once, and
-  "Failures by mode". Helpers: `pass_at_k`, `pass_hat_k`, `wilson_interval`, `clustered_se`, `partial_score`.
-- **Re-grading is checkable.** `grade --check <batch>` re-grades in memory, writes nothing, and compares
-  with the saved `score.json` files and `batch_score.json` (exit 1 on any difference or an ungraded batch).
-  *Before:* re-grading simply overwrote the scores; determinism was assumed, not tested.
-- **Named batches.** `--batch-id ci` claims `runs/batches/ci` with an exclusive mkdir; an existing batch is
-  never reused (CLI error, exit 2). Ids must match `^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$`.
-- **One clock.** Anything date-dependent reads `agentkit.clock.now_utc()`. The offline batch freezes it to
-  each tenant fixture's `captured_at`, so a replay gives the same answer on any day (t08's past-due list used
-  to grow as real dates passed). `AGENTKIT_FROZEN_NOW=<ISO with tz>` overrides it for a whole process.
-- **The journal always exists.** `run_one` creates an empty `tool_journal.jsonl` before any work, so "made no
-  tool call" (t03 refuses from the catalogue alone) is distinguishable from "journal lost".
-- **Calibration.** `mutants.py` applies each mutant (3 built-in + the pack's) to copies of passing runs and
-  requires its target check to fail. A mutant that slips through (MISSED) or a check nothing can make fail
-  (UNEXERCISED) fails calibration. Failing runs are skipped; run folders are never modified.
-- **End-to-end calibration (since 2026-10-13, `replay.py`).** A mutant edits a finished record, so it tests
-  the checks alone. A *replay fault* (`@registry.replay_fault(name, node=, target=)`) replaces what one node
-  returned; `GraphStore.fork` undoes everything downstream, the plan's executor re-runs it offline against the
-  tenant's fixture (clock frozen to its capture time), the pack rebuilds the finding and answer, and the new
-  folder is graded. The target check must fail. Per passing run (first repeat) a **control** replay at the
-  plan's first node with its own result must still pass — proof the replay itself is faithful. Output goes
-  to `<batch>/replays/<run>--<fault>/` (the usual run files + `replay.json`; the journal is the original
-  calls followed by the replayed ones); the original run is never touched.
-- **Approval gate (since 2026-10-13).** `run_one --write --require-approval` pauses before every real write
-  with the write's preview (`ended = "paused"`, no answer yet; a paused run fails `run_completed`).
-  `run_one --resume <run_dir> --approve <node>` / `--reject <node>` finishes the same folder: approved writes
-  run, rejected ones end `declined`. `run_one` now also writes `task.json` when it runs standalone.
+- **Verifiers read the database, not the text of the agent.** The brief sets this grading rule. The harness
+  reads the data of the platform with its **own** login:
+  - REST for records;
+  - a separate MCP session for the release-readiness endpoint, which accepts only POST.
+- **A failed read is evidence too.** The harness records a failed read with its error kind. A `missing`
+  record is the ground truth for a refusal task. The harness tries flaky reads again.
+- **All data is on disk before the grading.** Checks are pure functions on the run folder. They use no
+  network and no LLM. To correct a verifier, grade the saved runs again. Do not run the agent again.
+- **Five statuses.**
 
-## Task files
+  | Status | Meaning |
+  |---|---|
+  | `pass` | The claim agrees with the platform. |
+  | `fail` | The claim does not agree with the platform. |
+  | `drift` | The claim agreed with the platform before the run, but not after it. The data changed during the run. |
+  | `skip` | The check does not apply to this run. |
+  | `error` | No ground truth, or the check crashed. An `error` is never a pass. |
 
-TOML, validated by the `TaskDef` pydantic model: `id, pack, plan, prompt, params, tenants, verifiers,
-allow_writes, description`. Unknown keys, unknown verifiers, missing plans and duplicate ids are errors at load time.
+  The status of a task: if a check gives `fail` or `error`, the task fails. If the only problem is `drift`,
+  the task is `drift`. Otherwise it passes.
+- **One clock.** Each date-dependent calculation reads `agentkit.clock.now_utc()`. The offline batch freezes
+  the clock at the `captured_at` time of the fixture of each tenant. Thus a replay gives the same answer on
+  each day. Before, the past-due list of t08 became longer as real dates passed.
+- **A clock for a full process.** `AGENTKIT_FROZEN_NOW=<ISO time with time zone>` sets the clock for all of
+  the process.
+- **The journal always exists.** `run_one` makes an empty `tool_journal.jsonl` before it starts work. Thus
+  "the agent made no tool call" is different from "the journal is lost". Task t03 refuses from the catalogue
+  only, so its journal is empty.
 
-## CLIs
+## Built-in checks
 
-| Command | What |
+Each task gets these checks:
+
+| Check | Fails when |
 |---|---|
-| `python -m agentkit.harness.batch [--only ids] [--skip-llm] [--grade] [--sim fixtures-dir-or-file --fault spec] [--batch-id id] [--repeat N]` | run tasks (each on its own tenant), N times each |
-| `python -m agentkit.harness.batch --write [--keep-writes] [--only ids] [--grade]` | **live writes** for tasks with `allow_writes = true`, cleaned up after capture unless `--keep-writes` |
-| `python -m agentkit.harness.cleanup --tenant t [--dry-run]` or `--run-dir runs/<id>` | undo what write runs left behind (the pack decides what is "ours") |
-| `python -m agentkit.harness.grade <batch-dir or run-dirs>` | grade saved runs (exit 1 on any fail) |
-| `python -m agentkit.harness.grade --check <batch-dir>` | re-grade in memory, compare with saved scores, write nothing (exit 1 on a difference) |
-| `python -m agentkit.harness.mutants [batch-dir]` | calibrate (exit 1 on MISSED/UNEXERCISED) |
-| `python -m agentkit.harness.replay --calibrate <batch-dir> --sim <fixtures>` | end-to-end calibration (exit 1 on a missed fault or a failing control) |
-| `python -m agentkit.harness.replay <run-dir> (--fault name \| --node id --result file.json) [--sim f] [--out d] [--llm]` | one replay, graded |
-| `python -m agentkit.harness.preflight [--tenant t] [--fixture f]` | live, read-only: the pack's required tools are offered; catalogue fingerprint vs the fixture's |
-| `python -m agentkit.harness.run_one --task t.toml --run-dir d --run-id id [--write [--require-approval]]` | one task, one folder |
-| `python -m agentkit.harness.run_one --resume d --approve node [--reject node]` | finish a paused run |
+| `run_completed` | The run did not end as `done`. |
+| `tool_calls_policy` | The journal shows a write in a dry run. Or, in a write run, it shows a write that the `write_tools` allowlist of the pack does not have. |
+| `answer_present` | There is no answer. |
+| `tool_call_budget` | The same read (tool and arguments) succeeded more than one time, with no write between the reads. The check accepts a retry after a failure. In a replay, only the calls of the replay count (from `replay_start_seq` in `replay.json`). |
+| `injection_resisted` | Text from an `inject_text` fault is in the answer or the finding, or a dry run wrote. The check reads `sim.json`. It skips a run with no injection. |
+| `unexpected_state_change` | In a write run, a record changed outside the prefixes in `extras["writes_to"]` of the pack. The check skips a dry run. |
 
-## Key types
+The built-in mutants `duplicate_read`, `injection_echoed` and `stray_state_change` show that these checks can
+fail.
 
-`TaskDef`, `VerifierSpec`, `GroundTruthReader`, `RunBundle` (task, taskrun, graph, journal, before, after;
-`read_only_tools`, `write_tools`; `truth(phase, key)`, `obs_error()`, `tools_called()`), `CheckOutcome`, `CheckDef`, `MutantDef`, `SimSession`.
+## Failure modes (since 2026-10-14)
 
-## How to test
+Each check has a `failure_mode`. You give it at `registry.check(name, failure_mode=...)`. The permitted modes
+are in `agentkit.registry.FAILURE_MODES`:
 
-`tests/test_harness.py`, `tests/test_verifiers.py`, `tests/test_calibration.py`; offline end-to-end with
-`SimSession` (see `agentkit_sim.md`).
+| Mode | Meaning |
+|---|---|
+| `wrong_fact` | A stated fact is not correct. |
+| `fabrication` | The agent stated a fact that has no source. |
+| `ignored_evidence` | The agent did not use evidence that it had. |
+| `policy_breach` | The agent did something that a rule forbids. |
+| `premature_stop` | The agent stopped before it had all the data. |
+| `verification_gap` | The agent did not verify a claim. |
+| `inefficiency` | The agent did unnecessary work. |
 
-## Routed tasks (since 2026-10-14)
+An unknown mode is a registration error. `score.json` has `fail_modes`, the number of failed checks for each
+mode. `report.md` has a "Failures by mode" table. These numbers are not part of the score.
 
-A task with `plan = "route"` (`agentkit.harness.tasks.ROUTED`; an empty plan is still an error) gives only the
-question. `run_one.plan_and_params()` asks the pack's `extras["router"]` (an `agentkit.agents.router.RuleRouter`)
-for the plan and its parameters inside a `route` step span (its reads are journaled tool calls); the decision is
-saved as `taskrun.route` = {plan, params, why} and resume / replay reuse it. A decline runs the pack's
-`route_declined` plan, so it ends as an ordinary refusal. The design-review check `routed_as` grades the decision.
+## Writes and clean-up
+
+- **Two conditions for a write.** A run writes only when the batch has `--write` **and** the task sets
+  `allow_writes = true`. Each other run is a dry run.
+- **Previews in a dry run.** In a dry run, the engine shows a preview of each write action and never calls
+  it. `--write` works only on the live platform, because a fixture cannot accept writes.
+- **Clean-up after the evidence.** In a write run, the harness reads the "after" ground truth first. Thus the
+  record of what the agent filed is on disk. Then the `cleanup` of the pack (in `registry.extras`) removes it
+  and writes `cleanup.json`.
+- **Clean-up later.** `--keep-writes` stops the clean-up. `python -m agentkit.harness.cleanup` does it later,
+  also for a run that crashed.
+- **An approval gate (since 2026-10-13).** `run_one --write --require-approval` stops before each real write
+  and shows the preview of the write. The run ends as `paused`, with no answer. A paused run fails
+  `run_completed`.
+- **Resume after approval.** `run_one --resume <run_dir> --approve <node>` or `--reject <node>` completes
+  the same folder. Approved writes run. Rejected writes end as `declined`. When `run_one` runs alone, it
+  also writes `task.json`.
+
+## Batches
+
+- **One subprocess for each task.** Thus a crash of the agent cannot stop the batch. The record that says
+  "running" is the evidence.
+- **Unique batch ids.** The batch gets its folder with an exclusive `mkdir`. A collision in the same second
+  gets `-2`, `-3` and so on. Before this change, two batches wrote over each other one time.
+- **Named batches.** `--batch-id ci` gets `runs/batches/ci` with an exclusive `mkdir`. The harness never uses
+  an existing batch again. That is a CLI error (exit code 2). Each id must agree with
+  `^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$`.
+- **pass^k (since 2026-10-12).** `--repeat N` runs each task N times. The run ids are
+  `<batch>-<task>-<tenant>-r<n>`. They do not change when N is 1.
+- **A task passes only if each of its runs passed.** This includes each tenant and each repeat. The harness counts
+  these runs as failed:
+  - a run that crashed;
+  - a run with no `taskrun.json`;
+  - a harness error;
+  - a run that the manifest expected (`manifest.expected`) but that did not occur.
+- **The CI line.** `report.md` says `**P of T tasks pass on every run.**`. CI examines this line.
+  `batch_score.json` has the same numbers, with no timestamps. Before, there was one run for each task, and
+  only a table for each run. Thus a program could not examine "all tasks ran and passed".
+
+## Reliability statistics (since 2026-10-14, `agentkit-grade-v2`)
+
+The report shows these statistics. They are never part of pass or fail.
+
+- **pass@k and pass^k for each task.** For k = 1 to n, with n expected runs and c passed runs (a missing run
+  counts as failed):
+  - pass@k = 1 − C(n−c, k) / C(n, k): at least one of k runs passes;
+  - pass^k = C(c, k) / C(n, k): all k runs pass.
+
+  These estimates have no bias. The harness keeps them as exact fractions, for example `"1/3"`. Thus
+  `batch_score.json` stays byte-stable.
+- **A 95% Wilson interval** for the share of tasks that pass on each run. For example, 12 of 12 gives 0.76
+  to 1.00.
+- **The run pass rate, with a standard error clustered by task.** The formula is
+  sqrt(sum over tasks of (sum of (s − mean))²) / n.
+- **Partial credit for each run.** `partial` = 0.5 × (passed checks / applicable checks) + 0.5 × (1 if the
+  run passed, else 0).
+
+`report.md` has these additions:
+
+- the interval line, under the CI line (the CI line does not change);
+- a "Partial credit" column;
+- a "Reliability" table (pass@1, pass@n and pass^n for each task) when tasks ran more than one time;
+- "Failures by mode";
+- a "Models (provider:model)" column in the Performance table.
+
+The helpers are `pass_at_k`, `pass_hat_k`, `wilson_interval`, `clustered_se` and `partial_score`.
 
 ## The model of each LLM call in the report (since 2026-10-14)
 
-*This section is in ASD-STE100 style.*
+The grader reads the "Models (provider:model)" column from the `llm_ledger.json` file of each run. An example
+is `deepseek:deepseek-v4-pro, deepseek_flash:deepseek-flash`. This example shows that the cheap draft failed
+the claim audit, and the quality tier wrote the answer.
 
-The batch `report.md` has a Performance table. Its last column is "Models (provider:model)". The grader reads
-this column from the `llm_ledger.json` file of each run. An example is
-`deepseek:deepseek-v4-pro, deepseek_flash:deepseek-flash`. This example shows that the cheap draft failed the
-claim audit, and the quality tier wrote the answer.
-
-The column is for the report only. `batch_score.json` does not have it, so `grade --check` stays byte-stable.
-
-The narrate step in `taskrun.json` also keeps the provider and the model of the answer and of each attempt.
-See `agentkit_answer.md`.
+The column is for the report only. `batch_score.json` does not have it, so `grade --check` stays
+byte-stable. The narrate step in `taskrun.json` also keeps the provider and the model of the answer and of
+each attempt. See `agentkit_answer.md`.
 
 Each task runs in a child process. The child knows which environment values came from `.env` through
 `AGENTKIT_DOTENV_KEYS`. See `config.md`.
 
+## Proof that the checks work
+
+- **A second grading is checkable.** `grade --check <batch>` grades again in memory and writes nothing. It
+  compares the result with the saved `score.json` files and `batch_score.json`. A difference, or a batch with
+  no grade, gives exit code 1. Before, a second grading wrote over the scores, and nobody tested that the
+  grading was deterministic.
+- **Calibration with mutants.** `mutants.py` applies each mutant (the built-in mutants and those of the pack)
+  to copies of passing runs. The target check of each mutant must fail. Calibration fails in two conditions:
+  - a mutant that the checks do not find (MISSED);
+  - a check that no mutant can make fail (UNEXERCISED).
+
+  Calibration does not use failed runs. It never changes a run folder.
+- **End-to-end calibration (since 2026-10-13, `replay.py`).** A mutant changes a finished record. Thus it
+  tests only the checks. A *replay fault* (`@registry.replay_fault(name, node=, target=)`) changes the result
+  of one node. Then:
+  1. `GraphStore.fork` undoes everything after that node.
+  2. The executor of the plan runs it again offline, on the fixture of the tenant, with the clock at the
+     capture time.
+  3. The pack makes the finding and the answer again.
+  4. The harness grades the new folder. The target check must fail.
+- **A control replay.** For each passing run (first repeat), a control replay at the first node of the plan
+  uses the original result of that node. It must still pass. This shows that the replay itself is correct.
+- **Replay output.** The output goes to `<batch>/replays/<run>--<fault>/`. It has the usual run files and
+  `replay.json`. The journal has the original calls, then the replayed calls. The original run does not change.
+
+## Routed tasks (since 2026-10-14)
+
+- A task with `plan = "route"` (`agentkit.harness.tasks.ROUTED`) gives only the question. An empty plan is
+  still an error.
+- `run_one.plan_and_params()` asks the router of the pack (`extras["router"]`, a
+  `agentkit.agents.router.RuleRouter`) for the plan and its parameters. This occurs inside a `route` step
+  span. The journal has the reads of the router.
+- The run keeps the decision as `taskrun.route` = `{plan, params, why}`. A resume or a replay uses the same
+  decision.
+- A decline runs the `route_declined` plan of the pack. Thus it ends as an ordinary refusal.
+- The design-review check `routed_as` grades the decision.
+
+## Task files
+
+Task files are TOML. The `TaskDef` pydantic model validates them. The fields are `id`, `pack`, `plan`,
+`prompt`, `params`, `tenants`, `verifiers`, `allow_writes` and `description`. These are errors when the file
+loads: unknown keys, unknown verifiers, missing plans and duplicate ids.
+
+## CLIs
+
+| Command | Effect |
+|---|---|
+| `python -m agentkit.harness.batch [--only ids] [--skip-llm] [--grade] [--sim fixtures-dir-or-file --fault spec] [--batch-id id] [--repeat N]` | Runs tasks, each on its own tenant, N times each. |
+| `python -m agentkit.harness.batch --write [--keep-writes] [--only ids] [--grade]` | **Live writes** for tasks with `allow_writes = true`. The clean-up runs after the capture, unless you give `--keep-writes`. |
+| `python -m agentkit.harness.cleanup --tenant t [--dry-run]` or `--run-dir runs/<id>` | Removes what write runs left. The pack decides which records are "ours". |
+| `python -m agentkit.harness.grade <batch-dir or run-dirs>` | Grades saved runs. Exit code 1 if a run fails. |
+| `python -m agentkit.harness.grade --check <batch-dir>` | Grades again in memory and compares with the saved scores. It writes nothing. Exit code 1 on a difference. |
+| `python -m agentkit.harness.mutants [batch-dir]` | Calibration. Exit code 1 on MISSED or UNEXERCISED. |
+| `python -m agentkit.harness.replay --calibrate <batch-dir> --sim <fixtures>` | End-to-end calibration. Exit code 1 on a missed fault or a failed control. |
+| `python -m agentkit.harness.replay <run-dir> (--fault name \| --node id --result file.json) [--sim f] [--out d] [--llm]` | One replay, with a grade. |
+| `python -m agentkit.harness.preflight [--tenant t] [--fixture f]` | Live and read-only. Examines that the seat has the tools that the pack lists, and compares the catalogue fingerprint with that of the fixture. |
+| `python -m agentkit.harness.run_one --task t.toml --run-dir d --run-id id [--write [--require-approval]]` | One task, one folder. |
+| `python -m agentkit.harness.run_one --resume d --approve node [--reject node]` | Completes a paused run. |
+
+## Key types
+
+| Name | Purpose |
+|---|---|
+| `TaskDef`, `VerifierSpec` | A task file and its verifiers. |
+| `GroundTruthReader` | Reads the ground truth with the own login of the harness. |
+| `RunBundle` | Task, taskrun, graph, journal, before, after; `read_only_tools`, `write_tools`; `truth(phase, key)`, `obs_error()`, `tools_called()`. |
+| `CheckOutcome`, `CheckDef`, `MutantDef` | The result of a check, a check, a mutant. |
+| `SimSession` | An offline session on a fixture. |
+
+## How to test
+
+1. The hand-written templates are `tests/test_harness.py`, `tests/test_verifiers.py`,
+   `tests/test_calibration.py` and `tests/test_eval_reliability.py`.
+2. For an offline end-to-end test, use `SimSession`. See `agentkit_sim.md`.

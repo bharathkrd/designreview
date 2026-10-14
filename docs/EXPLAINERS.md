@@ -1,17 +1,28 @@
 # Explainer index — Team 21 Design Review agent
 
-One entry point into the per-module explainers for the agent that answers *"What changed between rev B and
-rev C, and are there manufacturability problems in this part?"* on the live AgentSwitch platform.
-Each explainer covers: the 10,000-ft view, why it's written the way it is, what it does, its key types, and
-how to test it (the matching hand-written test template in `tests/` has the detailed checklist).
+*Written in ASD-STE100 (Simplified Technical English) style, 2026-10-14.*
 
-For how generic the architecture is — the pack seam, the extension points, and the honest limits — read
-[`ARCHITECTURE.md`](ARCHITECTURE.md) first.
+This page is the start point for the explainers of each module. The agent works on the live AgentSwitch
+platform. It answers this question:
 
-For how the harness, evals and implementation compare with published arXiv practice, and which gaps and tests
-remain, read [`RESEARCH_GAP_ANALYSIS.md`](RESEARCH_GAP_ANALYSIS.md).
+*"What changed between rev B and rev C, and are there manufacturability problems in this part?"*
 
-## The whole system
+Each explainer has these parts:
+
+- an overview;
+- the design decisions;
+- what the module does;
+- its key types;
+- how to test it. The hand-written test template in `tests/` has the detailed checklist.
+
+Other documents:
+
+- [`ARCHITECTURE.md`](ARCHITECTURE.md) tells how generic the architecture is: the pack seam, the extension
+  points and the limits. Read it first.
+- [`RESEARCH_GAP_ANALYSIS.md`](RESEARCH_GAP_ANALYSIS.md) compares the harness, the evals and the
+  implementation with published arXiv practice. It also lists the gaps and the tests that remain.
+
+## The full system
 
 ```
                       capstone_agent.py --task  /  capstone_evals.py (batch + grade)
@@ -32,53 +43,59 @@ remain, read [`RESEARCH_GAP_ANALYSIS.md`](RESEARCH_GAP_ANALYSIS.md).
             │  telemetry/ run tree per run (never graded)          │
             │  viewer/   read-only browser page over run folders  │
             └─────────────────────────────────────────────────────┘
-   packs/designreview/: actions · plans · finding · claims · template · prompts · probes · checks · mutants · tasks · fixtures
+   packs/designreview/: actions · plans · router · finding · claims · template · prompts · probes · checks · mutants · tasks · fixtures
 ```
 
-In one sentence: **the facts are computed in code from the platform, the LLM only words them and is audited,
-and grading compares the result with the platform — read separately, saved to disk, and proven able to fail.**
+In short:
+
+1. Code calculates the facts from the platform.
+2. The LLM only writes these facts as text, and an audit examines that text.
+3. The grading compares the result with the platform. The harness reads the platform separately, saves all
+   data to disk, and shows that each check can fail.
 
 ## Reading order
 
-Writing style: `config.md`, `agentkit_llm.md` and `agentkit_answer.md` use ASD-STE100 (Simplified Technical
-English). The sections added on 2026-10-14 to `agentkit_harness.md` and `packs_designreview.md` also use it.
-The other explainers do not use it yet.
+All explainers use ASD-STE100 (Simplified Technical English).
 
-0. [`config.md`](explainers/config.md) — TOML config, the pydantic models that validate it, and `.env` loading
-1. [`agentkit_transport.md`](explainers/agentkit_transport.md) — MCP client, REST reader, tool-call journal
-2. [`agentkit_llm.md`](explainers/agentkit_llm.md) — LLM gateway, providers and tiers, which model answered, cost ledger
-3. [`agentkit_graph.md`](explainers/agentkit_graph.md) — live task graph, verdicts, rules, registry; retry policy, channels + superstep mode, approval pause, checkpoint history + fork
-4. [`agentkit_answer.md`](explainers/agentkit_answer.md) — claim audit and narrator (platform data fenced as untrusted; corrections name the verified value)
-5. [`agentkit_retrieval.md`](explainers/agentkit_retrieval.md) — topic chunker, BM25 index, search-children/return-parents index
-6. [`agentkit_record.md`](explainers/agentkit_record.md) — crash-safe run record
-7. [`agentkit_harness.md`](explainers/agentkit_harness.md) — tasks, ground truth, grading, calibration (mutants and end-to-end replay), approval resume
-8. [`agentkit_sim.md`](explainers/agentkit_sim.md) — fixtures, offline platform, faults
-9. [`agentkit_telemetry.md`](explainers/agentkit_telemetry.md) — run tree: spans, timings, tokens, retries (telemetry.json, report Performance, viewer Timeline)
-10. [`agentkit_viewer.md`](explainers/agentkit_viewer.md) — read-only browser page over batches and runs
-11. [`packs_designreview.md`](explainers/packs_designreview.md) — the domain: finding, verifiers, tasks
-12. [`capstone_agent.md`](explainers/capstone_agent.md) — the agent entry point
-13. [`capstone_evals.md`](explainers/capstone_evals.md) — run and re-grade the benchmark
-14. [`as_client.md`](explainers/as_client.md) — the compatibility client
-15. [`core_legacy.md`](explainers/core_legacy.md) — what's left in `core/` and why
+0. [`config.md`](explainers/config.md): the TOML configuration, the pydantic models that validate it, and how `.env` loads.
+1. [`agentkit_transport.md`](explainers/agentkit_transport.md): the MCP client, the REST reader, the tool-call journal, argument validation.
+2. [`agentkit_llm.md`](explainers/agentkit_llm.md): the LLM gateway, the providers and tiers, the record of which model answered, the cost ledger.
+3. [`agentkit_graph.md`](explainers/agentkit_graph.md): the live task graph, verdicts, rules, the registry, the retry policy, timeouts, channels, superstep mode, the approval pause, checkpoint history and fork.
+4. [`agentkit_answer.md`](explainers/agentkit_answer.md): the claim audit, the narrator, the cascade, the fence and the quarantine for platform data.
+5. [`agentkit_retrieval.md`](explainers/agentkit_retrieval.md): the topic chunker, the BM25 index, the parent-child index, retrieval quality.
+6. [`agentkit_record.md`](explainers/agentkit_record.md): the run record that is safe from a crash.
+7. [`agentkit_harness.md`](explainers/agentkit_harness.md): tasks, ground truth, grading, reliability statistics, calibration (mutants and end-to-end replay), approval and resume, routed tasks.
+8. [`agentkit_sim.md`](explainers/agentkit_sim.md): fixtures, the offline platform, faults, the CI fault matrix.
+9. [`agentkit_telemetry.md`](explainers/agentkit_telemetry.md): the run tree: spans, timings, tokens, retries.
+10. [`agentkit_viewer.md`](explainers/agentkit_viewer.md): the read-only browser page for batches and runs.
+11. [`packs_designreview.md`](explainers/packs_designreview.md): the domain: the finding, the verifiers, the router, the hand-offs, the tasks.
+12. [`capstone_agent.md`](explainers/capstone_agent.md): the agent entry point.
+13. [`capstone_evals.md`](explainers/capstone_evals.md): run the benchmark and grade it again.
+14. [`as_client.md`](explainers/as_client.md): the compatibility client.
+15. [`core_legacy.md`](explainers/core_legacy.md): the old modules in `core/`, and why they stay.
 
-## Cross-cutting decisions
+## Decisions for the full system
 
-- **No agent frameworks.** The loop, graph, planner, retrieval and harness are plain Python; dependencies are
-  `httpx`, `pydantic`, `python-dotenv`, `pytest` (+ `networkx` for the legacy engine only).
-- **Layering.** `agentkit/` names no design-review entity, tool, id or tenant; defaults live in
-  `config/project.toml`. A second domain is a new `packs/<name>/`, not an `agentkit` change.
-- **Refusal is a result.** A missing record or an absent tool ends a node `declined`, the finding
-  `declined`, and the answer says so — graded as a pass when the platform confirms it.
-- **Evidence before judgement.** The run record is written as `running` before work starts; the tool journal,
-  graph checkpoint and ground truth are on disk before any check reads them; checks never touch the network.
-- **Observable, not graded.** Every run writes `telemetry.json` (task → node → tool / llm spans); timings
-  feed `report.md` and the viewer, never a score, so re-grading stays byte-identical (`grade --check`).
-- **Platform text is data.** The narrator gets the finding inside an `<untrusted_platform_data>` fence and is
-  told never to follow instructions found there; live writes can be paused for a person's approval.
-- **Honest about the platform.** This build has no CAD kernel, so revision changes come from commit messages
-  and the answer never claims a geometry comparison.
+- **No agent frameworks.** The loop, the graph, the planner, the retrieval and the harness are plain Python.
+  The dependencies are `httpx`, `pydantic`, `python-dotenv` and `pytest`. Only the legacy engine needs
+  `networkx`.
+- **Layers.** `agentkit/` has no design-review entity, tool, id or tenant. The defaults are in
+  `config/project.toml`. A second domain is a new `packs/<name>/`. It needs no change to `agentkit`.
+- **A refusal is a result.** A missing record or an absent tool ends a node as `declined`, and the finding
+  as `declined`. The answer says so. The grader gives a pass when the platform confirms the refusal.
+- **Evidence before judgement.** The run record goes to disk as `running` before the work starts. The tool
+  journal, the graph checkpoint and the ground truth are on disk before a check reads them. Checks never use
+  the network.
+- **Observable, not graded.** Each run writes `telemetry.json` (task, node, tool and llm spans). The timings
+  go into `report.md` and the viewer, never into a score. Thus a second grading gives the same bytes
+  (`grade --check`).
+- **Platform text is data.** The narrator gets the finding inside an `<untrusted_platform_data>` fence. The
+  prompt tells it never to obey instructions in the fence. A person can approve each live write before it
+  occurs.
+- **Honest about the platform.** This build has no CAD kernel. Thus the revision changes come from the commit
+  messages, and the answer never states a geometry comparison.
 
 ## Tests
 
-`tests/` is the graded, hand-written suite (see [`tests/README.md`](../tests/README.md)).
-`tests_local/` (git-ignored) is an AI-written reference suite used during development.
+- `tests/` is the graded, hand-written suite. See [`tests/README.md`](../tests/README.md).
+- `tests_local/` is an AI-written reference suite for development. Git ignores it.

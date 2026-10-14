@@ -26,7 +26,8 @@ gives LLM text that the audit did not accept.
 - **A grounded rewrite.** A draft that fails gets a correction note. For each unsupported quantity, the note
   gives the nearest verified values and their paths in the finding. An example:
   `'2.5 mm' is not in the FINDING; remove it, or use a verified value: '2.0 mm' (at
-  revision_delta.change_notes[0])`. Research shows that a model seldom corrects itself without outside
+  revision_delta.change_notes[0])`.
+- **Why the rewrite gets the verified values.** Research shows that a model seldom corrects itself without outside
   feedback. It does better when an outside check says what is correct (Huang et al. 2023; Shinn et al.
   2023, Reflexion). A pack can add lines with `ClaimRules.explain(report, finding)`.
 - **Platform text is data, not instructions.** The prompt puts the finding between

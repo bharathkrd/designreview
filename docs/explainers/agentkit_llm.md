@@ -104,7 +104,7 @@ The gateway never writes a prompt or a key to these files.
 - **Audit-gated cascade.** The pack sets the narration tiers to `("fast", "quality")`. The fast tier writes
   one draft. If the claim audit accepts it, that draft is the answer. If the audit rejects it, the quality
   tier gets the draft and the audit's correction note. The quality tier can write a draft and one rewrite.
-  If these fail, the template gives the answer.
+- **The template is the last step.** If no draft passes, the template gives the answer.
 - **Budget.** `max_llm_cost_usd_per_run` in `config/project.toml` sets a cost limit for each run. The
   variable `AGENTKIT_MAX_LLM_COST_USD` overrides it. No new call starts after the ledger reaches the limit.
 - **Cache-friendly prompts.** The stable text is in the system prompt. The data of each run comes after it.
