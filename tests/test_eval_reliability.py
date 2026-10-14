@@ -32,8 +32,8 @@ Use cases to cover:
   [ ] (works today -- keep it so) a "null agent" bundle (no tool calls, finding declined, answer
       "I can't answer that") fails every one of the nine tasks
   [ ] (works today) a hand-off list naming every possible owner fails handoffs_match_platform (exact set)
-  [ ] (gap today) t02's real finding and answer with an EMPTY journal -> record_absent must fail: a refusal
-      decided without the one DesignFile.get lookup is not a correct refusal (today it passes)
+  [ ] lookup_before_refusal (added 2026-10-14): a journal whose DesignFile.get for the id ended
+      error_kind "missing" -> pass; an empty journal -> fail; a flaky try then a "missing" retry -> pass
 
   Partial credit (G9, not built yet; report only, never a gate):
   [ ] 3 of 4 applicable checks pass -> S_partial = 0.5 * 3/4 + 0.5 * 0 = 0.375
@@ -57,6 +57,6 @@ import pytest
 
 from agentkit.harness.checks import BUILTIN_CHECKS, CheckOutcome, RunBundle, check_run
 from agentkit.harness.grade import overall_status, score_batch
-from packs.designreview.checks import check_release_gate
+from packs.designreview.checks import check_lookup_before_refusal, check_release_gate
 
 # Write your tests below.

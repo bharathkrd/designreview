@@ -10,4 +10,8 @@ name = "record_absent"
 params = { entity = "DesignFile", id = "00000000-0000-0000-0000-000000000000" }
 
 [[verifiers]]
+name = "lookup_before_refusal"
+params = { id = "00000000-0000-0000-0000-000000000000" }
+
+[[verifiers]]
 name = "answer_audited"

@@ -53,7 +53,7 @@ Prior work this builds on:
 | Grading from saved files only, pure check functions; `grade --check` proves re-grade is byte-identical | `harness/grade.py`, `checks.py` | P1 O.f.2, P2 reproducibility |
 | Agent runs in a subprocess; run record on disk before work; crash = fail; `error` never a pass; missing runs fail | `run_one.py`, `batch.py`, `grade.score_batch` | P1 T.3, T.5 |
 | pass^k gate (CI `--repeat 3`; task passes only if every run passed) | `grade.score_batch` | P3, P18 |
-| Verifiers proven able to fail: 28 mutants + replay faults (node → finding → answer → check) with a control replay | `harness/mutants.py`, `replay.py`, pack `mutants.py`, `replay_faults.py` | Beyond P1 O.d / T.9 — no paper does both |
+| Verifiers proven able to fail: 29 mutants + replay faults (node → finding → answer → check) with a control replay | `harness/mutants.py`, `replay.py`, pack `mutants.py`, `replay_faults.py` | Beyond P1 O.d / T.9 — no paper does both |
 | Fault-injection matrix with asserted expected grades (flaky, drop_tool, fail_always, edit_text) | `scripts/ci_fault_matrix.py`, `ci_faults.toml` | P18 λ (partial) |
 | Refusal tasks: unknown record (t02), tool not in seat (t03), no geometry claims (t04) | tasks t02–t04; checks `record_absent`, `tool_absent`, `no_geometry_claim` | P12 |
 | Frozen offline environment: captured fixtures, frozen clock, `AGENTKIT_OFFLINE=1` | `agentkit/sim`, `clock.py` | P1 T.4, T.6 |
@@ -82,6 +82,10 @@ evaluation*, and *baselines*.
   resolving "the battery tray" to a file, or asking/declining when a part name is ambiguous.
 - Fix: a resolver/router stage (rules first, optional LLM behind the allowlist) + prompt-only tasks.
 
+> **Partly closed 2026-10-14 (batch 1):** the new check `lookup_before_refusal` (on t02) needs the agent's own
+> lookup to have said missing; mutant `refused_without_lookup` proves it can fail. Open: the null agent as a
+> standing baseline in `report.md`.
+
 **G2. Trivial-agent baseline is not a standing part of the harness; one refusal check accepts "no lookup"**
 (P1 R.12/R.13 — the τ-bench 38% flaw; P1 O.b.2)
 - Checked on 2026-10-14 against an offline batch: a do-nothing agent (no tool calls, finding `declined`,
@@ -105,6 +109,10 @@ evaluation*, and *baselines*.
 - CI runs `--skip-llm`, so 3 repeats are deterministic — the only stochastic part (narration) is never in CI.
   Last LLM batches in `runs/` are 2026-09-30.
 - `score_batch` stores only `pass_all`: no pass@k / pass^k curve, no confidence interval.
+
+> **Partly closed 2026-10-14 (batch 1):** `finding.requested_pair` reads the compare phrase ("between … and",
+> "from … to", "rev X -> rev Y"), so the distractor case compares B -> C and "from B to C" works; three revs with
+> no compare phrase decline. Open: metamorphic task variants graded in the batch.
 
 **G4. No perturbation robustness; a distractor sentence changes the answer** (P18 ε-axis, P19)
 - Checked on 2026-10-14 with `finding.requested_revs`:

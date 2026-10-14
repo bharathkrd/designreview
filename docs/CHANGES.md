@@ -1,5 +1,17 @@
 # Changes
 
+## 2026-10-14 — Batch 1 of the research gaps: compare the revs the question names; a refusal needs its lookup
+
+| What | Before | After | Where |
+|---|---|---|---|
+| Which revs are compared (G4) | the first two rev letters anywhere in the question: "Rev A was the prototype. What changed between rev B and rev C?" compared A -> B; "from B to C" found no revs and silently used the latest two versions | `requested_pair()` reads the compare phrase ("between ... and", "from ... to", "rev X -> / to / vs rev Y"); without one, exactly two named revs are used; three or more decline with the reason instead of guessing | `packs/designreview/finding.py` |
+| Refusal evidence (G2) | a t02 run with an empty journal still passed: `record_absent` forbade calls *after* the lookup but never required the lookup | new check `lookup_before_refusal` (on t02): the agent's own last `DesignFile.get` of the id must have said missing (a retried flaky try is fine); mutant `refused_without_lookup` proves it fails; 29 mutants, 13 pack checks | `packs/designreview/checks.py`, `mutants.py`, `tasks/t02_unknown_file_refusal.toml` |
+| Docs | — | explainer, `ARCHITECTURE.md` counts, G2/G4 marked partly closed in `RESEARCH_GAP_ANALYSIS.md`; `tests/` templates list the new use cases | `docs/`, `tests/` |
+
+`record_absent` itself is unchanged, so its hand-written test still holds. Verified offline: both suites, the batch
+with `--repeat 3` (9 of 9), `grade --check`, mutants (refused_without_lookup caught 3/3), replay calibration and the
+fault matrix (7 of 7, including "flaky read before a refusal").
+
 ## 2026-10-14 — Docs: research gap analysis; hand-written test templates for the gaps
 
 | What | Before | After |

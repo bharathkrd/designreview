@@ -72,7 +72,7 @@ the task file's `pack = ...` or `config/project.toml`'s `default_pack`.
 | `extras["required_tools"]` | tool names | no | catalogue preflight | the seat tools the actions call |
 | `@registry.probe(name)` | `(reader, arg) -> observation` | for grading | ground truth (own login, before + after) | `design_file`, `release_gate` |
 | `@registry.check(name, observes=)` | pure `(bundle, params) -> [CheckOutcome]` | for grading | grader | `revision_delta_matches_db` |
-| `@registry.mutant(name, target)` | `bundle -> bundle \| None` | for calibration | `mutants` — proves each check can fail | 28 faults |
+| `@registry.mutant(name, target)` | `bundle -> bundle \| None` | for calibration | `mutants` — proves each check can fail | 29 faults |
 | `@registry.replay_fault(name, node, target)` | `NodeResult -> NodeResult \| None` | for calibration | `replay` — end-to-end self-test | `gate_reports_ready` |
 | `extras["fixtures_dir"]` | captured platform | for offline runs | `sim` | `fixtures/suryodaya.json` |
 
@@ -143,7 +143,7 @@ Each extension point is a small interface, so a new domain *or* a new platform p
 | Checkpoints | `CheckpointSaver` (`put`, `get`, `list`) | `graph.json` (latest), `MemorySaver`, `JsonlSaver` | e.g. a database saver |
 | Retrieval | `EvidenceIndex`, `ParentChildIndex` with a pluggable splitter | BM25 + verbatim-suffix chunking | another splitter or index behind the same calls |
 | Telemetry | handler hooks `on_{chain,tool,llm,retriever}_{start,end,error}` | `Tracer` → `telemetry.json` | another handler (e.g. an exporter) |
-| Grading | probes + pure checks over a saved run folder | 12 design-review checks + 3 generic ones (`run_completed`, `tool_calls_policy`, `answer_present`) | the pack's own checks |
+| Grading | probes + pure checks over a saved run folder | 13 design-review checks + 3 generic ones (`run_completed`, `tool_calls_policy`, `answer_present`) | the pack's own checks |
 
 ## 5. Properties every pack gets for free
 
