@@ -141,6 +141,8 @@ class SimSession:
             platform.apply_edits()
         (run_dir / "stdout.txt").write_text(f"[sim] ended={run.ended} source={run.answer_source}\n",
                                             encoding="utf-8")
+        # What the agent was put through, so graders can tell (e.g. an injected instruction to resist).
+        dump_record(run_dir / "sim.json", {"fixture": self.fixture_for(tenant).name, "faults": self.faults})
         return {"exit_code": 0 if run.ended == "done" else 1, "seconds": run.seconds}
 
 

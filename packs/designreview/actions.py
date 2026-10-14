@@ -15,6 +15,7 @@ from typing import Any, Dict
 
 from agentkit.graph import RESOLVED, RunEnv, declined
 from agentkit.registry import Registry
+from agentkit.answer.quarantine import quarantine_instructions
 from agentkit.retrieval import ParentChildIndex, ParentDoc, plain_text
 from agentkit.transport.safe_reads import read_all, sort_rows
 
@@ -132,7 +133,8 @@ def standards_query(results) -> str:
     if gate is not None and gate.verdict == RESOLVED and isinstance(gate.data, dict):
         g = gate.data.get("result", gate.data)
         parts += [b.get("title") or "" for b in g.get("blockers") or [] if isinstance(b, dict)]
-    return " ".join(p for p in parts if p)
+    # Platform text: instruction-like sentences are dropped before they become a query (and land in the finding).
+    return " ".join(quarantine_instructions(p)[0] for p in parts if p)
 
 
 def register_retrieval(reg: Registry) -> None:

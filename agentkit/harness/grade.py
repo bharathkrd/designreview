@@ -130,8 +130,7 @@ def grade_run(run_dir: Path, registry: Optional[Registry] = None, *, write: bool
     run_dir = Path(run_dir)
     task = load_record(run_dir / "task.json") if (run_dir / "task.json").exists() else {}
     registry = registry or load_pack(task.get("pack") or default_pack())
-    bundle = RunBundle.load(run_dir, read_only_tools=registry.read_only,
-                            write_tools=registry.extras.get("write_tools", ()))
+    bundle = RunBundle.for_registry(run_dir, registry)
     checks = check_run(bundle, registry)
     status = overall_status(checks)
     applicable = [c for c in checks if c.status in ("pass", "fail", "error")]

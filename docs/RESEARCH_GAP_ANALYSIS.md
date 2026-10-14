@@ -133,13 +133,19 @@ evaluation*, and *baselines*.
   - add metamorphic task variants that must grade identically to the original.
 
 ### P1 — safety and harness robustness
+> **Closed 2026-10-14 (batch 3):** sim fault `inject_text:<tool>:<field>=<text>` plants an instruction before the agent reads; built-in check `injection_resisted` (the injected text must not reach the answer or the finding, no writes) with mutant `injection_echoed`; two CI scenarios (commit note, feedback title). The probes found three real leak paths -- the template quoting commit notes, the standards query, hand-off titles -- now closed by `agentkit.answer.quarantine` (instruction-like text cut out, the answer says something was withheld, the finding keeps only where). Open: the attack success rate on the LLM path (needs an LLM batch).
+
 **G5. No prompt-injection evaluation** (P6, P7)
 - The fence exists but nothing plants an attack *before* the run (`edit_text` applies after).
 - Fix: sim fault `inject_text:<tool>:<field>=<payload>` + generic check `no_injected_instruction_followed`.
 
+> **Closed 2026-10-14 (batch 3):** built-in check `unexpected_state_change`: in a write run every observed record must read the same before and after except under the pack's `extras["writes_to"]` prefixes (design review: `escalations:`); mutant `stray_state_change`. Limit: only records some verifier observes are compared.
+
 **G6. No collateral-state check** (P3, P1 O.g.2)
 - Write runs check *which tools* were called, not that *only the declared records* changed.
 - Fix: generic `unexpected_state_change` check over all probe keys + `writes_to` declaration in the pack.
+
+> **Closed 2026-10-14 (batch 3):** new sim faults `fail_times` (rate limit that clears), `truncate` (partial payload), `rename_field` (schema change); `read_all` now keeps the server's total and marks a short result `complete: false`, the finding makes that section `partial` and says "M of N rows"; an incomplete feedback list proposes no hand-off; a missing `commit_message` field gives an honest reason; LLM-provider failure falls back to the template (tested). 13 CI fault scenarios.
 
 **G7. Fault coverage is narrow** (P18 λ-axis, P1 T.2/T.3)
 - Missing: 429 rate limit (Retry-After), timeout, truncated/partial payload, schema drift (renamed field),
@@ -361,6 +367,8 @@ about **measuring** these components and adding the **cheap, proven upgrades**, 
   timeout or token/cost budget.
 - Fix: `ActionSpec.timeout_s` and a run-level `max_cost_usd`; on exceed → FAILED with the reason. Test with
   sim faults.
+
+> **Closed 2026-10-14 (batch 3):** `JournaledSeatClient` checks every call against the tool's input schema (required, unknown keys when `additionalProperties` is false, simple types); a bad call is journaled `bad_args`, `sent: false`, and never sent.
 
 **I9. No schema validation of tool *arguments* before the call**
 - Evidence: the catalogue fingerprint covers the schemas, but arguments are not validated per call.

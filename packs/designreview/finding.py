@@ -19,6 +19,12 @@ The LLM never decides a fact. Everything a verifier grades lives here:
                    items behind it, plus what would be filed -- in a dry
                    run nothing is filed (filed = false)
   declines         every node the platform refused, with its reason
+  quarantined      instruction-like sentences removed from platform text
+                   (agentkit.answer.quarantine) -- planted text never reaches
+                   the answer; each entry says where it was found
+
+A section built from a list the platform returned only in part ("complete":
+False from read_all) is "partial" and says how many rows came back.
 
 Sections whose nodes are not in the plan are left out, and the outcome
 only counts the sections that are present.
@@ -33,6 +39,7 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Optional
 
+from agentkit.answer.quarantine import quarantine_instructions
 from agentkit.clock import now_utc
 from agentkit.graph import DECLINED, FAILED, RESOLVED, NodeResult
 from packs.designreview.handoffs import milestone_view
@@ -103,19 +110,46 @@ def _section_state(results: Dict[str, NodeResult], node: str) -> Dict[str, Any]:
     return out
 
 
+def _incomplete(results: Dict[str, NodeResult], node: str) -> Optional[str]:
+    """Why `node`'s list is incomplete, or None when it is whole."""
+    payload = _data(results, node)
+    if isinstance(payload, dict) and payload.get("complete") is False:
+        return (f"the platform returned {payload.get('received')} of {payload.get('server_total')} "
+                f"rows for {node}")
+    return None
+
+
+def _clean(text: Any, where: str, quarantined: List[Dict[str, str]]) -> Any:
+    """Platform text with instruction-like sentences removed (recorded in `quarantined`)."""
+    if not isinstance(text, str):
+        return text
+    kept, dropped = quarantine_instructions(text)
+    # Only where it was and how long: the finding is shown to the LLM, the planted text must not be.
+    quarantined.extend({"where": where, "words": len(s.split())} for s in dropped)
+    return kept
+
+
 def _rows(payload: Any) -> List[Dict[str, Any]]:
     if isinstance(payload, dict) and isinstance(payload.get("data"), list):
         return [r for r in payload["data"] if isinstance(r, dict)]
     return []
 
 
-def _revision_delta(results: Dict[str, NodeResult], prompt: str) -> Dict[str, Any]:
+def _revision_delta(results: Dict[str, NodeResult], prompt: str,
+                    quarantined: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
+    quarantined = [] if quarantined is None else quarantined
     section = _section_state(results, "revisions")
     if section["outcome"] != "answered":
         return section
+    rows = _rows(_data(results, "revisions"))
+    if rows and not any("commit_message" in r for r in rows):
+        section.update(outcome="declined", reason="the version records carry no commit_message field (the "
+                       "platform's schema has changed?), so the revision letters can't be read")
+        return section
     versions = []
-    for row in sorted(_rows(_data(results, "revisions")), key=lambda r: r.get("version_number") or 0):
-        note = row.get("commit_message") or ""
+    for row in sorted(rows, key=lambda r: r.get("version_number") or 0):
+        note = _clean(row.get("commit_message") or "", f"commit message of v{row.get('version_number')}",
+                      quarantined)
         versions.append({"version_number": row.get("version_number"), "id": row.get("id"),
                          "rev": rev_letter(note), "commit_message": note, "quantities": quantities(note)})
     section.update(basis="commit_message", geometry_compared=False,
@@ -170,13 +204,19 @@ def _release_gate(results: Dict[str, NodeResult]) -> Dict[str, Any]:
     return section
 
 
-def _dfm_signals(results: Dict[str, NodeResult]) -> Dict[str, Any]:
+def _dfm_signals(results: Dict[str, NodeResult],
+                 quarantined: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
+    quarantined = [] if quarantined is None else quarantined
     feedback = _section_state(results, "feedback")
     section: Dict[str, Any] = {"outcome": feedback["outcome"]}
+    if feedback["outcome"] == "answered" and _incomplete(results, "feedback"):
+        section.update(outcome="partial", reason=_incomplete(results, "feedback"))
     if feedback["outcome"] == "answered":
         payload = _data(results, "feedback")
         rows = _rows(payload)
-        open_serious = [{k: r.get(k) for k in ("id", "number", "title", "priority", "status", "ai_generated")}
+        open_serious = [{**{k: r.get(k) for k in ("id", "number", "priority", "status", "ai_generated")},
+                         "title": _clean(r.get("title"), f"feedback {r.get('number') or r.get('id')} title",
+                                         quarantined)}
                         for r in rows if str(r.get("status") or "").lower() not in CLOSED_FEEDBACK
                         and str(r.get("priority") or "").lower() in SERIOUS]
         section["feedback"] = {"total": payload.get("total", len(rows)) if isinstance(payload, dict) else len(rows),
@@ -276,17 +316,29 @@ def build_finding(results: Dict[str, NodeResult], params: Dict[str, Any], *, run
     finding["file"] = {k: raw.get(k) for k in FILE_KEYS}
     finding["file"]["project_id"] = raw.get("project_id")
     sections = []
+    quarantined: List[Dict[str, str]] = []
     if "revisions" in results:
-        finding["revision_delta"] = _revision_delta(results, prompt)
+        finding["revision_delta"] = _revision_delta(results, prompt, quarantined)
+        if finding["revision_delta"]["outcome"] == "answered" and _incomplete(results, "revisions"):
+            finding["revision_delta"].update(outcome="partial", reason=_incomplete(results, "revisions"))
         sections.append(finding["revision_delta"])
     finding["release_gate"] = _release_gate(results)
-    finding["dfm_signals"] = _dfm_signals(results)
+    for b in finding["release_gate"].get("blockers") or []:
+        b["title"] = _clean(b.get("title"), f"release blocker {b.get('id')} title", quarantined)
+    finding["dfm_signals"] = _dfm_signals(results, quarantined)
     sections += [finding["release_gate"], finding["dfm_signals"]]
     if "milestones" in results:
         finding["schedule"] = _schedule(results, finding["snapshot_at"][:10])
         sections.append(finding["schedule"])
     if "cross_seat" in results:
         finding["handoffs"] = _handoffs(results, dry_run)
+        if finding["handoffs"].get("outcome") == "answered" and _incomplete(results, "feedback"):
+            # Hand-offs are decided from the open items; with some missing, "nobody else needs to act"
+            # could be wrong, so none is proposed.
+            finding["handoffs"] = {"outcome": "declined", "proposed": [],
+                                   "reason": f"{_incomplete(results, 'feedback')}, so hand-offs can't be decided"}
         sections.append(finding["handoffs"])
+    if quarantined:
+        finding["quarantined"] = quarantined
     finding["outcome"] = "answered" if all(s["outcome"] == "answered" for s in sections) else "partial"
     return finding

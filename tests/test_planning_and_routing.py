@@ -26,7 +26,7 @@ Use cases to cover:
   Fallback rules (I7, not built yet):
   [ ] fail_always on the release gate -> the plan's fallback rule adds its node, and the node resolves
 
-  Argument checks (I9, not built yet):
+  Argument checks (I9, built 2026-10-14: transport.journal.argument_problems, JournaledSeatClient):
   [ ] a call missing a required argument (per the tool's inputSchema) is refused before it is sent,
       and the journal records no send
   [ ] a call with all required arguments goes through unchanged
