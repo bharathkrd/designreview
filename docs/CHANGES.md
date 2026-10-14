@@ -1,5 +1,19 @@
 # Changes
 
+## 2026-10-14 — OpenAI GPT-6 (Luna, Sol) providers; the model that answered is on the run and in the report
+
+| What | Before | After | Where |
+|---|---|---|---|
+| GPT-6 rows | — | `openai_luna` (gpt-6-luna, fast tier after deepseek_flash; `reasoning_effort = "none"`) and `openai_sol` (gpt-6.1-sol, quality tier after deepseek; `"low"`, `temperature = 1`), key `OPENAI_API_KEY2`, models `OPENAI_FAST_MODEL2` / `OPENAI_MODEL2`; gpt-6-astra ($10/$50) left out | `config/routing.toml`, `.env` |
+| Reasoning models | `max_tokens` always | `ProviderSpec.max_tokens_field` (`max_completion_tokens`) and `reasoning_effort` | `agentkit/llm/gateway.py` |
+| Model on the run | tier only | narrate step: answering `provider` / `model` and each attempt's | `agentkit/answer/narrator.py`, `agentkit/agents/planned.py` |
+| Report | no model shown | Performance table: Models (provider:model) column | `agentkit/harness/grade.py` |
+| Grader | "Nothing in this answer comes from a geometry diff" counted as a geometry claim | `nothing` / `none` / `neither` / `nor` also deny in `geometry_claims` (only there: "Nothing blocks it; it is ready" stays a ready claim) | `packs/designreview/checks.py` |
+
+A live batch failed t10 on that disclaimer (a true statement); re-graded from its saved files it passes 12 of 12.
+Verified offline: 12 of 12 on every run, `grade --check` identical, mutants and replay calibration OK (missed:
+none), fault matrix 13 of 13, retrieval floors ok, viewer smoke ok; `tests_local` 885 passed, `tests/` 38 passed.
+
 ## 2026-10-14 — DeepSeek, Moonshot (Kimi) and LM Studio as LLM providers; .env provenance in child processes
 
 ### Why

@@ -265,16 +265,19 @@ def _performance_section(batch_dir: Path, manifest: Dict, results: List[Tuple[Di
         llm = tel["summary"]["llm"]
         ledger = load_record(run_dir / "llm_ledger.json") if (run_dir / "llm_ledger.json").exists() else {}
         cost = (ledger.get("summary") or {}).get("cost_usd_estimated")
+        models = ", ".join(sorted({f"{c.get('provider')}:{c.get('model')}" for c in ledger.get("calls") or []})) or "—"
         rows.append(f"| `{entry.get('task_id')}` | {entry.get('tenant')}{_repeat_label(entry, manifest)} | "
                     f"{_ms(root.get('duration_ms'))} | {node.get('count', 0)} | {tool.get('count', 0)} | "
                     f"{_ms(tool.get('p50_ms'))} / {_ms(tool.get('p95_ms'))} | {llm['calls']} | "
-                    f"{llm['input_tokens']} / {llm['output_tokens']} | {'—' if cost is None else f'{cost:.4f}'} |")
+                    f"{llm['input_tokens']} / {llm['output_tokens']} | {'—' if cost is None else f'{cost:.4f}'} | "
+                    f"{models} |")
     if not rows:
         return []
     return ["", "## Performance", "",
             "From each run's telemetry.json (not graded; timings vary between runs).", "",
-            "| Task | Tenant | Run ms | Nodes | Tool calls | Tool p50 / p95 ms | LLM calls | Tokens in / out | Cost $ |",
-            "|---|---|---|---|---|---|---|---|---|", *rows]
+            "| Task | Tenant | Run ms | Nodes | Tool calls | Tool p50 / p95 ms | LLM calls | Tokens in / out | Cost $ "
+            "| Models (provider:model) |",
+            "|---|---|---|---|---|---|---|---|---|---|", *rows]
 
 
 def _repeat_label(entry: Dict, manifest: Dict) -> str:

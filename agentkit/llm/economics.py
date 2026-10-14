@@ -34,6 +34,8 @@ PRICE_PER_MTOK: Dict[str, Tuple[float, float]] = {
     "deepseek": (0.60, 2.20),   # approximate; check the provider's price page
     "deepseek_flash": (0.30, 1.20),
     "moonshot": (0.60, 2.50),
+    "openai_luna": (0.10, 0.50),  # developers.openai.com/api/docs/models, 2026-10-14
+    "openai_sol": (2.00, 10.00),
     "ollama": (0.0, 0.0),  # local
     "lmstudio": (0.0, 0.0),  # local
 }

@@ -38,7 +38,7 @@ import time
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Literal, Optional, Tuple
 
 import httpx
 
@@ -85,6 +85,10 @@ class ProviderSpec(BaseModel):
     url_env: Optional[str] = None
     # Some models accept one temperature only (Moonshot's kimi-k2.6: 1): sent instead of the caller's.
     temperature: Optional[float] = Field(None, ge=0)
+    # Reasoning models (OpenAI gpt-6-*): the output cap is "max_completion_tokens" and it includes the
+    # reasoning tokens; `reasoning_effort` is sent as is (gpt-6-luna takes "none", gpt-6.1-sol "low" at least).
+    max_tokens_field: Literal["max_tokens", "max_completion_tokens"] = "max_tokens"
+    reasoning_effort: Optional[str] = None
 
     @property
     def is_keyless(self) -> bool:
@@ -483,7 +487,11 @@ class LLMGateway:
         def call(key, model, prompt, system_prompt, temp, max_tok, json_mode) -> LLMReply:
             messages = ([{"role": "system", "content": system_prompt}] if system_prompt else []) + \
                        [{"role": "user", "content": prompt}]
-            body: Dict[str, Any] = {"model": model, "messages": messages, "temperature": temp, "max_tokens": max_tok}
+            spec = self._providers.get(provider)
+            body: Dict[str, Any] = {"model": model, "messages": messages, "temperature": temp,
+                                    (spec.max_tokens_field if spec else "max_tokens"): max_tok}
+            if spec is not None and spec.reasoning_effort:
+                body["reasoning_effort"] = spec.reasoning_effort
             if json_mode and provider in ("groq", "cerebras"):
                 body["response_format"] = {"type": "json_object"}
             headers = {"Content-Type": "application/json"}

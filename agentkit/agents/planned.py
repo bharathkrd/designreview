@@ -82,15 +82,18 @@ def answer_with_pack(run: TaskRun, store: GraphStore, env: RunEnv, registry: Reg
                                 instructions=x.get("narration_instructions", ""),
                                 tiers=tuple(x.get("narration_tiers") or ("quality",)),
                                 max_cost_usd=llm_budget_usd())
-        s.set(source=answer["source"], tier=answer.get("tier"), audit_ok=answer["audit"]["ok"],
+        s.set(source=answer["source"], tier=answer.get("tier"), provider=answer.get("provider"),
+              model=answer.get("model"), audit_ok=answer["audit"]["ok"],
               attempts=len(answer["attempts"]))
     run.claimed_answer = answer["text"]
     run.answer_source = answer["source"]
     if answer.get("fallback_reason"):
         run.warnings.append(f"answer fell back to template: {answer['fallback_reason']}")
     run.add_step(kind="narrate", target="answer", ok=answer["audit"]["ok"], status=RESOLVED,
-                 detail={"source": answer["source"], "tier": answer.get("tier"), "audit": answer["audit"],
-                         "attempts": [{"audit": a["audit"], "chars": len(a["text"]), "tier": a.get("tier")}
+                 detail={"source": answer["source"], "tier": answer.get("tier"),
+                         "provider": answer.get("provider"), "model": answer.get("model"), "audit": answer["audit"],
+                         "attempts": [{"audit": a["audit"], "chars": len(a["text"]), "tier": a.get("tier"),
+                                       "provider": a.get("provider"), "model": a.get("model")}
                                       for a in answer["attempts"]],
                          "fallback_reason": answer.get("fallback_reason")},
                  reason=answer.get("fallback_reason"), attempts=max(1, len(answer["attempts"])),

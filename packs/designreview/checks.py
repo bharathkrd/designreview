@@ -26,6 +26,9 @@ _REV = re.compile(r"\brev(?:ision)?\.?\s+([A-Z]|\d{1,2})\b", re.I)
 _QTY = re.compile(r"(?<![\d.])(\d+(?:\.\d+)?)\s*(mm|millimet(?:er|re)s?|°|deg(?:rees?)?|kg|g\b|grams?|%)", re.I)
 _SENT = re.compile(r"(?<=[.!?;])\s+|\n+")
 _NEG = r"(?:\bnot\b|n't|\bcannot\b|\bnever\b|\bno\b|\bwithout\b)"
+# A geometry disclaimer may also deny with a pronoun ("Nothing in this answer comes from a geometry
+# diff"; seen in a live answer 2026-10-14). Not in _NEG: there "Nothing blocks it; it is ready" is a claim.
+_GEO_NEG = r"(?:" + _NEG + r"|\bnothing\b|\bnone\b|\bneither\b|\bnor\b)"
 _NOT_READY = re.compile(r"(?:\bnot|n't)\s+(?:yet\s+)?(?:ready|releasable|cleared|approved)\b"
                         r"|\b(?:cannot|can'?t|must\s+not|should\s+not|shouldn'?t)\s+(?:yet\s+)?be\s+released\b"
                         r"|\brelease\s+(?:is\s+|remains\s+)?(?:blocked|on\s+hold|held)\b", re.I)
@@ -61,7 +64,7 @@ def says_ready(text: str) -> bool:
 
 
 def geometry_claims(text: str) -> List[str]:
-    return [s for s in sentences(text) if _GEOMETRY.search(s) and not re.search(_NEG, s, re.I)]
+    return [s for s in sentences(text) if _GEOMETRY.search(s) and not re.search(_GEO_NEG, s, re.I)]
 
 
 def _norm_std(body: str, number: str) -> str:

@@ -4,11 +4,18 @@
 
 ## 10,000-ft view
 
-One in-process client for the providers in `routing.toml`: DeepSeek (two models), Moonshot (Kimi), Gemini, Groq,
+One in-process client for the providers in `routing.toml`: DeepSeek (two models), OpenAI GPT-6 (Luna, Sol),
+Moonshot (Kimi), Gemini, Groq,
 Cerebras, Anthropic, NVIDIA, OpenRouter, LM Studio and Ollama. Any OpenAI-compatible endpoint is a config row:
 `url` (base or full `.../chat/completions`), optional `url_env` to override it from `.env`; a `keyless` one (a
 local server) gets no Authorization header; `temperature` pins the value for a model that accepts only one
-(Moonshot's kimi-k2.6: 1). `models_check` lists such a row's `<url>/models`.
+(Moonshot's kimi-k2.6: 1). A reasoning model sets `max_tokens_field = "max_completion_tokens"` and
+`reasoning_effort` (gpt-6-luna: "none", which also allows a low temperature; gpt-6.1-sol: "low" at least, with
+`temperature = 1`). `models_check` lists such a row's `<url>/models`.
+
+**Which model answered is on the run.** Per call: `llm_ledger.json` (provider, model, tokens, cost, latency,
+stop reason) and an `llm` span in `telemetry.json`. Per answer: the narrate step in `taskrun.json` has the
+answering `provider`/`model` and each attempt's. Per batch: `report.md`'s Performance table has a Models column.
 `call(prompt, …) -> str` for simple callers; `call_detailed(…) -> LLMReply` (text, provider, model,
 input/output tokens, normalised `stop_reason`, latency) for the narrator. No SDKs — plain `httpx`.
 

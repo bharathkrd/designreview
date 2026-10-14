@@ -49,13 +49,16 @@ def fence_data(payload: Any) -> str:
     return f"<{DATA_TAG}>\n{body}\n</{DATA_TAG}>"
 
 
-def _ask(gateway: Any, prompt: str, system_prompt: str, tier: str) -> tuple[str, Optional[str]]:
-    """(text, stop_reason). stop_reason is None when the gateway can't say."""
+def _ask(gateway: Any, prompt: str, system_prompt: str, tier: str) -> tuple[str, Optional[str], Dict[str, Any]]:
+    """(text, stop_reason, {provider, model}). stop_reason and the provider/model are None when the
+    gateway can't say."""
     detailed = getattr(gateway, "call_detailed", None)
     if callable(detailed):
         reply = detailed(prompt, system_prompt=system_prompt, temperature=0.1, tier=tier)
-        return (getattr(reply, "text", "") or "").strip(), getattr(reply, "stop_reason", None)
-    return (gateway.call(prompt, system_prompt=system_prompt, temperature=0.1, tier=tier) or "").strip(), None
+        who = {"provider": getattr(reply, "provider", None), "model": getattr(reply, "model", None)}
+        return (getattr(reply, "text", "") or "").strip(), getattr(reply, "stop_reason", None), who
+    text = (gateway.call(prompt, system_prompt=system_prompt, temperature=0.1, tier=tier) or "").strip()
+    return text, None, {"provider": None, "model": None}
 
 
 def _spent(gateway: Any) -> float:
@@ -103,7 +106,7 @@ def compose_answer(query: str, finding: Dict[str, Any], *, gateway: Any, rules: 
             if max_cost_usd is not None and _spent(gateway) >= max_cost_usd:
                 return fallback(f"LLM cost budget reached (${_spent(gateway):.4f} of ${max_cost_usd:.4f})")
             try:
-                text, stop = _ask(gateway, prompt, system, current)
+                text, stop, who = _ask(gateway, prompt, system, current)
             except OfflineViolation:
                 raise  # an offline run reached for an LLM: a bug to surface, not "LLM down"
             except Exception as e:  # every provider of this tier down: try the next tier
@@ -115,9 +118,9 @@ def compose_answer(query: str, finding: Dict[str, Any], *, gateway: Any, rules: 
                     break
                 return fallback(f"llm answer unusable (stop_reason={stop!r}, {len(text)} chars)")
             report = audit_narrative(text, finding, rules)
-            attempts.append({"text": text, "audit": report, "tier": current})
+            attempts.append({"text": text, "audit": report, "tier": current, **who})
             if report["ok"]:
-                return {"text": text, "source": "llm", "tier": current, "fallback_reason": None,
+                return {"text": text, "source": "llm", "tier": current, **who, "fallback_reason": None,
                         "attempts": attempts, "audit": report, "template": plain}
             prompt = (f"{base}\n\nYOUR PREVIOUS ANSWER:\n{text}\n\nPROBLEMS:\n"
                       f"{correction_note(report, finding, rules)}")

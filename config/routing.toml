@@ -45,6 +45,35 @@ temperature = 1         # kimi-k2.6 rejects any other value (HTTP 400, 2026-10-1
 rpm = 30
 timeout = 120
 
+# OpenAI GPT-6 (https://developers.openai.com/api/docs/models, read 2026-10-14): astra $10/$50 per 1M
+# tokens (not used: far more than a short audited narration needs), 6.1-sol $2/$10, luna $0.10/$0.50.
+# They are reasoning models: "max_completion_tokens", and a temperature other than 1 only with
+# reasoning_effort = "none" (luna only; sol's lowest effort is "low"). Their own key (OPENAI_API_KEY2):
+# OPENAI_API_KEY stays the official runner's endpoint (the `openai` provider the gateway adds itself).
+
+[[providers]]
+name = "openai_luna"        # cheap draft (fast tier): the claim audit decides whether it stands
+model = "gpt-6-luna"
+model_env = "OPENAI_FAST_MODEL2"
+key_env = "OPENAI_API_KEY2"
+url = "https://api.openai.com/v1"
+max_tokens_field = "max_completion_tokens"
+reasoning_effort = "none"
+rpm = 60
+timeout = 120
+
+[[providers]]
+name = "openai_sol"         # quality tier: a draft the audit rejected is rewritten here
+model = "gpt-6.1-sol"
+model_env = "OPENAI_MODEL2"
+key_env = "OPENAI_API_KEY2"
+url = "https://api.openai.com/v1"
+max_tokens_field = "max_completion_tokens"
+reasoning_effort = "low"
+temperature = 1
+rpm = 60
+timeout = 120
+
 [[providers]]
 name = "gemini"
 model = "gemini-2.5-flash"
@@ -107,9 +136,9 @@ rpm = 120
 timeout = 180
 
 [tiers]
-# DeepSeek and Moonshot (Kimi) first; the earlier hosted providers next; local LM Studio, then Ollama, last.
-default = ["deepseek", "moonshot", "gemini", "groq", "cerebras", "anthropic", "nvidia", "openrouter", "lmstudio", "ollama"]
+# DeepSeek first, then OpenAI GPT-6 / Moonshot (Kimi); the earlier hosted providers next; local LM Studio, then Ollama, last.
+default = ["deepseek", "moonshot", "openai_sol", "gemini", "groq", "cerebras", "anthropic", "nvidia", "openrouter", "lmstudio", "ollama"]
 # Cheap/fast tier for high-volume, low-stakes calls (cascade drafts, the eval judge).
-fast = ["deepseek_flash", "moonshot", "groq", "cerebras", "gemini", "nvidia", "lmstudio", "ollama"]
+fast = ["deepseek_flash", "openai_luna", "moonshot", "groq", "cerebras", "gemini", "nvidia", "lmstudio", "ollama"]
 # Quality tier for the final answer.
-quality = ["deepseek", "moonshot", "anthropic", "gemini", "openrouter", "nvidia", "lmstudio", "ollama"]
+quality = ["deepseek", "openai_sol", "moonshot", "anthropic", "gemini", "openrouter", "nvidia", "lmstudio", "ollama"]
