@@ -4,14 +4,16 @@
 
 ## 10,000-ft view
 
-One in-process client for the providers in `routing.toml`: DeepSeek (two models), OpenAI GPT-6 (Luna, Sol),
-Moonshot (Kimi), Gemini, Groq,
+One in-process client for the providers in `routing.toml`: DeepSeek, OpenAI GPT-6, Anthropic and Gemini (a cheap
+model each in the `fast` tier, a stronger one in `quality`), Moonshot (Kimi), Groq,
 Cerebras, Anthropic, NVIDIA, OpenRouter, LM Studio and Ollama. Any OpenAI-compatible endpoint is a config row:
 `url` (base or full `.../chat/completions`), optional `url_env` to override it from `.env`; a `keyless` one (a
 local server) gets no Authorization header; `temperature` pins the value for a model that accepts only one
 (Moonshot's kimi-k2.6: 1). A reasoning model sets `max_tokens_field = "max_completion_tokens"` and
 `reasoning_effort` (gpt-6-luna: "none", which also allows a low temperature; gpt-6.1-sol: "low" at least, with
-`temperature = 1`). `models_check` lists such a row's `<url>/models`.
+`temperature = 1`). `models_check` lists such a row's `<url>/models`. A second row on a native API sets
+`api = "anthropic"` or `"gemini"` (e.g. `anthropic_haiku`, `gemini_lite`): the same adapter under its own name,
+so it has its own place in a tier, rate state and cool-down. Claude 5.x models get no temperature.
 
 **Which model answered is on the run.** Per call: `llm_ledger.json` (provider, model, tokens, cost, latency,
 stop reason) and an `llm` span in `telemetry.json`. Per answer: the narrate step in `taskrun.json` has the

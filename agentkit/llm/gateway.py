@@ -27,6 +27,7 @@ What a caller can rely on:
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import logging
@@ -60,7 +61,7 @@ FAILURE_COOLDOWN_S = 20.0
 AUTH_COOLDOWN_S = 300.0
 ANTHROPIC_VERSION = "2023-06-01"
 # Current Claude models that reject temperature/top_p/top_k with a 400.
-_NO_SAMPLING_MODELS = re.compile(r"^claude-(opus-5|opus-4-[78]|sonnet-5|fable|mythos)", re.I)
+_NO_SAMPLING_MODELS = re.compile(r"^claude-(opus-5|opus-4-[78]|sonnet-5|haiku-5|fable|mythos)", re.I)
 # Models with thinking on by default: thinking spends max_tokens, so keep headroom.
 _THINKING_DEFAULT_MODELS = re.compile(r"^claude-(opus-5|fable|mythos)", re.I)
 MIN_TOKENS_THINKING = 16000
@@ -89,6 +90,9 @@ class ProviderSpec(BaseModel):
     # reasoning tokens; `reasoning_effort` is sent as is (gpt-6-luna takes "none", gpt-6.1-sol "low" at least).
     max_tokens_field: Literal["max_tokens", "max_completion_tokens"] = "max_tokens"
     reasoning_effort: Optional[str] = None
+    # A second row on a native API (another model, its own tier place, rate state and cool-down):
+    # api = "anthropic" or "gemini" uses that provider's adapter under this row's name.
+    api: Optional[Literal["anthropic", "gemini"]] = None
 
     @property
     def is_keyless(self) -> bool:
@@ -277,9 +281,14 @@ class LLMGateway:
             "nvidia": self._openai_compat("https://integrate.api.nvidia.com/v1/chat/completions", "nvidia"),
             "openrouter": self._openai_compat("https://openrouter.ai/api/v1/chat/completions", "openrouter"),
         }
+        native = {"anthropic": self._call_anthropic, "gemini": self._call_gemini}
         for p in self._config.providers:
             base = self.base_url(p.name)
-            if p.name not in self._adapters and base:
+            if p.name in self._adapters:
+                continue
+            if p.api:
+                self._adapters[p.name] = functools.partial(native[p.api], provider=p.name)
+            elif base:
                 self._adapters[p.name] = self._openai_compat(chat_url(base), p.name)
         # The official runner injects OPENAI_* into the process: that endpoint then goes first in every
         # tier. The same key copied into .env only makes "openai" available to tiers that name it.
@@ -429,7 +438,8 @@ class LLMGateway:
 
     # ---- adapters -------------------------------------------------------------
 
-    def _call_gemini(self, key, model, prompt, system_prompt, temp, max_tok, json_mode) -> LLMReply:
+    def _call_gemini(self, key, model, prompt, system_prompt, temp, max_tok, json_mode,
+                     provider: str = "gemini") -> LLMReply:
         model = model or "gemini-2.5-flash"
         body: Dict[str, Any] = {"contents": [{"role": "user", "parts": [{"text": prompt}]}],
                                 "generationConfig": {"temperature": temp, "maxOutputTokens": max_tok}}
@@ -437,22 +447,23 @@ class LLMGateway:
             body["systemInstruction"] = {"parts": [{"text": system_prompt}]}
         if json_mode:
             body["generationConfig"]["responseMimeType"] = "application/json"
-        data = self._post("gemini", f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+        data = self._post(provider, f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
                           {"x-goog-api-key": key, "Content-Type": "application/json"}, body)
         cands = data.get("candidates") or []
         if not cands:
             block = (data.get("promptFeedback") or {}).get("blockReason")
-            return LLMReply("", "gemini", model, "refusal" if block else "other")
+            return LLMReply("", provider, model, "refusal" if block else "other")
         parts = (cands[0].get("content") or {}).get("parts") or []
         text = "".join(p.get("text", "") for p in parts if not p.get("thought"))
         usage = data.get("usageMetadata") or {}
         out = usage.get("candidatesTokenCount")
         if out is not None and usage.get("thoughtsTokenCount"):
             out += usage["thoughtsTokenCount"]
-        return LLMReply(text, "gemini", model, _norm_stop(cands[0].get("finishReason")),
+        return LLMReply(text, provider, model, _norm_stop(cands[0].get("finishReason")),
                         usage.get("promptTokenCount"), out)
 
-    def _call_anthropic(self, key, model, prompt, system_prompt, temp, max_tok, json_mode) -> LLMReply:
+    def _call_anthropic(self, key, model, prompt, system_prompt, temp, max_tok, json_mode,
+                        provider: str = "anthropic") -> LLMReply:
         model = model or "claude-opus-5"
         body: Dict[str, Any] = {"model": model, "messages": [{"role": "user", "content": prompt}],
                                 "max_tokens": max(max_tok, MIN_TOKENS_THINKING) if _THINKING_DEFAULT_MODELS.match(model)
@@ -467,7 +478,7 @@ class LLMGateway:
             # A long, stable system prompt is marked cacheable: later calls with the same prefix
             # read it from the provider's cache (cheaper, faster). Shorter prompts can't be cached.
             body["system"] = [{"type": "text", "text": body["system"], "cache_control": {"type": "ephemeral"}}]
-        data = self._post("anthropic", "https://api.anthropic.com/v1/messages",
+        data = self._post(provider, "https://api.anthropic.com/v1/messages",
                           {"x-api-key": key, "anthropic-version": ANTHROPIC_VERSION,
                            "content-type": "application/json"}, body)
         text = "".join(b.get("text", "") for b in data.get("content") or [] if b.get("type") == "text")
@@ -475,7 +486,7 @@ class LLMGateway:
         tin = usage.get("input_tokens")
         if tin is not None:
             tin += (usage.get("cache_read_input_tokens") or 0) + (usage.get("cache_creation_input_tokens") or 0)
-        return LLMReply(text, "anthropic", data.get("model", model), _norm_stop(data.get("stop_reason")),
+        return LLMReply(text, provider, data.get("model", model), _norm_stop(data.get("stop_reason")),
                         tin, usage.get("output_tokens"))
 
     def _openai_compat(self, url: str, provider_name: Optional[str] = None) -> Callable[..., LLMReply]:

@@ -74,12 +74,28 @@ temperature = 1
 rpm = 60
 timeout = 120
 
+# Gemini (models read from GEMINI_API_KEY_2's list, 2026-10-14): GEMINI_API_KEY's prepaid credit is used up
+# (HTTP 402 on every model); key 2 is a free tier: pro models (gemini-4-argon, gemini-3.1-pro-preview) have no
+# quota there (429), gemini-2.5-flash is closed to new users (404). Flash models can be busy (503): the gateway
+# cools the row down and moves on.
+
 [[providers]]
-name = "gemini"
-model = "gemini-2.5-flash"
+name = "gemini"             # quality / default
+# gemini-3.5..3.8-flash all answered 503 (busy) on the free key, 2026-10-14; set GEMINI_MODEL=gemini-3.8-flash
+# once they answer or the key has billing.
+model = "gemini-3-flash-preview"
 model_env = "GEMINI_MODEL"
-key_env = "GEMINI_API_KEY"
-rpm = 60
+key_env = "GEMINI_API_KEY_2"
+rpm = 10
+timeout = 120
+
+[[providers]]
+name = "gemini_lite"        # fast tier (cascade drafts)
+api = "gemini"
+model = "gemini-3.5-flash-lite"
+model_env = "GEMINI_FAST_MODEL"
+key_env = "GEMINI_API_KEY_2"
+rpm = 15
 
 [[providers]]
 name = "groq"
@@ -95,13 +111,25 @@ model_env = "CEREBRAS_MODEL"
 key_env = "CEREBRAS_API_KEY"
 rpm = 30
 
+# Anthropic (platform.claude.com pricing, 2026-10-14, per 1M tokens in/out): haiku-5-5 $0.10/$0.50,
+# sonnet-5-5 $2/$10, opus-5-5 $4/$20 (not used: more than an audited narration needs). The 5.x models take
+# no temperature (the gateway leaves it out for them).
+
 [[providers]]
-name = "anthropic"
-model = "claude-opus-5"
+name = "anthropic"          # quality / default
+model = "claude-sonnet-5-5"
 model_env = "ANTHROPIC_MODEL"
 key_env = "ANTHROPIC_API_KEY"
 rpm = 50
 timeout = 120
+
+[[providers]]
+name = "anthropic_haiku"    # fast tier (cascade drafts)
+api = "anthropic"
+model = "claude-haiku-5-5"
+model_env = "ANTHROPIC_FAST_MODEL"
+key_env = "ANTHROPIC_API_KEY"
+rpm = 50
 
 [[providers]]
 name = "nvidia"
@@ -136,9 +164,9 @@ rpm = 120
 timeout = 180
 
 [tiers]
-# DeepSeek first, then OpenAI GPT-6 / Moonshot (Kimi); the earlier hosted providers next; local LM Studio, then Ollama, last.
-default = ["deepseek", "moonshot", "openai_sol", "gemini", "groq", "cerebras", "anthropic", "nvidia", "openrouter", "lmstudio", "ollama"]
+# DeepSeek first, then OpenAI GPT-6, Anthropic, Gemini and Moonshot (Kimi); the other hosted providers next; local LM Studio, then Ollama, last.
+default = ["deepseek", "moonshot", "openai_sol", "anthropic", "gemini", "groq", "cerebras", "nvidia", "openrouter", "lmstudio", "ollama"]
 # Cheap/fast tier for high-volume, low-stakes calls (cascade drafts, the eval judge).
-fast = ["deepseek_flash", "openai_luna", "moonshot", "groq", "cerebras", "gemini", "nvidia", "lmstudio", "ollama"]
+fast = ["deepseek_flash", "openai_luna", "anthropic_haiku", "gemini_lite", "moonshot", "groq", "cerebras", "nvidia", "lmstudio", "ollama"]
 # Quality tier for the final answer.
-quality = ["deepseek", "openai_sol", "moonshot", "anthropic", "gemini", "openrouter", "nvidia", "lmstudio", "ollama"]
+quality = ["deepseek", "openai_sol", "anthropic", "gemini", "moonshot", "openrouter", "nvidia", "lmstudio", "ollama"]

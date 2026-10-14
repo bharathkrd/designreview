@@ -1,5 +1,19 @@
 # Changes
 
+## 2026-10-14 — Anthropic (Haiku / Sonnet 5.5) and Gemini (Flash-Lite / Flash) as cheap-draft and quality rows
+
+| What | Before | After | Where |
+|---|---|---|---|
+| Native second rows | one row per native API | `ProviderSpec.api = "anthropic" \| "gemini"`: another model on that API under its own name (own tier place, rate state, cool-down) | `agentkit/llm/gateway.py`, `models_check.py` |
+| Anthropic | `anthropic` = claude-opus-5 (.env: claude-sonnet-4-6) | `anthropic` = claude-sonnet-5-5 (quality; `ANTHROPIC_MODEL`), `anthropic_haiku` = claude-haiku-5-5 (fast; `ANTHROPIC_FAST_MODEL`); prices $2/$10 and $0.10/$0.50; claude-haiku-5 also gets no temperature (HTTP 400 otherwise) | `config/routing.toml`, `.env`, `economics.py` |
+| Gemini | `gemini` = gemini-2.5-flash on `GEMINI_API_KEY` (402: credit used up; the model is closed to new users) | `gemini` = gemini-3-flash-preview (quality; `GEMINI_MODEL`), `gemini_lite` = gemini-3.5-flash-lite (fast; `GEMINI_FAST_MODEL`), both on `GEMINI_API_KEY_2` (free tier: pro models 429, 3.5-3.8 flash 503 busy on the day) | `config/routing.toml`, `.env` |
+| Tiers | — | `fast`: deepseek_flash, openai_luna, anthropic_haiku, gemini_lite, moonshot, ...; `quality`: deepseek, openai_sol, anthropic, gemini, moonshot, ... | `config/routing.toml` |
+
+Verified live: each row answers through the gateway and `models_check` lists it `ok`; with the DeepSeek and
+OpenAI keys blanked for the process, a 12-task batch passed 12 of 12 narrated by claude-haiku-5-5 (t05 escalated to
+claude-sonnet-5-5); with Anthropic blanked too, 12 of 12 by gemini-3.5-flash-lite. Offline: 12 of 12 on every run,
+`grade --check` identical, mutants / replay calibration OK, fault matrix 13 of 13; `tests_local` 891 passed, `tests/` 38.
+
 ## 2026-10-14 — OpenAI GPT-6 (Luna, Sol) providers; the model that answered is on the run and in the report
 
 | What | Before | After | Where |

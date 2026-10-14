@@ -22,11 +22,15 @@ logger = logging.getLogger("agentkit.llm.economics")
 PRICE_PER_MTOK: Dict[str, Tuple[float, float]] = {
     "anthropic:claude-opus-5": (5.00, 25.00),
     "anthropic:claude-opus-5-5": (4.00, 20.00),
+    "anthropic:claude-sonnet-5-5": (2.00, 10.00),  # platform.claude.com pricing, 2026-10-14
+    "anthropic:claude-haiku-5-5": (0.10, 0.50),
+    "anthropic_haiku": (0.10, 0.50),
     "anthropic:claude-sonnet-5": (2.00, 10.00),
     "anthropic:claude-sonnet-4-6": (3.00, 15.00),
     "anthropic:claude-haiku-4-5": (1.00, 5.00),
     "anthropic": (3.00, 15.00),
     "gemini": (0.30, 2.50),
+    "gemini_lite": (0.10, 0.40),  # approximate; GEMINI_API_KEY_2 is a free-tier key
     "groq": (0.59, 0.79),
     "cerebras": (0.85, 1.20),
     "nvidia": (0.60, 0.60),

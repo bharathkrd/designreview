@@ -38,10 +38,11 @@ def _list_request(gw: LLMGateway, provider: str, key: str) -> Optional[Tuple[str
         base = gw._env.get("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
         base = base[: -len("/chat/completions")] if base.endswith("/chat/completions") else base
         return f"{base}/models", {"Authorization": f"Bearer {key}"}
-    if provider == "anthropic":
+    api = getattr(gw._providers.get(provider), "api", None) or provider
+    if api == "anthropic":
         return "https://api.anthropic.com/v1/models?limit=1000", {"x-api-key": key,
                                                                   "anthropic-version": ANTHROPIC_VERSION}
-    if provider == "gemini":
+    if api == "gemini":
         return "https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000", {"x-goog-api-key": key}
     base = gw.base_url(provider)
     if base:  # a routing.toml row with its own OpenAI-compatible URL
