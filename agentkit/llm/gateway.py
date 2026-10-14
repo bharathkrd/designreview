@@ -64,6 +64,8 @@ _NO_SAMPLING_MODELS = re.compile(r"^claude-(opus-5|opus-4-[78]|sonnet-5|fable|my
 # Models with thinking on by default: thinking spends max_tokens, so keep headroom.
 _THINKING_DEFAULT_MODELS = re.compile(r"^claude-(opus-5|fable|mythos)", re.I)
 MIN_TOKENS_THINKING = 16000
+# About the provider's smallest cacheable prompt (~1024 tokens at ~4 characters per token).
+ANTHROPIC_CACHE_MIN_CHARS = 4096
 
 
 class ProviderSpec(BaseModel):
@@ -428,6 +430,10 @@ class LLMGateway:
             body["temperature"] = temp
         if json_mode:
             body["system"] = (body.get("system", "") + "\n\nRespond with a single JSON object and nothing else.").strip()
+        if len(body.get("system") or "") >= ANTHROPIC_CACHE_MIN_CHARS:
+            # A long, stable system prompt is marked cacheable: later calls with the same prefix
+            # read it from the provider's cache (cheaper, faster). Shorter prompts can't be cached.
+            body["system"] = [{"type": "text", "text": body["system"], "cache_control": {"type": "ephemeral"}}]
         data = self._post("anthropic", "https://api.anthropic.com/v1/messages",
                           {"x-api-key": key, "anthropic-version": ANTHROPIC_VERSION,
                            "content-type": "application/json"}, body)

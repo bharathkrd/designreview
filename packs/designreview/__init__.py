@@ -54,6 +54,9 @@ def register(reg: Registry) -> None:
         template=plain_rendering,
         system_prompt=_prompt("system.md"),
         narration_instructions=_prompt("narrate.md"),
+        # Audit-gated cascade: a fast model drafts first; only a draft that fails the claim audit
+        # goes on to the quality tier (agentkit.answer.compose_answer).
+        narration_tiers=("fast", "quality"),
     )
 
 

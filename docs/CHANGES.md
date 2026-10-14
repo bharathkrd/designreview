@@ -1,5 +1,26 @@
 # Changes
 
+## 2026-10-14 — Batch 5 of the research gaps: audit-gated cascade, budgets, cache-friendly prompts, retired models
+
+### Why
+Every answer went to the quality tier, nothing capped what a run could spend or how long an action could
+hang, the prompt put per-run data before the stable instructions (so nothing could be cached), and a retired
+model sat in `.env` until a live run failed on it. (Gaps I1, I2, I5, I8.)
+
+| What | Before | After | Where |
+|---|---|---|---|
+| Cascade (I1) | one tier: draft + rewrite, then template | `tiers=("fast", "quality")`: one cheap draft, the claim audit decides, failing or cut-off drafts escalate with the correction note, a tier that is down is skipped | `agentkit/answer/narrator.py`, `agentkit/agents/planned.py`, `packs/designreview/__init__.py` |
+| Budget (I8) | none | `max_llm_cost_usd_per_run = 0.25` (env override); past it the template answers | `config/project.toml`, `agentkit/config.py`, `narrator.py` |
+| Timeout (I8) | graph-level limits only | `@registry.action(timeout_s=)`; a slow attempt ends FAILED (`timeout`), other branches finish | `agentkit/registry.py`, `agentkit/graph/engine.py` |
+| Prompt layout (I2) | instructions after the finding, in the user message | stable text in the system prompt (data rule last), per-run data after; Anthropic marks a 4096+ character system prompt cacheable (this pack's is ~3.3k, so not yet) | `narrator.py`, `agentkit/llm/gateway.py` |
+| Retired models (I5) | found by a failing live test | `python -m agentkit.llm.models_check` (exit 1 on a retired configured model) | `agentkit/llm/models_check.py` |
+
+Live checks (`.env` keys, server-run variables blanked): the model check flags the `.env` NVIDIA model as
+RETIRED; an LLM-on batch on the captured fixtures, 2 runs per task: 9 of 9 tasks pass on every run, 16 of 18
+answers from the fast tier, 1 escalated, 1 template (a cut-off fast draft -- fixed to escalate, re-run passes),
+about $0.067 in all. Offline: `tests_local` 836 passed; `tests/` 38 passed; batch `--repeat 3` 9 of 9;
+`grade --check` identical; mutants, replay calibration, fault matrix 13 of 13, retrieval floors, viewer smoke ok.
+
 ## 2026-10-14 — Batch 4 of the research gaps: retrieval measured, gated, expanded, with context
 
 ### Why

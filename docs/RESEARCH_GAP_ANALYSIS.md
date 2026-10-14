@@ -106,7 +106,8 @@ evaluation*, and *baselines*.
     check change can't silently let it through.
 
 > **Partly closed 2026-10-14 (batch 2):** pass@k / pass^k curves (exact fractions), the Wilson interval and the
-> clustered standard error are in `batch_score.json` and `report.md`. Open: an LLM-on batch, so repeats differ.
+> clustered standard error are in `batch_score.json` and `report.md`. Batch 5 ran the first LLM-on batch (captured
+> fixtures, 2 runs per task): 9 of 9 pass on every run. Open: a scheduled LLM-on CI job (needs API keys as secrets).
 
 **G3. pass^k is trivially 1 in CI; no curves, no error bars** (P3, P5, P17, P18, P19)
 - CI runs `--skip-llm`, so 3 repeats are deterministic — the only stochastic part (narration) is never in CI.
@@ -316,11 +317,15 @@ about **measuring** these components and adding the **cheap, proven upgrades**, 
 ## 8. Implementation gaps
 
 ### LLM calls
+> **Closed 2026-10-14 (batch 5):** `compose_answer(tiers=("fast", "quality"))`: one cheap draft; the claim audit is the stop-scorer; a failed or cut-off draft escalates with the correction note; a tier that is down is skipped. Live check on the captured fixtures with the LLM on (2 runs per task): 9 of 9 tasks pass on every run, 16 of 18 answers came from the fast tier, 1 escalated, 1 template (a cut-off fast draft -- now escalates instead), about $0.067 for all 18 runs.
+
 **I1. Static routing; no audit-gated cascade** (P22, P23)
 - Evidence: `narrator` always uses one tier; providers are tried in a fixed order only on *failure*.
 - Fix: a FrugalGPT cascade that uses the claim audit as the free stop-scorer: cheap model first → audit passes
   → stop; else escalate to the quality tier, then the template.
 - Metric: cost per passing answer, escalation rate, paired difference vs quality-only (P5).
+
+> **Closed 2026-10-14 (batch 5):** the stable text (system prompt, instructions, data rule) is now the system prompt and comes first; the question, finding and required facts follow. The Anthropic request marks a system prompt of 4096+ characters cacheable. Honest limit: this pack's stable prefix is about 3.3k characters, under the provider minimum, so nothing is cached today; providers with automatic prefix caching still benefit from the layout. Open: a persistent on-disk response cache.
 
 **I2. No provider prompt caching** (P24)
 - Evidence: no `cache_control` in `gateway.py`; the cache is in-process exact-match only and not persisted
@@ -342,6 +347,8 @@ about **measuring** these components and adding the **cheap, proven upgrades**, 
   each tag exists and its value matches; tags are stripped for display. This keeps free prose, so it avoids
   P25's penalty.
 
+> **Closed 2026-10-14 (batch 5):** `python -m agentkit.llm.models_check` reads each provider's model list (keys in headers) and exits 1 when a configured model is gone. Live run: flags the `.env` NVIDIA model (`meta/llama-3.3-70b-instruct`) as RETIRED; the other six are listed.
+
 **I5. No model-drift guard**
 - Evidence: the `routing.toml` comment says model ids were checked by hand on 2026-09-28.
 - Fix: the preflight lists provider models and fails when a configured model has been retired. This uses
@@ -361,6 +368,8 @@ about **measuring** these components and adding the **cheap, proven upgrades**, 
 - Evidence: a FAILED node only retries; there is no alternative path.
 - Fix: declarative fallback rules (`when failed → add node X`), e.g. a release gate that can't be read →
   read the raw blockers list. Grade it with the existing `fail_always` fault scenarios.
+
+> **Closed 2026-10-14 (batch 5):** `@registry.action(..., timeout_s=)` -- an attempt past it ends the node FAILED (`timeout`), other branches finish; `config/project.toml max_llm_cost_usd_per_run = 0.25` (`AGENTKIT_MAX_LLM_COST_USD` overrides) -- no LLM call starts past it, the template answers.
 
 **I8. No per-node budgets**
 - Evidence: there are graph-level `max_nodes`/`max_steps` and the subprocess timeout, but no per-node

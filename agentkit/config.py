@@ -121,6 +121,18 @@ def default_pack(path: Path = PROJECT_PATH) -> str:
     return str(pack)
 
 
+def llm_budget_usd(path: Path = PROJECT_PATH) -> Optional[float]:
+    """The most one run may spend on LLM calls (config/project.toml:
+    max_llm_cost_usd_per_run; AGENTKIT_MAX_LLM_COST_USD overrides). None = no cap."""
+    raw = os.getenv("AGENTKIT_MAX_LLM_COST_USD")
+    if raw is None and Path(path).exists():
+        raw = read_config(path).get("max_llm_cost_usd_per_run")
+    try:
+        return float(raw) if raw not in (None, "") else None
+    except (TypeError, ValueError):
+        raise ConfigError(f"max LLM cost per run must be a number, got {raw!r}") from None
+
+
 def default_tenant(path: Path = PROJECT_PATH) -> str:
     """The tenant to use when none is named (config/project.toml: default_tenant)."""
     tenant = read_config(path).get("default_tenant") if Path(path).exists() else None

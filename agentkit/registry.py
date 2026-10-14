@@ -51,6 +51,8 @@ class ActionSpec:
     # HANDED_OFF with {"would_file": preview, "filed": False}; with no preview
     # a dry-run write is simply DECLINED. A preview must not write.
     preview: Optional[Callable[..., Any]] = None
+    # Seconds one attempt may take; past it the node ends FAILED ("timeout"). None = no limit.
+    timeout_s: Optional[float] = None
 
 
 @dataclass(frozen=True)
@@ -100,8 +102,8 @@ class Registry:
     # ---- decorators -----------------------------------------------------
 
     def action(self, name: str, *, description: str = "", writes: bool = False, retries: int = 0,
-               retry: Optional[Any] = None, preview: Optional[Callable[..., Any]] = None
-               ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+               retry: Optional[Any] = None, preview: Optional[Callable[..., Any]] = None,
+               timeout_s: Optional[float] = None) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         def deco(fn: Callable[..., Any]) -> Callable[..., Any]:
             if name in self.actions:
                 raise ValueError(f"action {name!r} registered twice")
@@ -109,7 +111,8 @@ class Registry:
                 raise ValueError(f"action {name!r}: preview is only for write actions")
             self.actions[name] = ActionSpec(name, fn, description or (fn.__doc__ or "").strip().split("\n")[0],
                                             writes=writes, retries=0 if writes else retries,
-                                            retry=None if writes else retry, preview=preview)
+                                            retry=None if writes else retry, preview=preview,
+                                            timeout_s=timeout_s)
             return fn
         return deco
 

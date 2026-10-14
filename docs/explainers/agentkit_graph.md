@@ -107,3 +107,11 @@ results must not change); `MemorySaver` + `fork` on a three-node graph; an actio
 *The modes, channels, pause/resume and checkpoint history are adapted from an external open-source
 agent-graph design (referred to from outside sources) and rewritten here in plain Python; nothing from it is
 imported or required.*
+
+## Action timeouts (since 2026-10-14)
+
+`@registry.action(name, timeout_s=...)`: each attempt runs in its own thread (with the node's context) and the
+engine stops waiting after `timeout_s`; the node ends FAILED with `error_kind="timeout"` and the other branches
+carry on. A Python thread can't be killed, so the abandoned attempt finishes in the background and its result is
+ignored -- give timeouts to read actions only.
+

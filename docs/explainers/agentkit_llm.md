@@ -67,3 +67,19 @@ the key has no quota; the gateway cools it down and moves on.
 
 `tests/test_llm_gateway.py` (offline, `httpx.MockTransport`); `-m gateway_live` for one real call per provider.
 `python -m agentkit.llm.gateway [tier]` prints which providers have keys and makes one tiny call.
+
+## Cost controls (since 2026-10-14)
+
+- **Audit-gated cascade.** `compose_answer(..., tiers=("fast", "quality"))` (the pack sets
+  `extras["narration_tiers"]`): every tier but the last gets one draft; the claim audit decides -- a passing
+  draft is the answer, a failing or cut-off one goes to the next tier with the audit's correction note; the last
+  tier gets a draft and a rewrite; then the template. A tier whose providers are all down is skipped. The run's
+  narrate step records which tier answered.
+- **Budget.** `max_llm_cost_usd_per_run` in `config/project.toml` (env `AGENTKIT_MAX_LLM_COST_USD` overrides):
+  no call starts once the gateway's ledger has spent it.
+- **Cache-friendly prompts.** Stable text (system prompt, instructions, data rule) is the system prompt; per-run
+  data comes after. Anthropic requests mark a system prompt of `ANTHROPIC_CACHE_MIN_CHARS` (4096) or more
+  cacheable.
+- **Retired models.** `python -m agentkit.llm.models_check` lists each provider's models (keys in headers, one
+  GET each, no tokens) and exits 1 when a configured model is gone.
+

@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from agentkit.answer.claim_audit import ClaimRules, audit_narrative, correction_note
 from agentkit.transport.wire import OfflineViolation
@@ -58,15 +58,31 @@ def _ask(gateway: Any, prompt: str, system_prompt: str, tier: str) -> tuple[str,
     return (gateway.call(prompt, system_prompt=system_prompt, temperature=0.1, tier=tier) or "").strip(), None
 
 
+def _spent(gateway: Any) -> float:
+    ledger = getattr(gateway, "ledger", None)
+    try:
+        return float(ledger.total_cost()) if ledger is not None else 0.0
+    except Exception:
+        return 0.0
+
+
 def compose_answer(query: str, finding: Dict[str, Any], *, gateway: Any, rules: ClaimRules,
                    template: Callable[[Dict[str, Any]], str], system_prompt: str = "",
-                   instructions: str = "", tier: str = "quality",
-                   max_attempts: int = MAX_ATTEMPTS) -> Dict[str, Any]:
+                   instructions: str = "", tier: str = "quality", tiers: Sequence[str] = (),
+                   max_attempts: int = MAX_ATTEMPTS, max_cost_usd: Optional[float] = None) -> Dict[str, Any]:
+    """Word `finding`, audited. With `tiers` (cheap first, e.g. ["fast", "quality"]) it is a
+    cascade: every tier but the last gets ONE draft; a draft that passes the claim audit is
+    the answer, one that fails escalates to the next tier together with the audit's
+    correction note; the last tier gets `max_attempts` (a draft and a rewrite). A tier whose
+    providers are all down is skipped. `max_cost_usd`: no call starts once the gateway's
+    ledger has spent that much -- the template answers. Result: text, source (llm | template),
+    tier (which one answered), attempts, audit, fallback_reason."""
     plain = template(finding)
     attempts: List[Dict[str, Any]] = []
+    order = list(tiers) or [tier]
 
     def fallback(reason: str) -> Dict[str, Any]:
-        return {"text": plain, "source": "template", "fallback_reason": reason,
+        return {"text": plain, "source": "template", "tier": None, "fallback_reason": reason,
                 "attempts": attempts, "audit": audit_narrative(plain, finding, rules), "template": plain}
 
     if gateway is None:
@@ -74,23 +90,37 @@ def compose_answer(query: str, finding: Dict[str, Any], *, gateway: Any, rules: 
 
     required = [f.label for f in rules.required(finding)]
     must = ("\n\nYour answer must state: " + "; ".join(required) + ".") if required else ""
+    # Stable text first (system prompt, instructions, data rule): the same on every run, so a
+    # provider can cache it. What changes per run -- question, finding, required facts -- comes after.
+    stable = [s for s in (system_prompt, instructions) if s]
+    system = ("\n\n".join(stable + [DATA_RULE]))
     base = (f"QUESTION:\n{query}\n\nFINDING (JSON computed from live platform data -- the only "
-            f"facts you may use):\n{fence_data(finding)}\n\n{instructions}{must}")
-    system = f"{system_prompt}\n\n{DATA_RULE}" if system_prompt else DATA_RULE
-    prompt = base
-    for _ in range(max_attempts):
-        try:
-            text, stop = _ask(gateway, prompt, system, tier)
-        except OfflineViolation:
-            raise  # an offline run reached for an LLM: a bug to surface, not "LLM down"
-        except Exception as e:  # every provider down, etc.
-            return fallback(f"llm unavailable: {type(e).__name__}: {e}")
-        if not text or stop in ("max_tokens", "length"):
-            return fallback(f"llm answer unusable (stop_reason={stop!r}, {len(text)} chars)")
-        report = audit_narrative(text, finding, rules)
-        attempts.append({"text": text, "audit": report})
-        if report["ok"]:
-            return {"text": text, "source": "llm", "fallback_reason": None, "attempts": attempts,
-                    "audit": report, "template": plain}
-        prompt = (f"{base}\n\nYOUR PREVIOUS ANSWER:\n{text}\n\nPROBLEMS:\n{correction_note(report, finding, rules)}")
-    return fallback(f"llm answer failed the claim audit {max_attempts} times")
+            f"facts you may use):\n{fence_data(finding)}{must}")
+    prompt, errors = base, []
+    for n, current in enumerate(order):
+        last = n == len(order) - 1
+        for _ in range(max_attempts if last else 1):
+            if max_cost_usd is not None and _spent(gateway) >= max_cost_usd:
+                return fallback(f"LLM cost budget reached (${_spent(gateway):.4f} of ${max_cost_usd:.4f})")
+            try:
+                text, stop = _ask(gateway, prompt, system, current)
+            except OfflineViolation:
+                raise  # an offline run reached for an LLM: a bug to surface, not "LLM down"
+            except Exception as e:  # every provider of this tier down: try the next tier
+                errors.append(f"{current}: {type(e).__name__}: {e}")
+                break
+            if not text or stop in ("max_tokens", "length"):
+                if not last:  # a cut-off cheap draft: the next tier may finish it
+                    errors.append(f"{current}: answer unusable (stop_reason={stop!r}, {len(text)} chars)")
+                    break
+                return fallback(f"llm answer unusable (stop_reason={stop!r}, {len(text)} chars)")
+            report = audit_narrative(text, finding, rules)
+            attempts.append({"text": text, "audit": report, "tier": current})
+            if report["ok"]:
+                return {"text": text, "source": "llm", "tier": current, "fallback_reason": None,
+                        "attempts": attempts, "audit": report, "template": plain}
+            prompt = (f"{base}\n\nYOUR PREVIOUS ANSWER:\n{text}\n\nPROBLEMS:\n"
+                      f"{correction_note(report, finding, rules)}")
+    if errors and not attempts:
+        return fallback("llm unavailable: " + "; ".join(errors))
+    return fallback(f"llm answer failed the claim audit ({len(attempts)} attempt(s) over {', '.join(order)})")
