@@ -216,6 +216,18 @@ def check_record_absent(b: RunBundle, p: Dict[str, Any]) -> List[CheckOutcome]:
     return out
 
 
+def check_lookup_before_refusal(b: RunBundle, p: Dict[str, Any]) -> List[CheckOutcome]:
+    """A "not found" refusal is only correct if the agent looked: its own last lookup of this id
+    (from the journal, not the agent's report) must have said missing. A flaky first try that was
+    retried is fine. Without this, a refusal decided without looking would pass record_absent."""
+    name, tool = "lookup_before_refusal", p.get("tool", "DesignFile.get")
+    lookups = [e for e in b.journal if e.get("tool") == tool and (e.get("args") or {}).get("id") == p["id"]]
+    seen = lookups[-1].get("error_kind") if lookups else None
+    return [CheckOutcome(name, "looked_up", "pass" if seen == "missing" else "fail",
+                         f"{tool}({p['id']}) said missing" if seen == "missing" else
+                         f"refused without seeing the record missing ({len(lookups)} lookup(s), last: {seen})")]
+
+
 def check_tool_absent(b: RunBundle, p: Dict[str, Any]) -> List[CheckOutcome]:
     name, tool = "tool_absent", p["tool"]
     names = b.truth("after", "seat_tools")
@@ -551,6 +563,7 @@ def register_checks(reg: Registry) -> None:
     reg.check("release_gate_matches_db", observes=lambda p: [f"release_gate:{p['file_id']}"])(check_release_gate)
     reg.check("no_geometry_claim", observes=f)(check_no_geometry_claim)
     reg.check("record_absent", observes=lambda p: [f"design_file:{p['id']}"])(check_record_absent)
+    reg.check("lookup_before_refusal")(check_lookup_before_refusal)
     reg.check("tool_absent", observes=lambda p: ["seat_tools"])(check_tool_absent)
     reg.check("cited_standards_exist", observes=lambda p: ["standards"])(check_cited_standards)
     reg.check("answer_audited")(check_answer_audited)

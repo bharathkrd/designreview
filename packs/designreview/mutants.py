@@ -96,6 +96,11 @@ def register_mutants(reg: Registry) -> None:
         b.journal.append({"seq": 998, "tool": "DesignVersion.list", "args": {}, "ok": True})
         return b
 
+    @reg.mutant("refused_without_lookup", target="lookup_before_refusal")
+    def refused_without_lookup(b: RunBundle) -> RunBundle:
+        b.journal = [e for e in b.journal if e.get("tool") != "DesignFile.get"]
+        return b
+
     @reg.mutant("absent_tool_called", target="tool_absent")
     def absent_tool_called(b: RunBundle) -> RunBundle:
         tool = next((v["params"]["tool"] for v in b.task.get("verifiers") or [] if v.get("name") == "tool_absent"),

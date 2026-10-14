@@ -60,6 +60,27 @@ def requested_revs(prompt: str) -> List[str]:
     return seen
 
 
+# One rev in a "compare X with Y" phrase: "rev B", "Revision 2", "rev. C"; a bare capital letter
+# ("from B to C") only inside the between/from forms, where it can't be an article or a quantity.
+_PREFIXED_REV = r"(?i:rev(?:ision)?s?)\.?\s+(?:[A-Za-z]|\d{1,2})\b"
+_ANY_REV = rf"(?:{_PREFIXED_REV}|\b[A-Z]\b)"
+_PAIR_RE = re.compile(rf"\b(?i:between)\s+{_ANY_REV}\s+(?i:and)\s+{_ANY_REV}"
+                      rf"|\b(?i:from)\s+{_ANY_REV}\s+(?i:to)\s+{_ANY_REV}"
+                      rf"|{_PREFIXED_REV}\s*(?:->|→|=>|\b(?i:to|vs|versus)\b\.?)\s*{_PREFIXED_REV}")
+_REV_TOKEN = re.compile(r"(?i:rev(?:ision)?s?)\.?\s+([A-Za-z]|\d{1,2})\b|\b([A-Z])\b")
+
+
+def requested_pair(prompt: str) -> Optional[List[str]]:
+    """The two revs the question asks to compare ("between rev B and rev C", "from B to C",
+    "rev B -> rev C"), from -> to; None when no such phrase names two different revs.
+    Revs mentioned elsewhere ("Rev A was the prototype.") don't count."""
+    m = _PAIR_RE.search(prompt or "")
+    if not m:
+        return None
+    revs = [(a or b).upper() for a, b in _REV_TOKEN.findall(m.group(0))]
+    return revs[:2] if len(revs) >= 2 and revs[0] != revs[1] else None
+
+
 def quantities(text: str) -> List[Dict[str, Any]]:
     return [{"value": float(v), "unit": u.lower(), "text": f"{v} {u}"} for v, u in QUANTITY_RE.findall(text or "")]
 
@@ -105,7 +126,13 @@ def _revision_delta(results: Dict[str, NodeResult], prompt: str) -> Dict[str, An
         section.update(outcome="declined", reason="this file has no versions")
         return section
 
-    wanted = requested_revs(prompt)
+    named = requested_revs(prompt)
+    wanted = requested_pair(prompt) or (named if len(named) == 2 else [])
+    if not wanted and len(named) > 2:
+        # Three or more revs and no "between X and Y": picking two would be a guess.
+        section.update(outcome="declined",
+                       reason=f"the question names revs {', '.join(named)} but not which two to compare")
+        return section
     if len(wanted) >= 2:
         by_rev = {v["rev"]: v for v in versions if v["rev"]}
         missing = [r for r in wanted[:2] if r not in by_rev]

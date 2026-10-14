@@ -37,6 +37,12 @@ past-due list grew as real dates passed) and `handoffs` (`proposed`: one per own
 the open serious items behind it; `would_file`: the escalation each would make; `filed`: false in a dry run).
 A section whose node isn't in the plan is left out, and `outcome` only counts the sections present.
 
+Which two revs are compared (`requested_pair`, since 2026-10-14): the pair named in a compare phrase --
+"between rev B and rev C", "from B to C", "rev B -> rev C", "rev C vs rev B" -- so a rev mentioned elsewhere
+("Rev A was the prototype.") doesn't count. Without such a phrase, exactly two named revs are used; three or
+more make `revision_delta` declined ("names revs A, B, C but not which two to compare") rather than a guess;
+none means the latest two versions.
+
 Why commit messages: in this build `diff_from_parent_json` only records file hashes and there is no CAD
 kernel, so the engineers' version notes are the only record of what changed — and the finding says so.
 
@@ -52,6 +58,7 @@ Each compares the finding and the answer with the harness's ground truth, using 
 | `release_gate_matches_db` | ready / critical_open differ, or the answer's verdict contradicts the gate |
 | `no_geometry_claim` | the finding or the answer claims a geometry comparison the platform can't have made |
 | `record_absent` | the agent answers about, or keeps reading after, a record that doesn't exist |
+| `lookup_before_refusal` | the agent says a record doesn't exist without its own lookup having said so (journal, not the agent's report) |
 | `tool_absent` | the agent calls, or answers as if it had, a tool the seat isn't given |
 | `cited_standards_exist` | a recalled standard id or a cited standard reference isn't on the platform |
 | `answer_audited` | the final answer failed the claim audit |
