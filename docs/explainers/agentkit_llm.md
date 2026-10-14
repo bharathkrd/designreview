@@ -4,7 +4,11 @@
 
 ## 10,000-ft view
 
-One in-process client for seven providers (Gemini, Groq, Cerebras, Anthropic, NVIDIA, OpenRouter, Ollama).
+One in-process client for the providers in `routing.toml`: DeepSeek (two models), Moonshot (Kimi), Gemini, Groq,
+Cerebras, Anthropic, NVIDIA, OpenRouter, LM Studio and Ollama. Any OpenAI-compatible endpoint is a config row:
+`url` (base or full `.../chat/completions`), optional `url_env` to override it from `.env`; a `keyless` one (a
+local server) gets no Authorization header; `temperature` pins the value for a model that accepts only one
+(Moonshot's kimi-k2.6: 1). `models_check` lists such a row's `<url>/models`.
 `call(prompt, …) -> str` for simple callers; `call_detailed(…) -> LLMReply` (text, provider, model,
 input/output tokens, normalised `stop_reason`, latency) for the narrator. No SDKs — plain `httpx`.
 

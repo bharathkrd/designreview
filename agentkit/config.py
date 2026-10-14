@@ -34,6 +34,9 @@ class ConfigError(ValueError):
 # Variables load_env() copied in from .env (name -> value), so callers can tell them from
 # variables the process was started with (e.g. injected by the official harness runner).
 _FROM_DOTENV: Dict[str, str] = {}
+# The names above, passed to child processes (the batch runs each task in one): a child inherits
+# the copied values in its environment and would otherwise take them for injected ones.
+DOTENV_KEYS_ENV = "AGENTKIT_DOTENV_KEYS"
 
 
 def from_process(name: str) -> Optional[str]:
@@ -61,10 +64,14 @@ def load_env(path: Optional[Path] = None) -> None:
                 if line and not line.startswith("#") and "=" in line:
                     key, val = line.split("=", 1)
                     pairs.setdefault(key.strip(), val.strip())
+        inherited = set(filter(None, os.environ.get(DOTENV_KEYS_ENV, "").split(",")))
         for key, val in pairs.items():
             if key not in os.environ:  # never override what the process already has
                 os.environ[key] = val
                 _FROM_DOTENV[key] = val
+            elif key in inherited and os.environ[key] == val:  # a parent copied it from .env
+                _FROM_DOTENV[key] = val
+        os.environ[DOTENV_KEYS_ENV] = ",".join(sorted(_FROM_DOTENV))
     if path is None:
         _env_loaded = True
 

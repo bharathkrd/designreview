@@ -79,11 +79,23 @@ class ProviderSpec(BaseModel):
     keyless: bool = False
     rpm: int = Field(60, gt=0)
     timeout: float = Field(60.0, gt=0)
+    # Any OpenAI-compatible endpoint: `url` (base, e.g. https://host/v1, or the full .../chat/completions);
+    # `url_env` (if set in the environment) overrides it. Built-in providers ignore both.
+    url: Optional[str] = None
+    url_env: Optional[str] = None
+    # Some models accept one temperature only (Moonshot's kimi-k2.6: 1): sent instead of the caller's.
+    temperature: Optional[float] = Field(None, ge=0)
 
     @property
     def is_keyless(self) -> bool:
         # keyless = true, or (JSON test configs) an explicit "key_env": null
         return self.keyless or ("key_env" in self.model_fields_set and self.key_env is None)
+
+
+def chat_url(base: str) -> str:
+    """https://host/v1 -> https://host/v1/chat/completions (a full endpoint is kept as is)."""
+    base = base.rstrip("/")
+    return base if base.endswith("/chat/completions") else f"{base}/chat/completions"
 
 
 class RoutingConfig(BaseModel):
@@ -261,6 +273,10 @@ class LLMGateway:
             "nvidia": self._openai_compat("https://integrate.api.nvidia.com/v1/chat/completions", "nvidia"),
             "openrouter": self._openai_compat("https://openrouter.ai/api/v1/chat/completions", "openrouter"),
         }
+        for p in self._config.providers:
+            base = self.base_url(p.name)
+            if p.name not in self._adapters and base:
+                self._adapters[p.name] = self._openai_compat(chat_url(base), p.name)
         # The official runner injects OPENAI_* into the process: that endpoint then goes first in every
         # tier. The same key copied into .env only makes "openai" available to tiers that name it.
         key = self._env.get("OPENAI_API_KEY")
@@ -282,6 +298,13 @@ class LLMGateway:
             return ""
         env_name = (spec.key_env if spec else None) or f"{provider.upper()}_API_KEY"
         return self._env.get(env_name) or None
+
+    def base_url(self, provider: str) -> str:
+        """The configured OpenAI-compatible base URL of a routing.toml row ("" when it has none)."""
+        spec = self._providers.get(provider)
+        if spec is None:
+            return ""
+        return ((self._env.get(spec.url_env) if spec.url_env else None) or spec.url or "").rstrip("/")
 
     def model_for(self, provider: str) -> str:
         spec = self._providers.get(provider)
@@ -355,7 +378,9 @@ class LLMGateway:
                 state.record_call()
                 t0 = time.time()
                 try:
-                    reply = adapter(key, model, prompt, system_prompt, temperature, max_tokens, json_mode)
+                    fixed = self._providers[provider].temperature if provider in self._providers else None
+                    reply = adapter(key, model, prompt, system_prompt,
+                                    temperature if fixed is None else fixed, max_tokens, json_mode)
                 except ProviderFault as fault:
                     msg = self._scrub(str(fault))
                     if fault.retryable and attempt < self.max_attempts - 1:
@@ -461,7 +486,10 @@ class LLMGateway:
             body: Dict[str, Any] = {"model": model, "messages": messages, "temperature": temp, "max_tokens": max_tok}
             if json_mode and provider in ("groq", "cerebras"):
                 body["response_format"] = {"type": "json_object"}
-            data = self._post(provider, url, {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}, body)
+            headers = {"Content-Type": "application/json"}
+            if key:  # a keyless local server (LM Studio) gets no Authorization header
+                headers["Authorization"] = f"Bearer {key}"
+            data = self._post(provider, url, headers, body)
             choices = data.get("choices") or []
             if not choices:
                 return LLMReply("", provider, model, "other")

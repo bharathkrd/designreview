@@ -9,6 +9,41 @@
 # cerebras no longer serve llama-3.3-70b; nvidia retired meta/llama-3.3-70b-instruct
 # on 2026-08-26). Anthropic: claude-opus-5 is the default current model; this
 # project's .env pins ANTHROPIC_MODEL=claude-sonnet-4-6.
+#
+# A row with `url` (and optionally `url_env`) is any OpenAI-compatible endpoint: no code change
+# needed. DeepSeek, Moonshot (Kimi) and LM Studio are such rows; their model ids were read from
+# each one's /models list on 2026-10-14 (deepseek: deepseek-v4-pro, deepseek-flash; moonshot:
+# kimi-k2.6, kimi-k3; LM Studio: whatever is loaded locally).
+
+[[providers]]
+name = "deepseek"
+model = "deepseek-v4-pro"
+model_env = "DEEPSEEK_MODEL"
+key_env = "DEEPSEEK_API_KEY"
+url = "https://api.deepseek.com"
+url_env = "DEEPSEEK_API_URL"
+rpm = 60
+timeout = 120
+
+[[providers]]
+name = "deepseek_flash"     # same key, the cheap fast model: first in the `fast` tier (cascade drafts)
+model = "deepseek-flash"
+model_env = "DEEPSEEK_FLASH_MODEL"
+key_env = "DEEPSEEK_API_KEY"
+url = "https://api.deepseek.com"
+url_env = "DEEPSEEK_API_URL"
+rpm = 60
+
+[[providers]]
+name = "moonshot"
+model = "kimi-k2.6"
+model_env = "MOONSHOT_MODEL"
+key_env = "MOONSHOT_API_KEY"
+url = "https://api.moonshot.ai/v1"
+url_env = "MOONSHOT_API_URL"
+temperature = 1         # kimi-k2.6 rejects any other value (HTTP 400, 2026-10-14)
+rpm = 30
+timeout = 120
 
 [[providers]]
 name = "gemini"
@@ -61,10 +96,20 @@ keyless = true          # local, no API key
 rpm = 120
 timeout = 180
 
+[[providers]]
+name = "lmstudio"
+model = "google/gemma-4-e4b"
+model_env = "LMSTUDIO_MODEL"
+keyless = true          # local LM Studio server, no API key
+url = "http://127.0.0.1:1235/v1"
+url_env = "LMSTUDIO_URL"
+rpm = 120
+timeout = 180
+
 [tiers]
-# Strongest general-purpose reasoning first; local Ollama last.
-default = ["gemini", "groq", "cerebras", "anthropic", "nvidia", "openrouter", "ollama"]
-# Cheap/fast tier for high-volume, low-stakes calls (e.g. the eval judge).
-fast = ["groq", "cerebras", "gemini", "nvidia", "ollama"]
+# DeepSeek and Moonshot (Kimi) first; the earlier hosted providers next; local LM Studio, then Ollama, last.
+default = ["deepseek", "moonshot", "gemini", "groq", "cerebras", "anthropic", "nvidia", "openrouter", "lmstudio", "ollama"]
+# Cheap/fast tier for high-volume, low-stakes calls (cascade drafts, the eval judge).
+fast = ["deepseek_flash", "moonshot", "groq", "cerebras", "gemini", "nvidia", "lmstudio", "ollama"]
 # Quality tier for the final answer.
-quality = ["anthropic", "gemini", "openrouter", "nvidia", "ollama"]
+quality = ["deepseek", "moonshot", "anthropic", "gemini", "openrouter", "nvidia", "lmstudio", "ollama"]

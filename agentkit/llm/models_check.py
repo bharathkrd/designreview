@@ -43,6 +43,10 @@ def _list_request(gw: LLMGateway, provider: str, key: str) -> Optional[Tuple[str
                                                                   "anthropic-version": ANTHROPIC_VERSION}
     if provider == "gemini":
         return "https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000", {"x-goog-api-key": key}
+    base = gw.base_url(provider)
+    if base:  # a routing.toml row with its own OpenAI-compatible URL
+        base = base[: -len("/chat/completions")] if base.endswith("/chat/completions") else base
+        return f"{base}/models", ({"Authorization": f"Bearer {key}"} if key else {})
     if provider == "ollama":
         return gw._env.get("OLLAMA_URL", "http://localhost:11434").rstrip("/") + "/api/tags", {}
     return None

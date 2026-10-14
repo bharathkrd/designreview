@@ -31,7 +31,11 @@ PRICE_PER_MTOK: Dict[str, Tuple[float, float]] = {
     "cerebras": (0.85, 1.20),
     "nvidia": (0.60, 0.60),
     "openrouter": (1.00, 1.00),
+    "deepseek": (0.60, 2.20),   # approximate; check the provider's price page
+    "deepseek_flash": (0.30, 1.20),
+    "moonshot": (0.60, 2.50),
     "ollama": (0.0, 0.0),  # local
+    "lmstudio": (0.0, 0.0),  # local
 }
 
 

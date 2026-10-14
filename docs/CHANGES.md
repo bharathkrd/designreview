@@ -1,5 +1,26 @@
 # Changes
 
+## 2026-10-14 — DeepSeek, Moonshot (Kimi) and LM Studio as LLM providers; .env provenance in child processes
+
+### Why
+Gemini and Cerebras need billing (HTTP 402) and the NVIDIA model in `.env` was retired (410); DeepSeek and
+Moonshot keys were added, and a local LM Studio server runs at `http://127.0.0.1:1235`. A live LLM batch then
+showed every answer narrated by OpenAI: each task's child process inherited the parent's `.env` copies and took
+`OPENAI_API_KEY` for a key the official runner injected.
+
+| What | Before | After | Where |
+|---|---|---|---|
+| Providers by URL | every endpoint hard-coded in the gateway | a `routing.toml` row with `url` (+ `url_env`) is any OpenAI-compatible endpoint; keyless ones send no Authorization header | `agentkit/llm/gateway.py` (`ProviderSpec.url`, `url_env`, `chat_url`, `base_url`) |
+| New providers | — | `deepseek` (deepseek-v4-pro), `deepseek_flash` (deepseek-flash), `moonshot` (kimi-k2.6, `temperature = 1`), `lmstudio` (local, keyless; `LMSTUDIO_URL`, `LMSTUDIO_MODEL`); ids read from each `/models` list | `config/routing.toml` |
+| Tier order | Gemini / Groq / Anthropic first | `default`, `quality`: deepseek, moonshot first; `fast` (cascade drafts): deepseek_flash, moonshot first; lmstudio then ollama last everywhere | `config/routing.toml` |
+| Fixed temperature | caller's value always sent | `ProviderSpec.temperature` replaces it for that provider | `agentkit/llm/gateway.py` |
+| Prices, model check | — | approximate prices for the new rows (local = 0); `models_check` reads `<url>/models` | `agentkit/llm/economics.py`, `models_check.py` |
+| .env provenance | lost in a child process | `load_env` publishes the names it copied (`AGENTKIT_DOTENV_KEYS`); a child treats an inherited, unchanged value as a `.env` copy | `agentkit/config.py` |
+
+Verified: each new provider answers through the gateway live (`GATEWAY_OK`) and `models_check` reports them
+`ok`; a live 12-task LLM batch passes 12 of 12 with every answer from `deepseek_flash` (every draft passed the
+claim audit; about $0.026 in all); offline `tests_local` 873 passed, hand-written `tests/` 38 passed.
+
 ## 2026-10-14 — Batch 6 of the research gaps: routing a bare question (plan + design file)
 
 ### Why

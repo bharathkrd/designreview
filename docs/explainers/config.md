@@ -6,7 +6,7 @@ validated by pydantic models.*
 | File | Model | Holds |
 |---|---|---|
 | `config/tenants.toml` | `TenantsConfig` / `TenantSpec` | per tenant: label, URL env var + default URL, password env var — names only, never values |
-| `config/routing.toml` | `RoutingConfig` / `ProviderSpec` | LLM providers (model, `model_env`, key env, `keyless`, rpm, timeout) and tiers |
+| `config/routing.toml` | `RoutingConfig` / `ProviderSpec` | LLM providers (model, `model_env`, key env, `keyless`, rpm, timeout; `url`/`url_env` for any OpenAI-compatible endpoint, `temperature` for a model that takes one value only) and tiers |
 | `config/project.toml` | — | `default_pack`, `default_tenant` (used when a CLI or task doesn't name one) |
 | `packs/*/plans/*.toml` | `PlanModel` | nodes and rules (see `agentkit_graph.md`) |
 | `packs/*/tasks/*.toml` | `TaskDef` | harness tasks (see `agentkit_harness.md`) |
