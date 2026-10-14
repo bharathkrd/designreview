@@ -62,3 +62,18 @@ Record every run, including passes. A failure that is a real platform bug become
 - [ ] **M-CNT-01** — *To author:* live test comparing each dashboard card with its list total (DesignProject, DesignReview open, DesignFeedback open, DesignShare active) once the card definitions are confirmed; not written yet.
 - [ ] **API unchanged** (research.md §2.0) — *To author:* offline test: both fixtures record 323 tools and fingerprint fbadee4421f15020; live test: SeatRpcClient.catalog().fingerprint() is the same. References: test_fixture_catalogue_is_the_one_live_today, test_live_catalogue_unchanged.
 
+
+## Automated live runs (tests_local, AI reference suite)
+
+Full runs of the git-ignored reference suite against the live platform and real LLM providers. The full output
+and per-test results stay local (`tests_local/live_run_<date>.log` / `.xml`, credentials masked).
+
+| ID | Tester / Date | Commit | Command | Environment | Result | Failures and cause |
+| :-- | :-- | :-- | :-- | :-- | :-- | :-- |
+| A-LIVE-01 | Claude (AI-assisted) / 2026-10-14 | `e94acb5` (main) | `pytest tests_local -m "(live or agent or gateway_live) and not writes"` | `.env` as is | **FAIL**: 14 passed, 7 failed, 30 errors | 30 errors: Suryodaya login 401 -- `.env` holds the server-run `AGENTSWITCH_TOKEN`/`BASE_URL`/`INSTANCE`; `agentkit/config.py:tenant_login()` checks for the token *before* loading `.env`, so the first login uses the password and later Suryodaya logins send an empty one (the test fixture always logs in with a password). 7 failures: `OPENAI_API_KEY` in `.env` puts `openai` first in every tier (`gateway.candidate_order`), so each single-provider test was answered by OpenAI |
+| A-LIVE-02 | Claude (AI-assisted) / 2026-10-14 | `e94acb5` (main) | same | `.env` with the six server-run variables blanked for the process | **PASS except providers**: 48 passed, 3 failed, 3 xfailed (3 min 44 s); log: `tests_local/live_run_2026-10-14.log` | all live platform tests (both tenants) and all agent runs pass. Provider accounts: Gemini HTTP 402 (prepaid credits depleted), Cerebras HTTP 402 (payment required), NVIDIA HTTP 410 (`.env` `NVIDIA_MODEL` = `meta/llama-3.3-70b-instruct`, retired 2026-08-26; `routing.toml` already uses `mistralai/mistral-large-2-instruct`) |
+
+Not run: the 18 `writes` tests (they create and change `T21-TEST` records on the shared platform).
+
+- [ ] **A-LIVE-01** -- *To author:* offline test: with `AGENTSWITCH_TOKEN`/`AGENTSWITCH_BASE_URL` only in a temporary `.env`, two calls of `tenant_login("suryodaya")` return the same thing (today the first returns the password and the second an empty one). Mark it `xfail` until `tenant_login` is fixed.
+- [ ] **A-LIVE-02** -- *To author:* offline test: `LLMGateway(..., env={"OPENAI_API_KEY": "x"})`: `candidate_order("default")` starts with `openai` (documents the server-run behaviour); without the key it equals `routing.toml`'s order.
