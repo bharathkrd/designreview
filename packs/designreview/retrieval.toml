@@ -4,7 +4,8 @@
 #             Generic engineering vocabulary -- a feature or defect -> the process / standard family it
 #             belongs to -- written without looking at which records the labelled queries below expect.
 # [gate]      relevance gate over the recalled standards (agentkit.retrieval.gate_hits): a hit scoring
-#             >= keep_ratio of the best is "correct", >= ambiguous_ratio "ambiguous", else dropped.
+#             >= keep_ratio of the best is "correct", >= ambiguous_ratio "ambiguous", else dropped; a hit
+#             that matched fewer than min_terms distinct query terms is dropped whatever its score.
 # [[qrels]]   hand-labelled queries for scripts/retrieval_eval.py: the change notes a task sends and the
 #             standards (base names, lower case) that SHOULD come back. Only clear cases are labelled; the
 #             set is small, so treat its scores as a development signal, not proof.
@@ -15,6 +16,7 @@ top_k = 5
 [gate]
 keep_ratio = 0.5
 ambiguous_ratio = 0.3
+min_terms = 2
 
 [synonyms]
 "bend radius" = ["bend", "sheet", "metal"]

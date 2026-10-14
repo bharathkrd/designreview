@@ -10,7 +10,9 @@ Metrics (over a hand-labelled set: for each query, the ids that SHOULD come back
 Relevance gate (a light form of a "retrieval evaluator" that decides what to do with
 what came back, instead of passing the top k on regardless):
   relevance_band   "correct" | "ambiguous" | "incorrect" for one hit, from its score
-                   relative to the best hit and an absolute floor
+                   relative to the best hit, an absolute score floor, and an absolute floor on
+                   how many distinct query terms it matched (a lone incidental word -- "steel"
+                   in "coffee machine warranty steel" -- is not evidence of relevance)
   gate_hits        keep correct and ambiguous hits (with their band), drop incorrect ones
 
 Query expansion:
@@ -67,10 +69,12 @@ class GateConfig:
     keep_ratio: float = 0.5        # >= this share of the best score: "correct"
     ambiguous_ratio: float = 0.3   # >= this share: "ambiguous"; below: "incorrect"
     min_score: float = 0.0         # an absolute floor under which nothing is kept
+    min_terms: int = 1             # a hit must match at least this many distinct query terms
 
 
-def relevance_band(score: float, best: float, cfg: GateConfig = GateConfig()) -> str:
-    if score <= cfg.min_score or best <= 0:
+def relevance_band(score: float, best: float, cfg: GateConfig = GateConfig(), matched: int = -1) -> str:
+    """`matched` = distinct query terms the hit matched; -1 (unknown) skips the term floor."""
+    if score <= cfg.min_score or best <= 0 or 0 <= matched < cfg.min_terms:
         return "incorrect"
     share = score / best
     if share >= cfg.keep_ratio:
@@ -80,10 +84,16 @@ def relevance_band(score: float, best: float, cfg: GateConfig = GateConfig()) ->
 
 def gate_hits(hits: Sequence[Any], cfg: GateConfig = GateConfig()) -> List[Tuple[Any, str]]:
     """(hit, band) for every hit that is not "incorrect", in the original order.
-    A hit is anything with a numeric `.score`."""
+    A hit is anything with a numeric `.score`; a `.matched` list of query terms enables
+    the `min_terms` floor."""
     best = max((h.score for h in hits), default=0.0)
-    banded = [(h, relevance_band(h.score, best, cfg)) for h in hits]
+    banded = [(h, relevance_band(h.score, best, cfg, _matched(h))) for h in hits]
     return [(h, b) for h, b in banded if b != "incorrect"]
+
+
+def _matched(hit: Any) -> int:
+    terms = getattr(hit, "matched", None)
+    return len(set(terms)) if isinstance(terms, (list, tuple, set)) else -1
 
 
 # ---------------------------------------------------------------- query expansion

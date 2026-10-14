@@ -5,7 +5,10 @@
 # read is BYPASSED and the run ends as one clean refusal instead of half-empty
 # evidence. The other reads then run in parallel. If the release gate reports
 # any blocker or reason code, the planner adds one follow-up read of the
-# failed DFM checklist results.
+# failed DFM checklist results. If the release gate cannot be read at all
+# (FAILED after its retries), a fallback rule adds the same read: the verdict
+# stays unknown -- nothing stands in for the gate -- but the answer still has
+# the failed checks as DFM evidence.
 
 name = "rev_diff_dfm"
 params = ["file_id"]
@@ -55,3 +58,19 @@ id = "failed_checklists"
 action = "list_failed_checklists"
 args = { file_id = "{file_id}" }
 after = ["release_gate"]
+
+# Fallback (replanning on failure): the gate is unreadable, so read the failed checks anyway.
+# requires = "settled": the read waits for the gate to finish, whatever its verdict.
+[[rules]]
+name = "failed_checklists_when_gate_unreadable"
+
+[rules.when]
+node = "release_gate"
+verdict = "failed"
+
+[[rules.add]]
+id = "failed_checklists"
+action = "list_failed_checklists"
+args = { file_id = "{file_id}" }
+after = ["release_gate"]
+requires = "settled"

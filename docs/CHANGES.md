@@ -1,5 +1,18 @@
 # Changes
 
+## 2026-10-15 — Gaps I4 (citations), I7 (fallback rules), I11 (matched-term floor); a filing-denial fix
+
+| What | Before | After | Where |
+|---|---|---|---|
+| I4 citations | a sentence was not tied to the finding path it came from | optional `[@path]` citations: `check_citations` fails an unknown path or a quantity that is not in the cited value; `strip_citations` removes them for display; the prompt asks for them | `agentkit/answer/claim_audit.py`, `narrator.py`, `packs/designreview/prompts/narrate.md` |
+| I7 fallback rules | a rule fired only on a resolved node with a data condition | a rule may fire on `verdict = "failed"` / `"declined"` / `"handed_off"` alone; `rev_diff_dfm` reads the failed checklists when the gate cannot be read (`requires = "settled"`) | `agentkit/graph/plan_loader.py`, `packs/designreview/plans/rev_diff_dfm.toml` |
+| I11 floor | the gate was relative to the best hit only | `GateConfig.min_terms` (pack: 2): a hit must match 2 distinct query terms | `agentkit/retrieval/quality.py`, `packs/designreview/retrieval.toml`, `actions.py` |
+| Filing denials | "No hand-offs have been filed." counted as a filing claim (audit and grader) | "no" denies when it qualifies the hand-off / escalation / ticket | `packs/designreview/claims.py`, `checks.py` |
+
+Verified: offline 12 of 12 on every run, `grade --check` identical, mutants and replay calibration OK,
+fault matrix 13 of 13, retrieval floors ok (recall@5 1.00, precision@5 0.88, MRR 1.00); `tests_local` 929
+passed, `tests/` 38. Live: 12 of 12 with gpt-6-luna, 7 citations, none wrong, no escalation (A-LIVE-13).
+
 ## 2026-10-15 — README up to date and in ASD-STE100; live LLM batches logged; test templates
 
 | What | Before | After | Where |

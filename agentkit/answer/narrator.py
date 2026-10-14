@@ -30,7 +30,7 @@ import json
 import re
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
-from agentkit.answer.claim_audit import ClaimRules, audit_narrative, correction_note
+from agentkit.answer.claim_audit import ClaimRules, audit_narrative, correction_note, strip_citations
 from agentkit.transport.wire import OfflineViolation
 
 MAX_ATTEMPTS = 2  # first draft + one rewrite
@@ -120,7 +120,7 @@ def compose_answer(query: str, finding: Dict[str, Any], *, gateway: Any, rules: 
             report = audit_narrative(text, finding, rules)
             attempts.append({"text": text, "audit": report, "tier": current, **who})
             if report["ok"]:
-                return {"text": text, "source": "llm", "tier": current, **who, "fallback_reason": None,
+                return {"text": strip_citations(text), "source": "llm", "tier": current, **who, "fallback_reason": None,
                         "attempts": attempts, "audit": report, "template": plain}
             prompt = (f"{base}\n\nYOUR PREVIOUS ANSWER:\n{text}\n\nPROBLEMS:\n"
                       f"{correction_note(report, finding, rules)}")

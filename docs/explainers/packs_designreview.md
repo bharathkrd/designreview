@@ -46,10 +46,14 @@ Written in ASD-STE100 (Simplified Technical English) style, 2026-10-14.*
 
 | Plan | Steps |
 |---|---|
-| `rev_diff_dfm` | The design file first. Then the revisions, the release gate, the feedback and the standards. A rule adds a read of the failed checklists when the gate has blockers. |
+| `rev_diff_dfm` | The design file first. Then the revisions, the release gate, the feedback and the standards. A rule adds a read of the failed checklists when the gate has blockers. A fallback rule adds the same read when the gate cannot be read. |
 | `tool_refusal` | Examines the tool catalogue first, then refuses. |
 | `release_handoff` | The release gate, the feedback and the milestones. Then the cross-seat match. Then a rule adds previewed hand-offs. |
 | `route_declined` | A refusal with the reason of the router. |
+
+The fallback rule (since 2026-10-15) fires on `verdict = "failed"` of `release_gate`. Its node has
+`requires = "settled"`. The release verdict stays unknown, because nothing takes the place of the gate. But the
+answer still has the failed checks as DFM evidence.
 
 In `rev_diff_dfm`, `dfm_standards` waits for `revisions` **and** `release_gate`. Its query has the change
 notes and the blocker titles. Thus the query never depends on thread timing. Before 2026-10-12, it waited for
@@ -127,6 +131,14 @@ The task gives this as a parameter. `revision_delta_matches_db`, `answer_states_
 - `latest = true`: the two newest versions, for files whose notes have no rev labels.
 
 The finding uses the same rule: the rev labels in the question, or else the latest two versions.
+
+### Filing denials (since 2026-10-15)
+
+A live answer said: "No hand-offs have been filed." This statement is true. But the claim audit and the grader
+read it as a filing claim. The audit then sent the draft to a more expensive model.
+
+Now "no" is a negation for a filing claim, but only when it qualifies the hand-off, the escalation or the
+ticket itself. Thus "I filed the escalation; no further action is needed." is still a filing claim.
 
 ### Geometry disclaimers (since 2026-10-14)
 

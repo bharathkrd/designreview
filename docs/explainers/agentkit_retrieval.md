@@ -73,9 +73,14 @@ design. The BM25 children and the verbatim-suffix chunking are original to this 
   configurations: BM25 alone, each of the three aids alone, and all three aids together.
 - **A CI floor.** `scripts/retrieval_eval.py --check` is a CI step. It fails if the configuration of the agent
   goes below the `[floors]` in the file.
-- **A relevance gate.** `gate_hits(hits, GateConfig(keep_ratio, ambiguous_ratio, min_score))` compares each
-  hit with the best hit. It puts each hit in one of three bands: correct, ambiguous or dropped. The action
+- **A relevance gate.** `gate_hits(hits, GateConfig(keep_ratio, ambiguous_ratio, min_score, min_terms))`
+  compares each hit with the best hit. It puts each hit in one of three bands: correct, ambiguous or dropped. The action
   gives the band. The answer marks an ambiguous standard as "possibly relevant".
+- **An absolute floor on matched terms (since 2026-10-15).** A hit must match at least `min_terms` different
+  query terms. The pack sets 2 in `retrieval.toml`.
+- **Why the floor is necessary.** Before, a lone incidental word was enough. For example,
+  "coffee machine warranty steel" kept the bend-radius standard because of the word "steel". The index still
+  gives that hit with its score. The gate drops it.
 - **Query expansion.** `expand_query(query, synonyms)` adds the terms of each phrase that it finds. It
   matches whole words, and it ignores case.
 - **Chunks that carry context.** `ParentChildIndex(context_keys=...)` puts those meta values of the parent in

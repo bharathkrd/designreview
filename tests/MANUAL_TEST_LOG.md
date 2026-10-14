@@ -94,6 +94,9 @@ folders (`runs/batches/<id>/report.md`) stay local.
 | A-LIVE-08 | Claude (AI-assisted) / 2026-10-14 | `5fed6bd` | `live-llm-claude-gemini-2026-10-14` | `DEEPSEEK_API_KEY` and `OPENAI_API_KEY2` blanked for the process | **PASS**: 12 of 12 | anthropic_haiku:claude-haiku-5-5 (12), anthropic:claude-sonnet-5-5 (1, t05 escalated) | 0.030 | the Anthropic rows end to end |
 | A-LIVE-09 | Claude (AI-assisted) / 2026-10-14 | `5fed6bd` | `live-llm-gemini-2026-10-14` | also `ANTHROPIC_API_KEY` blanked | **PASS**: 12 of 12 | gemini_lite:gemini-3.5-flash-lite (12) | 0.004 | the Gemini rows end to end (free-tier `GEMINI_API_KEY_2`) |
 | A-LIVE-10 | Claude (AI-assisted) / 2026-10-14 | `ea0c797` (tier order OpenAI, DeepSeek, Moonshot, Gemini, Anthropic) | `live-llm-openai-first-2026-10-14` | `.env` as is | **PASS**: 12 of 12 | openai_luna:gpt-6-luna (12) | 0.004 | each cheap draft passed the claim audit |
+| A-LIVE-11 | Claude (AI-assisted) / 2026-10-15 | `1963929` | `live-template-2026-10-15` | `.env` as is, `--skip-llm` | **PASS**: 12 of 12 | none (template answers) | 0 | the $0 baseline for the cost-vs-accuracy table (G12, `docs/COST_ACCURACY.md`) |
+| A-LIVE-12 | Claude (AI-assisted) / 2026-10-15 | `1963929` + I4/I7/I11 (before the filing-denial fix) | `live-citations-2026-10-15` | `.env` as is | **PASS**: 12 of 12 | openai_luna:gpt-6-luna (12), openai_sol:gpt-6.1-sol (1, t12 escalated) | 0.012 | 7 `[@path]` citations, none wrong, none shown. t12 escalated because the claim audit read "No hand-offs have been filed." as a filing claim (the grader had the same rule); fixed |
+| A-LIVE-13 | Claude (AI-assisted) / 2026-10-15 | with the filing-denial fix | `live-citations-2026-10-15b` | `.env` as is | **PASS**: 12 of 12 | openai_luna:gpt-6-luna (12) | 0.004 | no escalation |
 
 Each provider row was also called once through the gateway (`GATEWAY_OK`) and listed `ok` by
 `python -m agentkit.llm.models_check`. Not answering on 2026-10-14: `GEMINI_API_KEY` (HTTP 402, credit used up),
@@ -102,5 +105,7 @@ Cerebras (402), NVIDIA (`NVIDIA_MODEL` retired, 410); Gemini 3.5-3.8 Flash on th
 - [ ] **A-LIVE-05** -- *To author:* offline test: after `load_env()` copies `OPENAI_API_KEY` from a temporary
   `.env`, a child process (simulate it: keep `os.environ`, clear `agentkit.config._FROM_DOTENV`, call
   `load_env()` again) still gets `from_process("OPENAI_API_KEY") is None`.
+- [ ] **A-LIVE-12** -- *To author:* offline test: the grader's filing check and the claim audit
+  accept "No hand-offs have been filed." and still reject "I filed the escalation; no further action is needed."
 - [ ] **A-LIVE-07** -- *To author:* offline test: `geometry_claims("Nothing in this answer comes from a geometry
   diff.")` is empty; `geometry_claims("The geometry comparison shows a thicker wall.")` is not.

@@ -42,6 +42,13 @@ NOT_A_QUANTITY_RE = re.compile(
     r"|\b\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?\b", re.I)
 TOLERANCE = 1e-6
 
+# Optional citations in the prose: "[@revision_delta.change_notes[0]]" after a sentence names the finding
+# path its facts come from. The audit checks each one; strip_citations() removes them for display.
+CITATION_RE = re.compile(r"\s?\[@((?:[A-Za-z_]\w*|\[\d+\])(?:\.[A-Za-z_]\w*|\[\d+\])*)\]")
+_PATH_PART = re.compile(r"\.?([A-Za-z_]\w*)|\[(\d+)\]")
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=\S)")
+_MISSING = object()
+
 
 @dataclass
 class RequiredFact:
@@ -87,8 +94,64 @@ def _flat(obj: Any) -> str:
     return repr(obj).lower()
 
 
+def strip_citations(text: str) -> str:
+    """The text a reader sees: every "[@path]" citation removed."""
+    return CITATION_RE.sub("", text or "")
+
+
+def resolve_path(finding: Any, path: str) -> Any:
+    """The value at a finding path such as "revision_delta.change_notes[1]"; _MISSING if there is none."""
+    node, pos = finding, 0
+    for m in _PATH_PART.finditer(path):
+        if m.start() != pos:
+            return _MISSING
+        pos = m.end()
+        key, index = m.group(1), m.group(2)
+        if key is not None:
+            if not isinstance(node, dict) or key not in node:
+                return _MISSING
+            node = node[key]
+        else:
+            i = int(index)
+            if not isinstance(node, (list, tuple)) or i >= len(node):
+                return _MISSING
+            node = node[i]
+    return node if pos == len(path) else _MISSING
+
+
+def check_citations(text: str, finding: Dict[str, Any], rules: ClaimRules) -> Tuple[int, List[str]]:
+    """(citations found, problems). A citation must name a path in the finding, and each quantity of the
+    sentence it ends must be a number of the value(s) that sentence cites."""
+    count, problems = 0, []
+    for sentence in _SENTENCE_END.split(text or ""):
+        paths = [m.group(1) for m in CITATION_RE.finditer(sentence)]
+        if not paths:
+            continue
+        count += len(paths)
+        cited: Set[float] = set()
+        for path in paths:
+            value = resolve_path(finding, path)
+            if value is _MISSING:
+                problems.append(f"[@{path}] is not a path in the FINDING")
+            else:
+                known_numbers(value, cited)
+        if rules.quantity_re is None:
+            continue
+        for m in rules.quantity_re.finditer(strip_citations(sentence)):
+            try:
+                v = float(m.group(1))
+            except (TypeError, ValueError):
+                continue
+            if not any(abs(v - k) <= TOLERANCE for k in cited):
+                problems.append(f"'{m.group(0).strip()}' is not in the value at "
+                                + ", ".join(f"[@{p}]" for p in paths))
+    return count, problems
+
+
 def audit_narrative(text: str, finding: Dict[str, Any], rules: ClaimRules) -> Dict[str, Any]:
-    text = text or ""
+    raw = text or ""
+    citations, bad_citations = check_citations(raw, finding, rules)
+    text = strip_citations(raw)  # the other checks read what the reader will see
     flat = _flat(finding)
     numbers = known_numbers(finding)
 
@@ -106,10 +169,11 @@ def audit_narrative(text: str, finding: Dict[str, Any], rules: ClaimRules) -> Di
     contradictions = list(rules.contradictions(text, finding))
     missing = [f.label for f in rules.required(finding) if not f.present_in(text)]
 
-    ok = not (unsupported_ids or unsupported_quantities or contradictions or missing)
+    ok = not (unsupported_ids or unsupported_quantities or contradictions or missing or bad_citations)
     return {"ok": ok, "unsupported_ids": unsupported_ids,
             "unsupported_quantities": sorted(set(unsupported_quantities)),
-            "contradictions": contradictions, "missing": missing}
+            "contradictions": contradictions, "missing": missing,
+            "citations": citations, "bad_citations": bad_citations}
 
 
 def finding_quantities(finding: Any, rules: ClaimRules) -> List[Tuple[str, str, float]]:
@@ -188,6 +252,8 @@ def correction_note(report: Dict[str, Any], finding: Optional[Dict[str, Any]] = 
         lines.append(f"- Contradicts the FINDING: {c}")
     if report["missing"]:
         lines.append("- You must also state: " + "; ".join(report["missing"]) + ".")
+    for c in report.get("bad_citations") or []:
+        lines.append(f"- Wrong citation: {c}. Cite the FINDING path that holds the fact, or remove the citation.")
     if finding is not None and rules is not None and rules.explain is not None:
         lines += [f"- {x}" for x in rules.explain(report, finding) if x]
     return "\n".join(lines)
