@@ -347,22 +347,48 @@ The runner works in two modes:
 
 ### Evaluated checks (`harness/runner.py`)
 
-Each run on an instance does 7 checks and records structured proof:
+Each run on an instance has two parts. Both write entries to `results.json`.
 
-1. **`mcp_tools_list`**: the MCP JSON-RPC 2.0 handshake works, and the seat tool catalogue is available (more
-   than 320 tools).
+**Part 1: platform smoke checks (7 entries).** These checks show that the platform and the seat work:
+
+1. **`mcp_tools_list`**: the MCP JSON-RPC 2.0 handshake works, and the seat tool catalogue is available.
 2. **`mcp_tool_call`**: a direct MCP call to `TeamHarness.get_mine` gives the saved repository URL of the team.
 3. **`agent_answers_with_tool`**: in the LLM tool-calling loop of the platform, the model calls
    `TeamHarness.get_mine` and answers with the repository link.
-4. **`design_file_retrieval`**: the agent reads the target CAD files (`DesignFile.get`) and the revision
-   history (`DesignVersion.list`) with the commit notes. The files are the Bharat EV Battery Tray on Suryodaya
-   and the Hydraulic Manifold Mount on Keystone.
-5. **`release_readiness_gate`**: the agent reads the release-gate blockers, the reason codes and the critical
-   readiness through `endpoint.designreview.release_readiness`.
-6. **`refusal_unknown_entity`**: the agent gives the error and a clean refusal for a design file UUID that does
-   not exist (`00000000-0000-0000-0000-000000000000`).
-7. **`agent_design_review_verdict`**: the LLM uses the design-review tools to answer engineering questions and
-   finds the release blockers correctly.
+4. **`design_file_retrieval`**: a direct read of the target design file (`DesignFile.get`) and its revision
+   history (`DesignVersion.list`).
+5. **`release_readiness_gate`**: a direct read of `endpoint.designreview.release_readiness`.
+6. **`refusal_unknown_entity`**: the platform refuses a design file UUID that does not exist
+   (`00000000-0000-0000-0000-000000000000`). An exception is a failure, not a refusal.
+7. **`agent_design_review_verdict`**: the LLM of the platform uses one tool and states the release blockers.
+
+**Part 2: our agent (`harness/agent_tasks.py`).** The runner runs the design-review tasks of the instance
+through `agentkit`. Suryodaya has 8 tasks and Keystone has 4. Each task is a dry run with the LLM of the
+platform. Our verifiers then grade each run against the data of the platform. The runner writes:
+
+- one entry for each task: `<instance>:task:<task id>`. The score is the partial credit. The evidence gives the
+  failed checks, the source of the answer and the model;
+- one entry for each check that applied: `<instance>:check:<task id>:<check>:<name>`. A failed check gives
+  the expected value and the observed value, for example `agent None, platform False`.
+
+A check that ends as `fail`, `error` or `drift` is `passed: false`. A task that crashed is `passed: false`. An
+exception becomes one failed entry with the exception and its file and line. A skipped check gets no entry.
+The runner exits 1 when an entry failed.
+
+On 2026-10-16, a local run in server mode gave 118 of 118 entries on Suryodaya (169 seconds) and 79 of 79 on
+Keystone. The limit of the server is 200 entries and 20 minutes.
+
+Check the runner before you submit it:
+
+```bash
+python -m harness.runner --instance suryodaya --sim packs/designreview/fixtures --out runs/r.json   # offline
+python -m harness.runner --instance suryodaya --sim packs/designreview/fixtures \
+       --fault "fail_always:endpoint.designreview.release_readiness:flaky" --out runs/f.json        # must fail
+python scripts/check_results_json.py runs/r.json --instance suryodaya --min-agent-tasks 8 --expect all-pass
+python -m harness.runner --instance keystone --out runs/k.json                                      # live
+```
+
+CI runs the offline commands on each push.
 
 ### Output specification: `results.json`
 

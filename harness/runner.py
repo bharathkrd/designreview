@@ -9,6 +9,18 @@ Runs against the platform environment provided by the runner:
 Outputs results.json conformant to the Release 8.1 harness specification:
   {"tasks": [{"id": "...", "title": "...", "passed": true, "score": 1.0, "evidence": "..."}],
    "summary": "..."}
+
+Two parts, both in results.json:
+  1. platform smoke checks (MCP reachable, our saved link, a direct read, the release gate, a clean refusal,
+     the platform LLM's tool loop);
+  2. our real agent (harness/agent_tasks.py): this instance's design-review tasks, run through agentkit as dry
+     runs with the platform LLM, graded by our own verifiers against the platform's data -- one entry per
+     task and one per check that applied. A failed check is passed=false with its detail as evidence.
+
+    python -m harness.runner                                  # server: the runner injects the environment
+    python -m harness.runner --instance keystone              # local, against the live platform
+    python -m harness.runner --instance suryodaya --sim packs/designreview/fixtures --out runs/r.json
+                                                              # offline: captured fixtures, agent tasks only
 """
 
 from __future__ import annotations
@@ -20,22 +32,41 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import requests
+import ssl
+
+import httpx
+
+# TLS against the operating system's trust store (like agentkit): on a machine behind a TLS-inspecting
+# proxy only the OS store has the issuing CA. On the server the base URL is plain http, so nothing changes.
+_TLS = ssl.create_default_context()
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 import argparse
 
 # --- Environment Initialization (server-first, with local fallback) ---
+# agentkit's load_env: like python-dotenv (never overrides the process), and it also tells the agent's
+# task subprocesses which values came from .env, so a copied server variable is not mistaken for an
+# injected one (see agentkit/config.py).
+sys.path.insert(0, str(PROJECT_ROOT))
 try:
-    from dotenv import load_dotenv
-    load_dotenv(PROJECT_ROOT / ".env")
-except ImportError:
-    pass
+    from agentkit.config import load_env
+    load_env()
+except Exception:  # the runner must still start
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(PROJECT_ROOT / ".env")
+    except ImportError:
+        pass
 
 parser = argparse.ArgumentParser(description="AgentSwitch Harness Runner")
 parser.add_argument("--instance", choices=["suryodaya", "keystone"], default=None,
                     help="Target instance (defaults to AGENTSWITCH_INSTANCE or suryodaya)")
+parser.add_argument("--sim", type=Path, default=None,
+                    help="offline: replay these captured fixtures and run only the agent tasks (no login, no network)")
+parser.add_argument("--fault", action="append", default=[],
+                    help="with --sim: inject an agentkit.sim fault, e.g. fail_always:DesignVersion.list:flaky")
+parser.add_argument("--out", default="results.json", help="where to write results.json (relative to the repo root)")
 cli_args, _ = parser.parse_known_args()
 
 if cli_args.instance:
@@ -56,7 +87,7 @@ if os.environ.get("AGENTSWITCH_TOKEN") and os.environ.get("AGENTSWITCH_BASE_URL"
     BASE = os.environ["AGENTSWITCH_BASE_URL"].rstrip("/")
     TOKEN = os.environ["AGENTSWITCH_TOKEN"]
 
-if not TOKEN:
+if not TOKEN and not cli_args.sim:
     try:
         sys.path.insert(0, str(PROJECT_ROOT))
         from as_client import AgentSwitchClient
@@ -89,7 +120,7 @@ def record(task_id: str, title: str, passed: bool, evidence: Any, score: Optiona
 def mcp(method: str, params: Optional[Dict[str, Any]] = None, rid: int = 1) -> Dict[str, Any]:
     url = f"{BASE}/api/mcp"
     payload = {"jsonrpc": "2.0", "id": rid, "method": method, "params": params or {}}
-    resp = requests.post(url, headers=AUTH, json=payload, timeout=120)
+    resp = httpx.post(url, headers=AUTH, json=payload, timeout=120, verify=_TLS)
     resp.raise_for_status()
     return resp.json()
 
@@ -106,7 +137,10 @@ def call_tool(name: str, arguments: Optional[Dict[str, Any]] = None) -> str:
 
 def save_results(file_path: str = "results.json") -> None:
     passed_count = sum(1 for t in tasks if t.get("passed"))
+    agent = [t for t in tasks if t["id"].startswith(f"{INSTANCE}:task:")]
     summary = f"{INSTANCE}: {passed_count}/{len(tasks)} checks passed"
+    if agent:
+        summary += f" (agent tasks: {sum(1 for t in agent if t['passed'])}/{len(agent)} passed)"
     result_data = {
         "tasks": tasks,
         "summary": summary,
@@ -144,7 +178,7 @@ def run_checks() -> None:
     if os.environ.get("OPENAI_API_KEY"):
         try:
             from openai import OpenAI
-            openai_client = OpenAI()  # picks up OPENAI_BASE_URL and OPENAI_API_KEY
+            openai_client = OpenAI(http_client=httpx.Client(verify=_TLS, timeout=120))  # OPENAI_BASE_URL / _API_KEY
             tools_spec = [{
                 "type": "function",
                 "function": {
@@ -218,13 +252,14 @@ def run_checks() -> None:
         record("refusal_unknown_entity", "Refusal and error propagation for non-existent design file",
                is_refusal, f"refused_cleanly={is_refusal} code={missing_resp.get('error', {}).get('code', 'result.isError')}")
     except Exception as exc:
-        record("refusal_unknown_entity", "Refusal and error propagation for non-existent design file", True, f"Handled exception cleanly: {exc}")
+        # an exception is not a refusal: the call never got a clear answer (admin feedback: exceptions fail)
+        record("refusal_unknown_entity", "Refusal and error propagation for non-existent design file", False, repr(exc))
 
     # 7. Agent Domain Evaluation: Platform LLM answers release readiness inquiry using tool
     if os.environ.get("OPENAI_API_KEY"):
         try:
             from openai import OpenAI
-            openai_client = OpenAI()
+            openai_client = OpenAI(http_client=httpx.Client(verify=_TLS, timeout=120))
             domain_tools = [{
                 "type": "function",
                 "function": {
@@ -269,11 +304,20 @@ def run_checks() -> None:
                "OPENAI_API_KEY not provided in environment")
 
 
+def run_agent_part() -> None:
+    from harness.agent_tasks import MAX_ENTRIES, run_agent_tasks
+    run_agent_tasks(INSTANCE, record, sim=cli_args.sim, faults=cli_args.fault, room=MAX_ENTRIES - len(tasks))
+
+
 def main() -> int:
     try:
-        run_checks()
+        if cli_args.sim:
+            print(f"=== Offline run for {INSTANCE}: captured fixtures {cli_args.sim}; platform checks skipped ===")
+        else:
+            run_checks()
+        run_agent_part()
     finally:
-        save_results("results.json")
+        save_results(cli_args.out)
     all_passed = all(t.get("passed") for t in tasks)
     return 0 if all_passed else 1
 

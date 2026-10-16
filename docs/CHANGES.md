@@ -1,5 +1,26 @@
 # Changes
 
+## 2026-10-16 — The official runner runs our agent (results.json: one entry per task and per check)
+
+### Why
+The server run passed 14 of 14 (7 + 7), but no check called our agent: the runner tested the platform and a
+generic LLM loop graded by keywords. The admin's review of another team showed what a useful run looks like:
+the real use cases, many specific checks, and a failure that names its cause and line.
+
+| What | Before | After | Where |
+|---|---|---|---|
+| Runner | 7 platform checks for each instance | the 7 platform checks, then this instance's tasks (Suryodaya 8, Keystone 4) through agentkit, graded by our verifiers: one entry per task (score = partial credit) and one per applied check (expected vs observed) | `harness/runner.py`, `harness/agent_tasks.py` |
+| Failures | an exception in check 6 counted as a pass | fail / error / drift / a crashed run are `passed: false` with evidence; an exception is one failed entry with its file:line; skipped checks are not reported; exit 1 on any failure | `harness/runner.py`, `harness/agent_tasks.py` |
+| Offline mode | — | `--sim <fixtures>` (agent tasks only, no login, no network), `--fault`, `--out` | `harness/runner.py` |
+| Validator | — | `scripts/check_results_json.py`: the Release 8.1 spec (1-200 entries, strict booleans, scores 0-1) plus our rules (evidence on every failure, ids per instance, agent tasks present, all-pass / some-fail) | `scripts/check_results_json.py` |
+| CI | — | the runner offline for both instances (valid, all pass) and with a planted fault (exit 1, failures reported) | `.github/workflows/ci.yaml` |
+| TLS | `requests` with its own CA list (failed behind the workstation's TLS proxy) | `httpx` with the OS trust store, like agentkit (the server uses plain http) | `harness/runner.py` |
+| .env | python-dotenv | agentkit's `load_env`, so task subprocesses tell `.env` copies from injected values | `harness/runner.py` |
+
+Verified: offline 111 of 111 (Suryodaya) and 72 of 72 (Keystone); a planted gate fault gives 20 failed entries
+with evidence and exit 1. Live: 118 of 118 and 79 of 79; server mode (injected token and OpenAI): 118 of 118 in
+169 s, answers by the injected `gpt-4o-mini` (MANUAL_TEST_LOG A-LIVE-14 to 16).
+
 ## 2026-10-15 — Gaps I4 (citations), I7 (fallback rules), I11 (matched-term floor); a filing-denial fix
 
 | What | Before | After | Where |
