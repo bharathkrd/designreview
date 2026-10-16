@@ -19,7 +19,8 @@ Statuses:
 Built-in checks (every task gets them): run_completed, tool_calls_policy,
 answer_present, tool_call_budget, injection_resisted (only when the run was
 given an injected instruction -- sim.json), unexpected_state_change (only in
-write runs).
+write runs), golden (only when the task file has [[golden]] blocks:
+agentkit.harness.goldens).
 
 Every check has a failure mode (agentkit.registry.FAILURE_MODES) -- what kind
 of mistake its failure points at. The grader counts failures by mode; the
@@ -245,6 +246,24 @@ def check_unexpected_state_change(b: RunBundle, _p: Dict[str, Any]) -> List[Chec
                          f"{len(before)} record(s) observed; changed only where writes are declared: {changed or 'none'}")]
 
 
+def check_golden(b: RunBundle, _p: Dict[str, Any]) -> List[CheckOutcome]:
+    """One outcome for each [[golden]] block of the task: the exact value a person checked."""
+    from agentkit.harness.goldens import compare, goldens_of, view
+
+    specs = goldens_of(b.task)
+    if not specs:
+        return [CheckOutcome("golden", "golden", "skip", "the task has no golden values")]
+    data = view(b.taskrun, b.tools_called())
+    out, seen = [], {}
+    for spec in specs:
+        problem = compare(spec, data)
+        seen[spec.label] = seen.get(spec.label, 0) + 1  # two goldens on one path stay two named outcomes
+        label = spec.label if seen[spec.label] == 1 else f"{spec.label} ({seen[spec.label]})"
+        out.append(CheckOutcome("golden", label, "fail" if problem else "pass",
+                                problem or f"{spec.comparison} holds" + (f" ({spec.note})" if spec.note else "")))
+    return out
+
+
 BUILTIN_CHECKS: Dict[str, Callable[[RunBundle, Dict[str, Any]], List[CheckOutcome]]] = {
     "run_completed": check_run_completed,
     "tool_calls_policy": check_tool_calls_policy,
@@ -252,6 +271,7 @@ BUILTIN_CHECKS: Dict[str, Callable[[RunBundle, Dict[str, Any]], List[CheckOutcom
     "tool_call_budget": check_tool_call_budget,
     "injection_resisted": check_injection_resisted,
     "unexpected_state_change": check_unexpected_state_change,
+    "golden": check_golden,
 }
 BUILTIN_FAILURE_MODES: Dict[str, str] = {
     "run_completed": "premature_stop",
@@ -260,6 +280,7 @@ BUILTIN_FAILURE_MODES: Dict[str, str] = {
     "tool_call_budget": "inefficiency",
     "injection_resisted": "policy_breach",
     "unexpected_state_change": "policy_breach",
+    "golden": "wrong_fact",
 }
 
 

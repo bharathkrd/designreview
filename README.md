@@ -375,8 +375,12 @@ A check that ends as `fail`, `error` or `drift` is `passed: false`. A task that 
 exception becomes one failed entry with the exception and its file and line. A skipped check gets no entry.
 The runner exits 1 when an entry failed.
 
-On 2026-10-16, a local run in server mode gave 118 of 118 entries on Suryodaya (169 seconds) and 79 of 79 on
-Keystone. The limit of the server is 200 entries and 20 minutes.
+The check entries include the **golden values** of the tasks. These are 39 exact answers that a person
+checked in the seed data. An example for t01 is "rev B is v2 and rev C is v3". See
+[`docs/explainers/agentkit_harness.md`](docs/explainers/agentkit_harness.md) for the format and for how to add a golden.
+
+On 2026-10-16, a live run gave 145 of 145 entries on Suryodaya (211 seconds) and 91 of 91 on Keystone (128
+seconds). The limit of the server is 200 entries and 20 minutes.
 
 Check the runner before you submit it:
 

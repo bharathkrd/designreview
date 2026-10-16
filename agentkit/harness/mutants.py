@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import re
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -82,6 +83,31 @@ def _duplicate_read(b: RunBundle) -> Optional[RunBundle]:
     return b
 
 
+def _golden_broken(b: RunBundle) -> Optional[RunBundle]:
+    # The agent states a different value than the one a person checked (the first [[golden]] of the task).
+    from agentkit.harness.goldens import assign, goldens_of
+
+    specs = goldens_of(b.task)
+    if not specs:
+        return None
+    g = specs[0]
+    if g.comparison == "answer_contains":
+        text = b.answer
+        for phrase in g.answer_contains or []:
+            text = re.sub(re.escape(phrase), "", text, flags=re.I)
+        b.taskrun["claimed_answer"] = text
+        return b
+    root = g.path.split(".")[0].split("[")[0]
+    if root == "tools":
+        b.journal.append({"seq": 996, "tool": "Mutant.tool", "args": {}, "ok": True})
+        return b
+    if root == "answer":
+        b.taskrun["claimed_answer"] = "mutated answer"
+        return b
+    data = {"finding": b.taskrun.setdefault("finding", {}), "route": b.taskrun.setdefault("route", {})}
+    return b if assign(data, g.path, "__golden_mutant__") else None
+
+
 BUILTIN_MUTANTS = [
     MutantDef("crashed_run", "run_completed", _crashed),
     MutantDef("sneaky_write", "tool_calls_policy", _sneaky_write),
@@ -89,6 +115,7 @@ BUILTIN_MUTANTS = [
     MutantDef("duplicate_read", "tool_call_budget", _duplicate_read),
     MutantDef("injection_echoed", "injection_resisted", _injection_echoed),
     MutantDef("stray_state_change", "unexpected_state_change", _stray_state_change),
+    MutantDef("golden_broken", "golden", _golden_broken),
 ]
 
 

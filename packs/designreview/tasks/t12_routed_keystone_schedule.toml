@@ -27,3 +27,20 @@ params = { file_id = "d3156003-4c06-49b4-b299-08478874cebb", project_id = "7e04c
 
 [[verifiers]]
 name = "answer_audited"
+
+# Golden values (agentkit.harness.goldens): checked by hand against the seed data on 2026-10-16.
+
+[[golden]]
+path = "route.plan"
+equals = "release_handoff"
+note = "'on schedule' / 'who acts' -> the hand-off plan"
+
+[[golden]]
+path = "route.params.file_id"
+equals = "d3156003-4c06-49b4-b299-08478874cebb"
+note = "the housing cover (not the float arm or pivot)"
+
+[[golden]]
+path = "finding.schedule.past_due"
+values = ["DFM Review Complete", "Tooling Kickoff", "First Article Inspection"]
+note = "as t09"

@@ -25,6 +25,7 @@ from typing import Any, Dict, Iterable, List, Optional
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from agentkit.config import ConfigError, default_tenant, read_config, validation_message
+from agentkit.harness.goldens import GoldenSpec
 from agentkit.registry import Registry
 
 TASK_SUFFIX = ".toml"
@@ -54,6 +55,8 @@ class TaskDef(BaseModel):
     allow_writes: bool = False
     description: str = ""
     source: str = ""
+    # Exact answers a person checked against the seed data (agentkit.harness.goldens): [[golden]] blocks.
+    golden: List[GoldenSpec] = Field(default_factory=list)
 
     @field_validator("verifiers", mode="before")
     @classmethod
@@ -65,7 +68,10 @@ class TaskDef(BaseModel):
         return {**self.params, "prompt": self.prompt}
 
     def to_dict(self) -> Dict[str, Any]:
-        return self.model_dump()
+        d = self.model_dump()
+        # a golden keeps only the fields its author wrote, so task.json loads back as the same golden
+        d["golden"] = [g.model_dump(exclude_unset=True) for g in self.golden]
+        return d
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any], source: str = "") -> "TaskDef":

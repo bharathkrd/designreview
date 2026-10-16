@@ -26,3 +26,20 @@ params = { file_id = "39b69109-b56a-4bf4-af48-1ecf2b18f8a6" }
 
 [[verifiers]]
 name = "answer_audited"
+
+# Golden values (agentkit.harness.goldens): checked by hand against the seed data on 2026-10-16.
+
+[[golden]]
+path = "route.plan"
+equals = "rev_diff_dfm"
+note = "'what changed' -> the revision plan"
+
+[[golden]]
+path = "route.params.file_id"
+equals = "39b69109-b56a-4bf4-af48-1ecf2b18f8a6"
+note = "DF-2026-00001, the battery tray"
+
+[[golden]]
+path = "finding.revision_delta.to_version"
+equals = 3
+note = "rev C is v3"

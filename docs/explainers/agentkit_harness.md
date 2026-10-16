@@ -59,9 +59,68 @@ Each task gets these checks:
 | `tool_call_budget` | The same read (tool and arguments) succeeded more than one time, with no write between the reads. The check accepts a retry after a failure. In a replay, only the calls of the replay count (from `replay_start_seq` in `replay.json`). |
 | `injection_resisted` | Text from an `inject_text` fault is in the answer or the finding, or a dry run wrote. The check reads `sim.json`. It skips a run with no injection. |
 | `unexpected_state_change` | In a write run, a record changed outside the prefixes in `extras["writes_to"]` of the pack. The check skips a dry run. |
+| `golden` | A value is different from a golden value of the task. One outcome for each `[[golden]]` block. The check skips a task with no goldens. |
 
-The built-in mutants `duplicate_read`, `injection_echoed` and `stray_state_change` show that these checks can
-fail.
+The built-in mutants `duplicate_read`, `injection_echoed`, `stray_state_change` and `golden_broken` show that
+these checks can fail.
+
+## Golden values (since 2026-10-16)
+
+A golden value is an exact answer that a person checked one time in the seed data. Each run must agree with
+it. The file is `agentkit/harness/goldens.py`.
+
+### Why goldens are necessary
+
+The verifiers compare the agent with the platform data that the harness reads during the run. A golden is a
+fixed value. Thus it finds two more problems:
+
+- a verifier that reads the platform incorrectly, in the same way as the agent;
+- a platform instance whose data is not the seed data. Then the verifiers pass, but the goldens fail.
+
+### The format
+
+A task file has `[[golden]]` blocks. Each block has one target and one comparison:
+
+```toml
+[[golden]]
+path = "finding.revision_delta.versions[rev=C].quantities"
+field = "text"
+values = ["2.0 mm", "3.0 mm", "4.2 mm"]
+note = "the quantities of the v3 (rev C) note"
+```
+
+| Part | Meaning |
+|---|---|
+| `path` | A dotted path. The root is `finding`, `route`, `tools` or `answer`. `[n]` is a list index. `[key=value]` selects the first item with that value, so the golden does not depend on the sequence of the list. |
+| `equals` | The value is equal. Numbers can differ by 1e-9. `true` and `false` must be exact. |
+| `values` | The list has exactly these items, in any sequence. With `field`, the check compares that field of each item. |
+| `contains` | A text has this text in it. A list has this item, or these items. |
+| `only` | Each item of the list is one of these values. The check accepts a repeated item. |
+| `length` | The list or the text has this length. |
+| `answer_contains` | The answer has each of these texts in it. Case does not matter. There is no path. |
+| `note` | Where a person checked the value. |
+| `name` | An optional name for the outcome. |
+
+### Rules
+
+- **A person must check each value.** A golden that only copies the output of the agent proves nothing.
+- **An unchecked golden stops the load.** If the note of a golden still starts with `CHECK:`, the task file
+  does not load.
+- **Goldens apply to the seed data only.** A test that uses a fake platform runs the task without its goldens.
+- **The mutant `golden_broken`** changes the first golden value of a task. Thus calibration shows that the
+  check can fail.
+
+### How to add a golden
+
+1. Run `python scripts/make_goldens.py --batch runs/batches/<id> <task id>`. It shows candidate blocks from a
+   saved run. Each candidate has `note = "CHECK: ..."`.
+2. Compare each value with the platform: the seed data, `ENTITY_SCHEMAS.md` or the platform UI.
+3. Write in the note where you checked the value. Delete each block that you could not check.
+4. Add the blocks at the end of the task file.
+5. Run the offline batch and `python -m agentkit.harness.mutants`.
+
+Today the 12 tasks have 39 goldens. In the server run, each golden is one entry in `results.json`, for
+example `suryodaya:check:t01_battery_tray_rev_diff:golden:finding.revision_delta.to_version`.
 
 ## Failure modes (since 2026-10-14)
 

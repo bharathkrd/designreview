@@ -26,3 +26,15 @@ params = { file_id = "d3156003-4c06-49b4-b299-08478874cebb", project_id = "7e04c
 
 [[verifiers]]
 name = "answer_audited"
+
+# Golden values (agentkit.harness.goldens): checked by hand against the seed data on 2026-10-16.
+
+[[golden]]
+path = "finding.handoffs.proposed"
+length = 0
+note = "every open item is design review's own work"
+
+[[golden]]
+path = "finding.schedule.past_due"
+values = ["DFM Review Complete", "Tooling Kickoff", "First Article Inspection"]
+note = "DesignMilestone: due 2026-04-15, 05-01, 06-15, not completed at capture"

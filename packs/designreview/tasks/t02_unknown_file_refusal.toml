@@ -15,3 +15,22 @@ params = { id = "00000000-0000-0000-0000-000000000000" }
 
 [[verifiers]]
 name = "answer_audited"
+
+# Golden values (agentkit.harness.goldens): checked by hand against the seed data on 2026-10-16.
+
+[[golden]]
+path = "finding.outcome"
+equals = "declined"
+note = "DesignFile.get: not found"
+
+[[golden]]
+name = "looked the file up"
+path = "tools"
+contains = "DesignFile.get"
+note = "it looked the file up itself"
+
+[[golden]]
+name = "called nothing else"
+path = "tools"
+only = ["DesignFile.get"]
+note = "and called nothing else (a retried lookup is allowed)"

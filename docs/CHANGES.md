@@ -1,5 +1,22 @@
 # Changes
 
+## 2026-10-16 — Golden values: exact answers checked on every run
+
+| What | Before | After | Where |
+|---|---|---|---|
+| Format | — | `[[golden]]` blocks in a task file: a path (`finding.*`, `route.*`, `tools`, `answer`; `[n]` or `[key=value]` in lists) and one comparison (`equals`, `values`, `contains`, `only`, `length`, `answer_contains`), with a note on where a person checked it; an unchecked note (`CHECK:`) does not load | `agentkit/harness/goldens.py`, `agentkit/harness/tasks.py` |
+| Check | — | built-in `golden`: one outcome per block, expected vs observed; failure mode `wrong_fact` | `agentkit/harness/checks.py` |
+| Mutant | — | built-in `golden_broken` changes the first golden value: calibration catches it 36 of 36 | `agentkit/harness/mutants.py` |
+| Goldens | — | 39 in the 12 tasks, each checked by hand in the raw seed data (versions, release gates, milestones, the router's choices, the refusals' tool calls) | `packs/designreview/tasks/*.toml` |
+| Helper | — | `scripts/make_goldens.py` prints candidate blocks from a saved run, each marked `CHECK:` for a person | `scripts/make_goldens.py` |
+| Template | — | `tests/test_goldens.py` (use cases only) | `tests/` |
+
+Found while adding them: a golden path with a list index broke when a fault cut the list (the answer was still
+correct), so paths can select by value (`versions[rev=C]`); a retried read made "tools are exactly X" fail, so
+`only` allows repeats. Verified: offline 12 of 12 on every run, `grade --check` identical, calibration and
+replay calibration OK, fault matrix 13 of 13; runner offline 138 / 84 entries; live 145 of 145 (Suryodaya) and
+91 of 91 (Keystone).
+
 ## 2026-10-16 — The official runner runs our agent (results.json: one entry per task and per check)
 
 ### Why

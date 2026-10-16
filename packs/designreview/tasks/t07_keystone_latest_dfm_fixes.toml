@@ -31,3 +31,20 @@ name = "cited_standards_exist"
 
 [[verifiers]]
 name = "answer_audited"
+
+# Golden values (agentkit.harness.goldens): checked by hand against the seed data on 2026-10-16.
+
+[[golden]]
+path = "finding.revision_delta.from_version"
+equals = 2
+note = "the latest two versions: v2"
+
+[[golden]]
+path = "finding.revision_delta.to_version"
+equals = 3
+note = "and v3"
+
+[[golden]]
+path = "finding.revision_delta.change_notes"
+contains = "DFM fixes: increased draft angles, added rib reinforcement"
+note = "the v3 note"

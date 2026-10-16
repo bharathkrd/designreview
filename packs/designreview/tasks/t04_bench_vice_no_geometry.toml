@@ -27,3 +27,26 @@ name = "answer_audited"
 [[verifiers]]
 name = "answer_reflects_change_notes"
 params = { file_id = "4e6bf256-9e16-4158-bdf5-633b4bc2ecb4", from_rev = "2", to_rev = "3" }
+
+# Golden values (agentkit.harness.goldens): checked by hand against the seed data on 2026-10-16.
+
+[[golden]]
+path = "finding.revision_delta.from_version"
+equals = 2
+note = "'Rev 2' is v2"
+
+[[golden]]
+path = "finding.revision_delta.to_version"
+equals = 3
+note = "'Rev 3' is v3"
+
+[[golden]]
+path = "finding.revision_delta.versions[rev=3].quantities"
+field = "text"
+values = ["180 g"]
+note = "v3 note: '180 g weight saving'"
+
+[[golden]]
+path = "finding.revision_delta.geometry_compared"
+equals = false
+note = "the platform diff has file hashes only"

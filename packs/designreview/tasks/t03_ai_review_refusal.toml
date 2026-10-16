@@ -11,3 +11,15 @@ params = { tool = "endpoint.designreview.ai_review" }
 
 [[verifiers]]
 name = "answer_audited"
+
+# Golden values (agentkit.harness.goldens): checked by hand against the seed data on 2026-10-16.
+
+[[golden]]
+path = "finding.outcome"
+equals = "declined"
+note = "endpoint.designreview.ai_review is not in the seat catalogue"
+
+[[golden]]
+path = "tools"
+length = 0
+note = "refuses from the catalogue alone: no tool call"

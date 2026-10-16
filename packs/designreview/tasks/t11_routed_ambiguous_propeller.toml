@@ -10,3 +10,20 @@ params = { declined_because = "ambiguous" }
 
 [[verifiers]]
 name = "answer_audited"
+
+# Golden values (agentkit.harness.goldens): checked by hand against the seed data on 2026-10-16.
+
+[[golden]]
+path = "route.plan"
+equals = "route_declined"
+note = "'the propeller' matches four files"
+
+[[golden]]
+path = "route.params.reason"
+contains = "4 design files"
+note = "the decline names how many"
+
+[[golden]]
+path = "finding.outcome"
+equals = "declined"
+note = "no guess"

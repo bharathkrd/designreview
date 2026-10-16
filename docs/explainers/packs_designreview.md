@@ -264,6 +264,12 @@ Tasks t10, t11 and t12 grade the router.
 | t11 | Suryodaya | Routed: "the propeller" matches four files. The router must decline and name them. |
 | t12 | Keystone | Routed: the question of t09. The router must find the housing cover. |
 
+## Golden values
+
+Each task file ends with `[[golden]]` blocks: 39 in all. A person checked each value in the raw seed data on
+2026-10-16 (versions, release gates, milestones). The note of each golden says where. See
+`agentkit_harness.md` for the format.
+
 ## How to test
 
 The hand-written templates are `tests/test_finding_and_claims.py`, `tests/test_verifiers.py`,
