@@ -16,7 +16,8 @@ Use cases to cover:
   [ ] A patch naming an action that is not registered is rejected (raw tool names can't be planned)
   [ ] A dependency cycle is rejected and the graph is left exactly as it was
   [ ] The node budget (max_nodes) is enforced
-  [ ] The rev_diff_dfm rule adds failed_checklists ONLY when release_gate has blockers/reason codes
+  [ ] The rev_diff_dfm rule adds failed_checklists when release_gate has blockers/reason codes, and the
+      fallback rule adds it when release_gate FAILED; a clear gate adds nothing
   [ ] That rule fires at most once
   [ ] A checkpoint is written and a run can resume from it (mid-flight nodes run again)
 Since 2026-10-13 (agentkit/graph/policies.py, channels.py, checkpoint.py):
@@ -33,6 +34,13 @@ Since 2026-10-13 (agentkit/graph/policies.py, channels.py, checkpoint.py):
   [ ] with a MemorySaver: one "input" checkpoint, then one "loop" checkpoint per outcome, each pointing at its parent
   [ ] fork({node: new_result}): downstream plan nodes go back to pending, planner-added nodes disappear,
       the original store is unchanged
+Since 2026-10-14 / 2026-10-15:
+  [ ] @registry.action(name, timeout_s=0.1) on an action that sleeps 1 s -> the node ends FAILED with
+      error_kind "timeout"; a sibling branch still finishes
+  [ ] a rule with verdict = "failed" and no data condition is valid; the same rule with verdict "resolved"
+      and no condition is rejected; verdict = "exploded" is rejected
+  [ ] a fallback node with requires = "settled" runs after its dependency FAILED (with "resolved" it would
+      be bypassed)
 Hint: build a Registry with small fake actions, and use RunEnv(client=<fake with invoke_tool>),
 so no MCP is needed. Plans: agentkit.graph.load_plan("packs/designreview/plans/rev_diff_dfm.toml").
 """

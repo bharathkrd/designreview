@@ -15,16 +15,24 @@ Use cases to cover:
   [ ] a patch that would create a cycle, or pass the node budget -> ValueError, graph unchanged
   [ ] the rev_diff_dfm rule adds failed_checklists only when the gate reports blockers
 
-  Question -> plan and part (G1, I6, not built yet):
+  Question -> plan and part (G1, I6a, built 2026-10-14: agentkit.agents.router.RuleRouter,
+  packs/designreview/router.py and routes.toml; the LLM-planner line is still not built):
   [ ] "Run the platform's AI design review on the Battery Tray" -> plan tool_refusal
   [ ] "What changed between rev B and rev C on the Battery Tray?" -> plan rev_diff_dfm
   [ ] "battery tray" resolves to the Battery Tray file id on the Suryodaya fixture
   [ ] a name that matches two files -> decline (or ask), never a guess
+  [ ] "the propeller" on the Suryodaya fixture -> declined, and the reason names the four candidate files
+  [ ] a question with a UUID in it uses that id and reads no file list
+  [ ] department words that many file names share ("Quality", "Despatch") are not evidence of a match
   [ ] a task file with only a prompt (no plan, no file_id) runs and grades like t01
-  [ ] an LLM planner's patch is checked exactly like a rule's: a raw tool name is refused
+  [ ] (not built yet) an LLM planner's patch is checked exactly like a rule's: a raw tool name is refused
 
-  Fallback rules (I7, not built yet):
-  [ ] fail_always on the release gate -> the plan's fallback rule adds its node, and the node resolves
+  Fallback rules (I7, built 2026-10-15: WhenModel verdict = "failed"; rev_diff_dfm rule
+  failed_checklists_when_gate_unreadable):
+  [ ] fail_always on the release gate -> the plan's fallback rule adds failed_checklists (added_by "planner",
+      requires "settled"), and the node resolves
+  [ ] the run still grades "fail" on release_gate_matches_db and on the golden release_gate.ready: nothing
+      takes the place of the gate's verdict
 
   Argument checks (I9, built 2026-10-14: transport.journal.argument_problems, JournaledSeatClient):
   [ ] a call missing a required argument (per the tool's inputSchema) is refused before it is sent,

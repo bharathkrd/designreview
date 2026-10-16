@@ -26,6 +26,9 @@ Use cases to cover:
   [ ] The template answer for a hand-off finding (and for a no-hand-off finding) passes its own claim audit
   [ ] The audit flags "I have escalated this to manufacturing" but not "would be escalated" or
       "Nothing has been escalated"; flags "on track" while a milestone is past due
+  [ ] (2026-10-15) "No hand-offs have been filed." and "No escalation was raised." are denials: neither the
+      claim audit (claims.handoff_contradictions) nor the grader (answer_states_handoffs) flags them;
+      "I filed the escalation; no further action is needed." is still a filing claim for both
   Verifiers (build RunBundle by hand)
   [ ] handoffs_match_platform: pass on a correct finding; fail on an invented owner, a missing or closed
       citation, filed=True in a dry run, or an escalation tool in the journal; drift when an item closed mid-run

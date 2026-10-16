@@ -18,8 +18,11 @@ Use cases to cover:
       top 5 (works today; note the captured standards are name-only, so each is one short passage)
 
   Relevance gate (I11, built 2026-10-14: agentkit.retrieval.gate_hits / relevance_band):
-  [ ] a query that shares only one incidental word with a standard ("coffee machine warranty steel" vs
-      a hot-rolled-steel bend rule) recalls nothing -- today it recalls the bend rule through "steel"
+  [ ] (built 2026-10-15: GateConfig.min_terms, retrieval.toml min_terms = 2) a query that shares only one
+      incidental word with a standard ("coffee machine warranty steel" vs a hot-rolled-steel bend rule):
+      recall_parents still returns it, gate_hits(..., GateConfig(min_terms=2)) drops it
+  [ ] "bend radius for steel" (three matched terms) keeps the same standard
+  [ ] scripts/retrieval_eval.py --check stays at or above the floors in retrieval.toml with min_terms = 2
   [ ] scores map to correct / ambiguous / incorrect bands at the agreed thresholds
 
   Query expansion (I12, built 2026-10-14: agentkit.retrieval.expand_query, retrieval.toml [synonyms]):

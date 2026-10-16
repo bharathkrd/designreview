@@ -13,11 +13,13 @@ Use cases to cover:
   [ ] A truncated (max_tokens) reply is returned but NOT cached; a refusal moves to the next provider
   [ ] The cache key includes json_mode, max_tokens and tier (changing any one is a cache miss)
   [ ] The Gemini key goes in the x-goog-api-key header, never the URL; keys never appear in error text
-  [ ] Anthropic: no `temperature` for claude-opus-5 / sonnet-5; text taken only from "text" blocks
+  [ ] Anthropic: no `temperature` for claude-opus-5 / sonnet-5 / haiku-5; text taken only from "text" blocks
   [ ] The ledger records provider-reported input/output tokens and prices input and output separately
   [ ] A routing file with rpm = 0, a tier naming an unknown provider, or a misspelt key is rejected
   [ ] strip_reasoning: "<think>x</think>Answer" -> "Answer"; an unclosed <think> leaves ""; a reply that is only
       reasoning moves to the next provider; the cached text has no <think>; reply.reasoning_chars is set
+For rows configured by URL or by `api`, the per-row request settings and the tier order, see
+test_llm_providers.py.
 Hint: LLMGateway(<routing.json in tmp_path>, transport=httpx.MockTransport(handler), sleep=list.append,
 env={"GEMINI_API_KEY": "k"}) -- the handler returns httpx.Response(200, json={...}). No network.
 """
