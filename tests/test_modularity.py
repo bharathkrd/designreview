@@ -14,6 +14,9 @@ Use cases to cover:
   [ ] A second, tiny pack (actions + one plan + one task, written in tmp_path) runs through
       agentkit.harness.run_one.run_task with ZERO changes to agentkit/ -- proof the framework is reusable
   [ ] No config/plan/task file is YAML any more (config/, packs/)
+  [ ] The generic modules added since 2026-10-14 name no design-review word either: agentkit/agents/router.py,
+      agentkit/answer/quarantine.py, agentkit/harness/goldens.py, agentkit/harness/pareto.py,
+      agentkit/retrieval/quality.py
 Hint: walk Path("agentkit").rglob("*.py") and read the text; parse imports with the `ast` module
 rather than grepping, so comments and docstrings don't cause false alarms.
 """

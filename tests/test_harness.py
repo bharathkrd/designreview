@@ -22,6 +22,17 @@ Use cases to cover:
   [ ] report.md carries "**P of T tasks pass on every run.**"
   [ ] rescore_check(batch_dir) is (True, []) right after grading, and reports a hand-edited score.json
   [ ] run_task creates an empty tool_journal.jsonl even when the run makes no tool call
+Since 2026-10-14 to 2026-10-16:
+  [ ] specs_for(task) lists the built-in checks run_completed, tool_calls_policy, answer_present,
+      tool_call_budget, injection_resisted, unexpected_state_change and golden before the task's verifiers
+  [ ] a routed task (plan = "route") saves taskrun.route = {plan, params, why}; a resume or a replay of that run
+      uses the saved decision and does not ask the router again
+  [ ] TaskDef with [[golden]] blocks: task.to_dict() keeps only the golden fields that were written, and
+      TaskDef(**task.to_dict()) loads back (see test_goldens.py for the golden check itself)
+  [ ] the narrate step in taskrun.json has the provider and the model that wrote the answer, and each attempt's
+  [ ] report.md's Performance table has a "Models (provider:model)" column read from llm_ledger.json
+  [ ] python -m agentkit.harness.pareto on two hand-made batches: the cheaper arm with the same pass rate is on
+      the frontier and the other is not (agentkit/harness/pareto.py)
 Hint: use pytest's tmp_path as the run folder; write taskrun.json / tool_journal.jsonl /
 ground_truth_after.json yourself, then call agentkit.harness.grade.grade_run(tmp_path).
 For batch-level cases, run the offline batch: SimSession("packs/designreview/fixtures", [], reg.read_only)

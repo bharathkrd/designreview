@@ -30,7 +30,7 @@ Use cases to cover:
 
   Trivial-agent baselines (G2):
   [ ] (works today -- keep it so) a "null agent" bundle (no tool calls, finding declined, answer
-      "I can't answer that") fails every one of the nine tasks
+      "I can't answer that") fails every one of the twelve tasks
   [ ] (works today) a hand-off list naming every possible owner fails handoffs_match_platform (exact set)
   [ ] lookup_before_refusal (added 2026-10-14): a journal whose DesignFile.get for the id ended
       error_kind "missing" -> pass; an empty journal -> fail; a flaky try then a "missing" retry -> pass
@@ -49,6 +49,13 @@ Use cases to cover:
   [ ] the same read again AFTER a write -> passes (the state may have changed)
   [ ] a failed read retried with the same args -> passes
   [ ] in a replay (replay.json has replay_start_seq) only calls from that seq on are counted
+
+  Cost against accuracy (G12, built 2026-10-15: agentkit/harness/pareto.py, docs/COST_ACCURACY.md):
+  [ ] load_arm on a hand-made batch: runs, passed, cost, cost per pass, escalations (runs with calls on more
+      than one model) and answer sources come out as built
+  [ ] a run with no score.json counts as not passed
+  [ ] frontier(): an arm with a higher pass rate and a lower cost beats another; two equal arms are both on it
+  [ ] a template-only arm (manifest skip_llm = true) is labelled "template only (no LLM)" and costs 0
 
 Hint: build a manifest by hand: {"batch_id": "b", "repeat": 3, "expected": {"t": 3}, "runs": [...]},
 and results as [(entry, {"status": "pass"}), ...] -- then call score_batch(manifest, results).

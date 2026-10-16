@@ -30,3 +30,35 @@ name = "answer_audited"
 [[verifiers]]
 name = "answer_reflects_change_notes"
 params = { file_id = "39b69109-b56a-4bf4-af48-1ecf2b18f8a6", from_rev = "B", to_rev = "C" }
+
+# Golden values (agentkit.harness.goldens): checked by hand against the seed data on 2026-10-16.
+
+[[golden]]
+path = "finding.revision_delta.from_version"
+equals = 2
+note = "rev B is v2 (DesignVersion v2 note starts 'Rev B')"
+
+[[golden]]
+path = "finding.revision_delta.to_version"
+equals = 3
+note = "rev C is v3 (v3 note starts 'Rev C')"
+
+[[golden]]
+path = "finding.revision_delta.versions[rev=C].quantities"
+field = "text"
+values = ["2.0 mm", "3.0 mm", "4.2 mm"]
+note = "the quantities of the v3 (rev C) note"
+
+[[golden]]
+path = "finding.release_gate.ready"
+equals = false
+note = "release_readiness: ready false"
+
+[[golden]]
+path = "finding.release_gate.critical_open"
+equals = 1
+note = "release_readiness: critical_open 1"
+
+[[golden]]
+answer_contains = ["3.0 mm", "4.2 mm"]
+note = "the answer states the rev C change"

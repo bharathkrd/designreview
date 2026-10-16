@@ -21,6 +21,9 @@ Use cases to cover:
   [ ] app.js never uses innerHTML / outerHTML / insertAdjacentHTML / document.write / eval
   [ ] The server binds to 127.0.0.1 by default
   [ ] On a real offline batch (SimSession + run_batch + grade_batch) every run is readable and passing
+  [ ] /api/runs/<id> includes "telemetry" (the run tree for the Timeline tab); a run without telemetry.json
+      gives null, not an error
+  [ ] The Cost tab data (the ledger) has the provider and the model of each LLM call
 Hint: ViewerApp(runs_dir).handle("/api/...") returns (status, content_type, body_bytes) with no socket;
 for HTTP, make_server(runs_dir, port=0) in a threading.Thread and http.client.HTTPConnection.
 """

@@ -1,5 +1,57 @@
 # Changes
 
+## 2026-10-16 — Three better smoke checks, and a login fix for task subprocesses
+
+| What | Before | After | Where |
+|---|---|---|---|
+| `required_tools_present` | — | the seat offers each tool the pack needs, with the arguments we send | `harness/runner.py` |
+| `required_tools_compatible` | — | each argument we send keeps its name and type since the captured fixture, and no new required argument; other schema changes are evidence only (live: 6 of 7 tools gained optional filters since 2026-10-12, all compatible) | `harness/runner.py` |
+| `agent_design_review_verdict` | passed on keywords ("block", "radius", ...): "nothing is blocking, it is ready" passed | the stated verdict, read with our negation-aware parser, must equal the gate's `ready`; an answer with both verdicts fails | `harness/runner.py` |
+| Runner login | a token copied into `.env` was used first; once it expired every platform check got 401 | a token counts only when injected into the process; otherwise the password login | `harness/runner.py` |
+| Task subprocess login | `tenant_login()` asked `from_process()` before `load_env()`: a fresh child took the inherited `.env` token for an injected one -- every Suryodaya task got 401 once that token expired | `from_process()` loads `.env` (and its provenance list) first | `agentkit/config.py` |
+
+The login bug came in on 2026-10-14 (`AGENTKIT_DOTENV_KEYS`) and stayed hidden while the copied token was valid.
+A regression test now runs a real parent and child process. Verified live: 147 of 147 (Suryodaya), 93 of 93
+(Keystone); server mode (injected token and OpenAI): 147 of 147 in 193 s.
+
+## 2026-10-16 — Golden values: exact answers checked on every run
+
+| What | Before | After | Where |
+|---|---|---|---|
+| Format | — | `[[golden]]` blocks in a task file: a path (`finding.*`, `route.*`, `tools`, `answer`; `[n]` or `[key=value]` in lists) and one comparison (`equals`, `values`, `contains`, `only`, `length`, `answer_contains`), with a note on where a person checked it; an unchecked note (`CHECK:`) does not load | `agentkit/harness/goldens.py`, `agentkit/harness/tasks.py` |
+| Check | — | built-in `golden`: one outcome per block, expected vs observed; failure mode `wrong_fact` | `agentkit/harness/checks.py` |
+| Mutant | — | built-in `golden_broken` changes the first golden value: calibration catches it 36 of 36 | `agentkit/harness/mutants.py` |
+| Goldens | — | 39 in the 12 tasks, each checked by hand in the raw seed data (versions, release gates, milestones, the router's choices, the refusals' tool calls) | `packs/designreview/tasks/*.toml` |
+| Helper | — | `scripts/make_goldens.py` prints candidate blocks from a saved run, each marked `CHECK:` for a person | `scripts/make_goldens.py` |
+| Template | — | `tests/test_goldens.py` (use cases only) | `tests/` |
+
+Found while adding them: a golden path with a list index broke when a fault cut the list (the answer was still
+correct), so paths can select by value (`versions[rev=C]`); a retried read made "tools are exactly X" fail, so
+`only` allows repeats. Verified: offline 12 of 12 on every run, `grade --check` identical, calibration and
+replay calibration OK, fault matrix 13 of 13; runner offline 138 / 84 entries; live 145 of 145 (Suryodaya) and
+91 of 91 (Keystone).
+
+## 2026-10-16 — The official runner runs our agent (results.json: one entry per task and per check)
+
+### Why
+The server run passed 14 of 14 (7 + 7), but no check called our agent: the runner tested the platform and a
+generic LLM loop graded by keywords. The admin's review of another team showed what a useful run looks like:
+the real use cases, many specific checks, and a failure that names its cause and line.
+
+| What | Before | After | Where |
+|---|---|---|---|
+| Runner | 7 platform checks for each instance | the 7 platform checks, then this instance's tasks (Suryodaya 8, Keystone 4) through agentkit, graded by our verifiers: one entry per task (score = partial credit) and one per applied check (expected vs observed) | `harness/runner.py`, `harness/agent_tasks.py` |
+| Failures | an exception in check 6 counted as a pass | fail / error / drift / a crashed run are `passed: false` with evidence; an exception is one failed entry with its file:line; skipped checks are not reported; exit 1 on any failure | `harness/runner.py`, `harness/agent_tasks.py` |
+| Offline mode | — | `--sim <fixtures>` (agent tasks only, no login, no network), `--fault`, `--out` | `harness/runner.py` |
+| Validator | — | `scripts/check_results_json.py`: the Release 8.1 spec (1-200 entries, strict booleans, scores 0-1) plus our rules (evidence on every failure, ids per instance, agent tasks present, all-pass / some-fail) | `scripts/check_results_json.py` |
+| CI | — | the runner offline for both instances (valid, all pass) and with a planted fault (exit 1, failures reported) | `.github/workflows/ci.yaml` |
+| TLS | `requests` with its own CA list (failed behind the workstation's TLS proxy) | `httpx` with the OS trust store, like agentkit (the server uses plain http) | `harness/runner.py` |
+| .env | python-dotenv | agentkit's `load_env`, so task subprocesses tell `.env` copies from injected values | `harness/runner.py` |
+
+Verified: offline 111 of 111 (Suryodaya) and 72 of 72 (Keystone); a planted gate fault gives 20 failed entries
+with evidence and exit 1. Live: 118 of 118 and 79 of 79; server mode (injected token and OpenAI): 118 of 118 in
+169 s, answers by the injected `gpt-4o-mini` (MANUAL_TEST_LOG A-LIVE-14 to 16).
+
 ## 2026-10-15 — Gaps I4 (citations), I7 (fallback rules), I11 (matched-term floor); a filing-denial fix
 
 | What | Before | After | Where |

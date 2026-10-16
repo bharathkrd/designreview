@@ -26,3 +26,26 @@ params = { file_id = "39b69109-b56a-4bf4-af48-1ecf2b18f8a6", project_id = "bf586
 
 [[verifiers]]
 name = "answer_audited"
+
+# Golden values (agentkit.harness.goldens): checked by hand against the seed data on 2026-10-16.
+
+[[golden]]
+path = "finding.handoffs.proposed"
+field = "owner"
+values = ["manufacturing", "quality"]
+note = "one hand-off each to manufacturing and quality"
+
+[[golden]]
+path = "finding.handoffs.filed"
+equals = false
+note = "a dry run files nothing"
+
+[[golden]]
+path = "finding.schedule.past_due"
+values = ["DFM review closed", "PPAP level 3 submission"]
+note = "DesignMilestone: due 2026-09-19 and 2026-09-30, not completed at capture (2026-10-12)"
+
+[[golden]]
+path = "finding.release_gate.critical_open"
+equals = 1
+note = "release_readiness: critical_open 1"

@@ -31,13 +31,20 @@ Use cases to cover:
   Sampled agreement (I3, not built yet; eval-time only):
   [ ] 3 drafts, 2 state the same release verdict -> agreement = 2/3
 
-  Finding-path citations (I4, not built yet):
-  [ ] a sentence tagged [revision_delta.change_notes[1]] whose number matches that path -> passes
-  [ ] a tag to a path that is not in the finding, or whose value differs -> audit fails
-  [ ] tags are removed from the text the user sees
+  Finding-path citations (I4, built 2026-10-15: claim_audit.check_citations / strip_citations, "[@path]"):
+  [ ] a sentence tagged [@revision_delta.change_notes[1]] whose number is in that value -> passes
+  [ ] a tag to a path that is not in the finding, or whose value lacks the sentence's number -> audit fails,
+      and correction_note says "Wrong citation"
+  [ ] two tags in one sentence pool their values
+  [ ] tags are removed from the text the user sees (compose_answer's text); the attempt keeps them
+  [ ] a plain "[1]" in the prose is not a citation, and the "[1]" inside a path is not read as a quantity
 
   Model drift (I5, built 2026-10-14: agentkit.llm.models_check.check / model_ids):
   [ ] a provider model list (faked) that no longer has the configured model -> preflight reports it
+
+  Reasoning models (2026-10-14; see also test_llm_providers.py):
+  [ ] a quality-tier reply cut off at max_tokens is not used: the next step is the template, and the ledger
+      still records the call
 
   Budgets (I8, built 2026-10-14: registry.action(timeout_s=), config.llm_budget_usd, compose_answer(max_cost_usd=)):
   [ ] an action that sleeps past its timeout_s ends FAILED with the reason; the other branch still

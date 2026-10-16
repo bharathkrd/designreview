@@ -13,6 +13,12 @@ Use cases to cover:
   [x] tasks: empty prompt, empty tenants list, unknown key, unknown verifier, missing plan -> rejected
   [x] tasks: two files with the same id -> rejected
   [x] A task survives task.json round-trip (TaskDef.model_validate(task.to_dict()) == task)
+Added since 2026-10-14:
+  [ ] routing: a row with url, url_env, api, temperature, max_tokens_field or reasoning_effort loads;
+      api = "cohere" and max_tokens_field = "max_output" are rejected
+  [ ] plans: a rule with verdict = "failed" and no data condition loads; verdict = "exploded" is rejected
+  [ ] tasks: [[golden]] blocks load; a golden with two comparisons, no path, or a note "CHECK: ..." is rejected
+  [ ] tasks: plan = "route" loads only when the pack has a router
 Hint: write small TOML/JSON files into tmp_path and load them with the real loaders.
 """
 

@@ -18,6 +18,9 @@ Use cases to cover:
   [ ] A handler's on_tool_end is called; a handler that raises does not break the run
   [ ] Offline batch: every run has telemetry.json with one "task" root; tool spans == journal lines
   [ ] Grading gives the same score.json with telemetry.json deleted
+  [ ] A routed task has a "route" step span under the task span; the router's file-list read is a tool span
+      under it
+  [ ] Each "llm" span has the tier, the provider and the model of the call (never the prompt or a key)
 Hint: Tracer("r1"), `with use_tracer(t): with span("task", "x"): ...`, then look at t.spans.
 For the batch cases use the offline batch (see tests/README.md, "The whole harness offline").
 """

@@ -23,3 +23,15 @@ name = "answer_audited"
 [[verifiers]]
 name = "answer_reflects_change_notes"
 params = { file_id = "1131649b-a525-410a-97e3-e6b995a524fb", from_rev = "B", to_rev = "C" }
+
+# Golden values (agentkit.harness.goldens): checked by hand against the seed data on 2026-10-16.
+
+[[golden]]
+path = "finding.revision_delta.from_version"
+equals = 1
+note = "rev B is v1 (v1 note starts 'Rev B'), not v2"
+
+[[golden]]
+path = "finding.revision_delta.to_version"
+equals = 2
+note = "rev C is v2"

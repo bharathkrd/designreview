@@ -100,6 +100,23 @@ jobs:
       - name: Viewer smoke check (serve the batch, open every run)
         run: python scripts/ci_viewer_smoke.py runs/batches/ci
 
+      # The official runner (harness/runner.py) with our real agent inside, offline: each instance's tasks
+      # run on the captured fixtures and are graded; results.json must follow the harness spec (1-200
+      # entries, strict booleans, scores 0-1, evidence on every failure). A planted fault must come out as
+      # failed entries with evidence, and the runner must then exit 1.
+      - name: Official runner, offline (agent tasks in results.json)
+        run: |
+          python -m harness.runner --instance suryodaya --sim packs/designreview/fixtures --out runs/results-suryodaya-sim.out.json
+          python scripts/check_results_json.py runs/results-suryodaya-sim.out.json --instance suryodaya --min-agent-tasks 8 --expect all-pass
+          python -m harness.runner --instance keystone --sim packs/designreview/fixtures --out runs/results-keystone-sim.out.json
+          python scripts/check_results_json.py runs/results-keystone-sim.out.json --instance keystone --min-agent-tasks 4 --expect all-pass
+          if python -m harness.runner --instance suryodaya --sim packs/designreview/fixtures \
+               --fault "fail_always:endpoint.designreview.release_readiness:flaky" --out runs/results-fault-sim.out.json; then
+            echo "::error::The runner exited 0 although a planted fault made tasks fail."
+            exit 1
+          fi
+          python scripts/check_results_json.py runs/results-fault-sim.out.json --instance suryodaya --min-agent-tasks 8 --expect some-fail
+
       - name: Add the score report to the job summary
         if: always()
         run: |

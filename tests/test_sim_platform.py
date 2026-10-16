@@ -12,13 +12,19 @@ Use cases to cover:
   [ ] fail_once fails the next call only; fail_always fails every call; faults only fire while armed
   [ ] edit_text rewrites recorded results (MCP and REST) after apply_edits()
   [ ] Bad fault specs ("nope:x", "fail_once:A.get") raise ValueError
-  [ ] Offline batch on the fixtures folder (packs/designreview/fixtures): all 9 tasks grade "pass",
+  [ ] fail_times:<tool>:flaky:2 fails the next two calls only; "fail_times:A.get:flaky:x" raises ValueError
+  [ ] inject_text:<tool>:<field>=<text> appends the text to that field BEFORE the agent reads it
+  [ ] truncate:<tool>:2 keeps two rows of "data" and leaves "total" as it was
+  [ ] rename_field:<tool>:<old>=<new> renames the key in every row
+  [ ] an offline run writes sim.json with the fixture and the faults (the injection check reads it)
+  [ ] Offline batch on the fixtures folder (packs/designreview/fixtures): all 12 tasks grade "pass",
       each replaying its own tenant's fixture (suryodaya.json / keystone.json)
   [ ] SimSession with a folder raises a clear error for a tenant that has no fixture
   [ ] `python -m agentkit.sim.capture --tenant keystone` only runs tasks whose tenants include keystone
   [ ] Under faults, t01 grades: fail_once flaky -> pass; release readiness always failing -> fail;
       rev C note edited during the run -> drift
   [ ] Two batches started in the same second get different ids (no evidence overwritten)
+  [ ] scripts/ci_fault_matrix.py: all 13 scenarios of packs/designreview/ci_faults.toml grade as expected
 Hint: SimSession(fixture, faults, registry.read_only) gives reader_for / run_agent to pass into
 agentkit.harness.batch.run_batch(..., runs_dir=tmp_path, fresh_reader_per_task=True); grade with
 agentkit.harness.grade.grade_batch(batch_dir).
