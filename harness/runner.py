@@ -74,18 +74,27 @@ if cli_args.instance:
 else:
     INSTANCE = os.environ.get("AGENTSWITCH_INSTANCE", "suryodaya").lower()
 
-# Resolve BASE and TOKEN based on instance
-if INSTANCE == "keystone" and os.environ.get("AS_KEYSTONE_HARNESS_TOKEN"):
-    BASE = os.environ.get("AS_KEYSTONE_HARNESS_BASE_URL", "https://class.agentswitch.theschoolofai.in").rstrip("/")
-    TOKEN = os.environ.get("AS_KEYSTONE_HARNESS_TOKEN", "")
+# Resolve BASE and TOKEN based on instance.
+# A token counts only when it was given to this PROCESS (the official runner injects it). A token that is
+# only a copy in .env is ignored: those copies expire, and a stale one made every call 401 (2026-10-16).
+# Without an injected token, the local run logs in with the tenant's password (as_client, below).
+try:
+    from agentkit.config import from_process
+except Exception:  # agentkit not importable: fall back to the environment as is
+    def from_process(name: str) -> Optional[str]:
+        return os.environ.get(name)
+
+if INSTANCE == "keystone" and from_process("AS_KEYSTONE_HARNESS_TOKEN"):
+    BASE = (from_process("AS_KEYSTONE_HARNESS_BASE_URL") or "https://class.agentswitch.theschoolofai.in").rstrip("/")
+    TOKEN = from_process("AS_KEYSTONE_HARNESS_TOKEN") or ""
 else:
-    BASE = os.environ.get("AGENTSWITCH_BASE_URL", "https://agentswitch.theschoolofai.in").rstrip("/")
-    TOKEN = os.environ.get("AGENTSWITCH_TOKEN", "")
+    BASE = (from_process("AGENTSWITCH_BASE_URL") or "https://agentswitch.theschoolofai.in").rstrip("/")
+    TOKEN = from_process("AGENTSWITCH_TOKEN") or ""
 
 # Server environment override (runner sets AGENTSWITCH_BASE_URL & AGENTSWITCH_TOKEN directly)
-if os.environ.get("AGENTSWITCH_TOKEN") and os.environ.get("AGENTSWITCH_BASE_URL") and not cli_args.instance:
-    BASE = os.environ["AGENTSWITCH_BASE_URL"].rstrip("/")
-    TOKEN = os.environ["AGENTSWITCH_TOKEN"]
+if from_process("AGENTSWITCH_TOKEN") and from_process("AGENTSWITCH_BASE_URL") and not cli_args.instance:
+    BASE = from_process("AGENTSWITCH_BASE_URL").rstrip("/")
+    TOKEN = from_process("AGENTSWITCH_TOKEN")
 
 if not TOKEN and not cli_args.sim:
     try:
@@ -102,6 +111,7 @@ AUTH = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
 MODEL = os.environ.get("OPENAI_MODEL", "agentswitch-default")
 
 tasks: List[Dict[str, Any]] = []
+GATE: Dict[str, Any] = {}  # the release gate's verdict read by check 5, for check 7
 
 
 def record(task_id: str, title: str, passed: bool, evidence: Any, score: Optional[float] = None) -> None:
@@ -151,6 +161,81 @@ def save_results(file_path: str = "results.json") -> None:
     print(f"\n[results] Wrote {len(tasks)} tasks to {out_path}: {summary}\n", flush=True)
 
 
+def full_catalog(max_pages: int = 50) -> List[Dict[str, Any]]:
+    """Every tool of the seat: tools/list, page by page (nextCursor)."""
+    tools: List[Dict[str, Any]] = []
+    cursor: Optional[str] = None
+    for _ in range(max_pages):
+        result = mcp("tools/list", {"cursor": cursor} if cursor else {}).get("result") or {}
+        tools += result.get("tools") or []
+        cursor = result.get("nextCursor")
+        if not cursor:
+            break
+    return tools
+
+
+def catalog_checks() -> None:
+    """Two checks on the seat's tools against what our agent depends on (the pack's required tools):
+    present with the arguments we send, and compatible with our captured fixture (each argument we send keeps
+    its name and type; no new required argument). Other schema changes -- new optional filters, new fields --
+    are information in the evidence, not a failure: they do not touch our agent."""
+    try:
+        from agentkit.registry import load_pack
+        from agentkit.transport.catalog import ToolCatalog
+
+        registry = load_pack("packs.designreview")
+        required = registry.extras.get("required_tools") or {}
+        live = ToolCatalog.from_tools(full_catalog())
+    except Exception as exc:
+        for name, title in (("required_tools_present", "The seat offers every tool our agent needs"),
+                            ("required_tools_compatible", "Our agent's tool arguments are as in our captured data")):
+            record(name, title, False, repr(exc))
+        return
+    problems = live.check_requirements(required)
+    record("required_tools_present", "The seat offers every tool our agent needs", not problems,
+           "; ".join(problems) if problems else f"all {len(required)} required tools offered, "
+           f"with the arguments we send ({len(live)} tools in the seat)")
+    try:
+        fixture = json.loads((PROJECT_ROOT / "packs" / "designreview" / "fixtures" / f"{INSTANCE}.json")
+                             .read_text(encoding="utf-8"))
+        was = ToolCatalog.from_tools(fixture.get("tool_defs") or [])
+        breaking, drifted = [], []
+        for tool, sent in sorted(required.items()):
+            if tool not in live or tool not in was:
+                continue  # a missing tool is check required_tools_present's finding
+            old, new = was.schema(tool), live.schema(tool)
+            if old != new:
+                drifted.append(tool)
+            new_props = new.get("properties") or {}
+            for arg in sent:
+                if arg not in new_props:
+                    breaking.append(f"{tool}.{arg} is gone")
+                elif _types((old.get("properties") or {}).get(arg)) - _types(new_props[arg]):
+                    breaking.append(f"{tool}.{arg} no longer accepts {sorted(_types((old.get('properties') or {}).get(arg)) - _types(new_props[arg]))}")
+            for arg in sorted(set(new.get("required") or []) - set(old.get("required") or []) - set(sent)):
+                breaking.append(f"{tool} now requires {arg}, which we do not send")
+        info = (f"{len(drifted)} of our tools have other schema changes since the capture "
+                f"({fixture.get('captured_at', '?')[:10]}; e.g. new optional filters): {drifted}" if drifted
+                else "no schema change since the capture")
+        record("required_tools_compatible", "Our agent's tool arguments are as in our captured data", not breaking,
+               ("; ".join(breaking) + " -- " + info) if breaking else
+               f"every argument we send keeps its name and type, and no new required argument; {info}")
+    except Exception as exc:
+        record("required_tools_compatible", "Our agent's tool arguments are as in our captured data", False, repr(exc))
+
+
+def _types(prop: Any) -> set:
+    """The JSON types a property schema accepts (its "type" and any "anyOf" / "oneOf" branch types)."""
+    if not isinstance(prop, dict):
+        return set()
+    out = set()
+    kind = prop.get("type")
+    out |= set(kind) if isinstance(kind, list) else ({kind} if kind else set())
+    for branch in (prop.get("anyOf") or []) + (prop.get("oneOf") or []):
+        out |= _types(branch)
+    return out
+
+
 def run_checks() -> None:
     print(f"=== Starting AgentSwitch Harness Run for Instance: {INSTANCE} ===")
     print(f"Base URL: {BASE}")
@@ -163,6 +248,9 @@ def run_checks() -> None:
         record("mcp_tools_list", "MCP tools/list works with the seat token", len(tools) > 0, f"{len(tools)} tools available")
     except Exception as exc:
         record("mcp_tools_list", "MCP tools/list works with the seat token", False, repr(exc))
+
+    # 1b. Our agent's tools: offered, with the arguments we send, and unchanged since our captured data
+    catalog_checks()
 
     # 2. A direct tool call: read our own saved harness link
     expected_url = ""
@@ -239,6 +327,7 @@ def run_checks() -> None:
         gate_text = call_tool("endpoint.designreview.release_readiness", {"file_id": target_file_id})
         gate_data = json.loads(gate_text) if gate_text.startswith("{") else {}
         inner = gate_data.get("result", gate_data)
+        GATE["ready"] = inner.get("ready")
         has_gate_status = "ready" in inner or "blockers" in inner
         record("release_readiness_gate", f"Release readiness verification for {part_name}",
                has_gate_status, f"ready={inner.get('ready')} critical_open={inner.get('critical_open')} blockers={len(inner.get('blockers', []))}")
@@ -294,9 +383,18 @@ def run_checks() -> None:
                 eval_answer = msg.content or ""
                 break
             # Verify tool was called and model addressed release readiness
-            verdict_ok = tool_invoked and any(w in eval_answer.lower() for w in ["block", "not ready", "cracking", "radius", "ready: false", "unready"])
+            # The answer's verdict must agree with the gate (check 5), read with our readiness parser,
+            # which handles negation -- not keywords ("nothing is blocking, it is ready" contains "block").
+            from packs.designreview.checks import says_not_ready, says_ready
+            gate_ready = GATE.get("ready")
+            said_ready, said_not = says_ready(eval_answer), says_not_ready(eval_answer)
+            stated = "ready" if said_ready and not said_not else "not ready" if said_not and not said_ready \
+                else "both" if said_ready else "none"
+            verdict_ok = tool_invoked and isinstance(gate_ready, bool) and \
+                stated == ("ready" if gate_ready else "not ready")
             record("agent_design_review_verdict", f"Agent evaluates release readiness for {part_name}",
-                   verdict_ok, f"tool_invoked={tool_invoked} answer={eval_answer[:200]!r}")
+                   verdict_ok, f"tool_invoked={tool_invoked} gate_ready={GATE.get('ready')} answer_says={stated} "
+                   f"answer={eval_answer[:160]!r}")
         except Exception as exc:
             record("agent_design_review_verdict", f"Agent evaluates release readiness for {part_name}", False, repr(exc))
     else:

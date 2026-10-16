@@ -40,7 +40,11 @@ DOTENV_KEYS_ENV = "AGENTKIT_DOTENV_KEYS"
 
 
 def from_process(name: str) -> Optional[str]:
-    """os.getenv(name), but None when the value only came from .env via load_env()."""
+    """os.getenv(name), but None when the value only came from .env via load_env().
+    .env is loaded first: a fresh child process (each batch task) learns which inherited values its parent
+    copied from .env only in load_env(). Asking before that took a stale .env token for an injected one,
+    and every call of that tenant got 401 once the token expired (2026-10-16)."""
+    load_env()
     value = os.getenv(name)
     return None if value is not None and _FROM_DOTENV.get(name) == value else value
 

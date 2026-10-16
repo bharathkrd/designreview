@@ -1,5 +1,19 @@
 # Changes
 
+## 2026-10-16 — Three better smoke checks, and a login fix for task subprocesses
+
+| What | Before | After | Where |
+|---|---|---|---|
+| `required_tools_present` | — | the seat offers each tool the pack needs, with the arguments we send | `harness/runner.py` |
+| `required_tools_compatible` | — | each argument we send keeps its name and type since the captured fixture, and no new required argument; other schema changes are evidence only (live: 6 of 7 tools gained optional filters since 2026-10-12, all compatible) | `harness/runner.py` |
+| `agent_design_review_verdict` | passed on keywords ("block", "radius", ...): "nothing is blocking, it is ready" passed | the stated verdict, read with our negation-aware parser, must equal the gate's `ready`; an answer with both verdicts fails | `harness/runner.py` |
+| Runner login | a token copied into `.env` was used first; once it expired every platform check got 401 | a token counts only when injected into the process; otherwise the password login | `harness/runner.py` |
+| Task subprocess login | `tenant_login()` asked `from_process()` before `load_env()`: a fresh child took the inherited `.env` token for an injected one -- every Suryodaya task got 401 once that token expired | `from_process()` loads `.env` (and its provenance list) first | `agentkit/config.py` |
+
+The login bug came in on 2026-10-14 (`AGENTKIT_DOTENV_KEYS`) and stayed hidden while the copied token was valid.
+A regression test now runs a real parent and child process. Verified live: 147 of 147 (Suryodaya), 93 of 93
+(Keystone); server mode (injected token and OpenAI): 147 of 147 in 193 s.
+
 ## 2026-10-16 — Golden values: exact answers checked on every run
 
 | What | Before | After | Where |
