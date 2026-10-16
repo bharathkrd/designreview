@@ -356,7 +356,7 @@ that the seat still has what our agent needs:
    - **`required_tools_present`**: the seat has each tool that our pack needs, and each tool accepts the
      arguments that we send.
    - **`required_tools_compatible`**: each argument that we send has the same name and type as in our captured
-     data, and no tool has a new argument that it must get. Other schema changes (for example new optional filters)
+     data. No tool has a new argument that it must get. Other schema changes (for example new optional filters)
      go into the evidence. They do not make the check fail.
 2. **`mcp_tool_call`**: a direct MCP call to `TeamHarness.get_mine` gives the saved repository URL of the team.
 3. **`agent_answers_with_tool`**: in the LLM tool-calling loop of the platform, the model calls
