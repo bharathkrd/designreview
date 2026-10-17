@@ -37,6 +37,7 @@ from typing import Iterator, List, Tuple
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FILES = [ROOT / "README.md", ROOT / "docs" / "ARCHITECTURE.md", ROOT / "docs" / "COST_ACCURACY.md",
+                 ROOT / "docs" / "FIRST_PRINCIPLES.md", ROOT / "docs" / "SCALING_AND_DEPLOYMENT.md",
                  ROOT / "docs" / "EXPLAINERS.md",
                  *sorted((ROOT / "docs" / "explainers").glob("*.md"))]
 

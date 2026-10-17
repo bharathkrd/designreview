@@ -17,6 +17,10 @@ Each explainer has these parts:
 
 Other documents:
 
+- [`FIRST_PRINCIPLES.md`](FIRST_PRINCIPLES.md) starts from the problem and goes down to the math: the
+  principles, the algorithms, the trade-offs, the evaluation, hallucination, the token budget and reuse.
+- [`SCALING_AND_DEPLOYMENT.md`](SCALING_AND_DEPLOYMENT.md) gives the plan for 10,000 users at the same time and
+  the cloud deployment.
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) tells how generic the architecture is: the pack seam, the extension
   points and the limits. Read it first.
 - [`COST_ACCURACY.md`](COST_ACCURACY.md) compares the cost and the accuracy of each LLM route (gap G12).

@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-10-17 — First-principles document
+
+| What | Before | After | Where |
+|---|---|---|---|
+| Design rationale | spread over ARCHITECTURE, the explainers and the gap analysis | one document from the problem to the math: environment facts, principles, algorithms (router IDF, DAG scheduling, BM25, relevance gate, claim audit, cascade), hallucination defences, evaluation statistics, token cost, reuse, trade-offs, concepts | `docs/FIRST_PRINCIPLES.md` |
+| STE check | — | the new document is in the default file list | `scripts/ste_check.py` |
+| Scaling plan | — | 10,000 users at the same time: load sized with Little's law from the measured t01 run, framework changes (service, async, shared caches and stores, backpressure, identity, OpenTelemetry), AWS deployment in 8 steps, cost estimate; linked from FIRST_PRINCIPLES §9.5. A plan only: no code changed. | `docs/SCALING_AND_DEPLOYMENT.md` |
+
 ## 2026-10-16 — Three better smoke checks, and a login fix for task subprocesses
 
 | What | Before | After | Where |
