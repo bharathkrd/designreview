@@ -39,6 +39,10 @@ Use cases to cover:
       and the journal records no send
   [ ] a call with all required arguments goes through unchanged
 
+More use cases (added 2026-10-16, to write by hand):
+  [ ] a question that matches no route -> route_declined with a reason, never a default plan
+  [ ] Route.matches is case-insensitive: "WHAT CHANGED between rev B and rev C" matches like the lower-case text
+  [ ] RouteDecision.declined is True only for the decline plan
 Hint: GraphStore + LiveGraphExecutor run a plan with any object that has invoke_tool(name, args) and
 offers(name); a SimPlatform on packs/designreview/fixtures/suryodaya.json is one. ToolCatalog gives each
 tool's inputSchema and required arguments.

@@ -52,6 +52,11 @@ Use cases to cover:
   [ ] a run whose ledger passes max_cost_usd stops calling the LLM and answers with the template,
       recording why
 
+More use cases (added 2026-10-16, to write by hand):
+  [ ] price_for("openai", "gpt-4o-mini") uses the "provider:model" price; an unknown model uses the provider's
+      price; an unknown provider uses (1.0, 1.0)
+  [ ] estimate_tokens("") == 0 and estimate_tokens("one two three") == 3 (about 1.3 tokens per word, at least 1)
+  [ ] max_cost_usd=0 with a fake gateway: no LLM call is made and the answer is the template
 Hint: the narrator only needs an object with call(prompt, **kw) -> str (or call_detailed). For the
 gateway itself, use LLMGateway(<routing file>, transport=httpx.MockTransport(handler), sleep=list.append,
 env={...}) and inspect the request bodies the handler receives.

@@ -20,6 +20,10 @@ Use cases to cover:
       reasoning moves to the next provider; the cached text has no <think>; reply.reasoning_chars is set
 For rows configured by URL or by `api`, the per-row request settings and the tier order, see
 test_llm_providers.py.
+More use cases (added 2026-10-16, to write by hand):
+  [ ] the same prompt twice: the second answer comes from the cache and the handler sees one request
+  [ ] all providers fail: the error names each provider tried and its status, never a key
+  [ ] a 200 reply with no text (empty choices / no candidates) moves to the next provider
 Hint: LLMGateway(<routing.json in tmp_path>, transport=httpx.MockTransport(handler), sleep=list.append,
 env={"GEMINI_API_KEY": "k"}) -- the handler returns httpx.Response(200, json={...}). No network.
 """

@@ -14,6 +14,10 @@ Use cases to cover:
   [ ] BM25: "bend radius ... bend" ranks "Sheet metal bend rules" above "Hole and thread callouts"
   [ ] distinct_by="name" keeps one hit per name, preferring the active record on ties
   [ ] plain_text() turns platform HTML descriptions into clean lines
+More use cases (added 2026-10-16, to write by hand):
+  [ ] fixed_span_passages(text, words=3) on 7 words gives 3 passages of 3, 3 and 1 words, numbered 0, 1, 2
+  [ ] HeadingSplitter cuts at a Markdown heading inside a block
+  [ ] an empty query or an empty index returns no hits (no exception)
 Hint: a scripted splitter is any object with trailing_topic(block) -> str.
 """
 

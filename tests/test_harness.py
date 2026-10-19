@@ -33,6 +33,10 @@ Since 2026-10-14 to 2026-10-16:
   [ ] report.md's Performance table has a "Models (provider:model)" column read from llm_ledger.json
   [ ] python -m agentkit.harness.pareto on two hand-made batches: the cheaper arm with the same pass rate is on
       the frontier and the other is not (agentkit/harness/pareto.py)
+More use cases (added 2026-10-16, to write by hand):
+  [ ] grade_run(run_dir, write=False) returns the score but writes no score.json
+  [ ] parse_instant("2026-10-16T10:00:00+05:30") gives 04:30 UTC; "yesterday" raises ValueError
+  [ ] frozen_now nested twice: the inner value holds inside, the outer value comes back after it
 Hint: use pytest's tmp_path as the run folder; write taskrun.json / tool_journal.jsonl /
 ground_truth_after.json yourself, then call agentkit.harness.grade.grade_run(tmp_path).
 For batch-level cases, run the offline batch: SimSession("packs/designreview/fixtures", [], reg.read_only)

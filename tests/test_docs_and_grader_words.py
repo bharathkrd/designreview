@@ -31,9 +31,15 @@ Use cases to cover:
   [ ] says_ready("Nothing blocks it; it is ready for release.") is still True (the new words apply only to
       the geometry check)
 
+More use cases (added 2026-10-16, to write by hand):
+  [ ] a Markdown table cell is checked on its own: a 26-word cell -> one "sentence length" finding,
+      and a list item that starts "Run" inside a table cell keeps the 25-word limit
+  [ ] "is open", "is given", "is broken" are not passive voice (NOT_PARTICIPLE); "is removed" is
+  [ ] a link "[the guide](docs/a_very_long_path.md)" counts the link text only, not the target
 Hint: scripts/ is not a package. Load the script with
 importlib.util.spec_from_file_location("ste_check", <repo>/scripts/ste_check.py), then module_from_spec and
-spec.loader.exec_module. Write sample Markdown files to tmp_path.
+spec.loader.exec_module. Put the module in sys.modules["ste_check"] BEFORE exec_module: the script has
+a @dataclass, which looks its module up there. Write sample Markdown files to tmp_path.
 """
 
 import importlib.util

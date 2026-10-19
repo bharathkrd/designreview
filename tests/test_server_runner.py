@@ -37,6 +37,11 @@ Use cases to cover:
   [ ] --instance suryodaya and an id "keystone:x" -> a problem
   [ ] --expect some-fail on an all-pass file -> a problem (a planted fault was not reported)
 
+More use cases (added 2026-10-16, to write by hand):
+  [ ] _types: {"type": ["string", "null"]} -> {"string", "null"}; {"anyOf": [{"type": "integer"}, {"type":
+      "string"}]} -> both; a non-dict -> empty set
+  [ ] a task evidence longer than 300 characters ends with "..." and has no newlines (_short)
+  [ ] problems(): a file with no "summary" and a "tasks" that is not a list -> both reported
 Hint: harness/ is a package: `from harness.agent_tasks import entries_for, run_agent_tasks`. Pass
 run_agent_tasks a small recorder function(task_id, title, passed, evidence, score=None) that appends to a
 list. scripts/ is not a package: load check_results_json.py with importlib.util.spec_from_file_location.

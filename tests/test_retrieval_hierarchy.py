@@ -14,6 +14,10 @@ Use cases to cover:
   [ ] distinct_by="family" keeps one parent per family; where={"category": ...} filters on inherited meta
   [ ] child_meta_fields=["category"] means children carry only that field (plus parent id and header path)
   [ ] adding two parents with the same id is an error
+More use cases (added 2026-10-16, to write by hand):
+  [ ] mget(["a", "missing"]) returns [<doc a>, None]
+  [ ] split_by_headers(max_level=2): a "### C" line stays inside the "## B" passage
+  [ ] strip_headers=True: passage text has no "#" line, and the offsets still slice the source exactly
 Hint: ParentChildIndex(child_splitter=section_children(min_words=1000)) keeps each section as one child,
 so the results are easy to predict.
 """

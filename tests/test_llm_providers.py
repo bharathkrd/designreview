@@ -48,6 +48,11 @@ Use cases to cover:
       from_process("OPENAI_API_KEY") is still None, and candidate_order("default") does not start with "openai"
   [ ] a different value in the process (a runner-injected key) -> from_process gives it, and "openai" is first
 
+More use cases (added 2026-10-16, to write by hand):
+  [ ] models_check.check on a row with url = "https://api.deepseek.com/chat/completions" asks
+      "https://api.deepseek.com/models" (it drops "/chat/completions"; base_url() itself keeps it)
+  [ ] a keyless row is in available_providers() with no key variable set
+  [ ] url_env names a variable that is not set -> the row's url is used
 Hint: build a routing file in tmp_path (JSON is accepted) and use
 LLMGateway(<file>, transport=httpx.MockTransport(handler), sleep=lambda s: None, env={...}); read the
 request bodies with json.loads(request.content). For the .env cases, use monkeypatch to set

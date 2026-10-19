@@ -19,6 +19,11 @@ Added since 2026-10-14:
   [ ] plans: a rule with verdict = "failed" and no data condition loads; verdict = "exploded" is rejected
   [ ] tasks: [[golden]] blocks load; a golden with two comparisons, no path, or a note "CHECK: ..." is rejected
   [ ] tasks: plan = "route" loads only when the pack has a router
+More use cases (added 2026-10-16, to write by hand):
+  [ ] load_env never overrides a variable the process already has: X=a in os.environ, X=b in a tmp .env -> a
+  [ ] llm_budget_usd: AGENTKIT_MAX_LLM_COST_USD="0.5" -> 0.5; "abc" -> ConfigError; unset with no project
+      key -> None
+  [ ] default_pack / default_tenant on a project.toml without the key -> ConfigError that says what to pass
 Hint: write small TOML/JSON files into tmp_path and load them with the real loaders.
 """
 

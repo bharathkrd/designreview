@@ -17,6 +17,10 @@ Use cases to cover:
   [ ] The generic modules added since 2026-10-14 name no design-review word either: agentkit/agents/router.py,
       agentkit/answer/quarantine.py, agentkit/harness/goldens.py, agentkit/harness/pareto.py,
       agentkit/retrieval/quality.py
+More use cases (added 2026-10-16, to write by hand):
+  [ ] no file under agentkit/ reads a pack file by path ("packs/" in a string literal, parsed with ast)
+  [ ] every pack folder under packs/ has the files the loader needs (actions, plans/, tasks/)
+  [ ] tests/ has no file that imports from tests_local/ (AI-written tests stay out of the hand-written suite)
 Hint: walk Path("agentkit").rglob("*.py") and read the text; parse imports with the `ast` module
 rather than grepping, so comments and docstrings don't cause false alarms.
 """

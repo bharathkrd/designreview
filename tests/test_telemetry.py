@@ -21,6 +21,10 @@ Use cases to cover:
   [ ] A routed task has a "route" step span under the task span; the router's file-list read is a tool span
       under it
   [ ] Each "llm" span has the tier, the provider and the model of the call (never the prompt or a key)
+More use cases (added 2026-10-16, to write by hand):
+  [ ] percentile([5], 95) == 5 and percentile([None, 3, 1], 50) == 1 (None values are left out)
+  [ ] walk(build_tree(...)) gives each span once, with depth 0 for roots
+  [ ] @traced("tool") on a function records one span per call with the function name as default
 Hint: Tracer("r1"), `with use_tracer(t): with span("task", "x"): ...`, then look at t.spans.
 For the batch cases use the offline batch (see tests/README.md, "The whole harness offline").
 """

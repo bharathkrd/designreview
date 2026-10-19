@@ -57,6 +57,10 @@ Use cases to cover:
   [ ] frontier(): an arm with a higher pass rate and a lower cost beats another; two equal arms are both on it
   [ ] a template-only arm (manifest skip_llm = true) is labelled "template only (no LLM)" and costs 0
 
+More use cases (added 2026-10-16, to write by hand):
+  [ ] pass_at_k(3, 2, 4) and pass_hat_k(3, 2, 0) raise ValueError (k must be 1..n)
+  [ ] wilson_interval(0, 0) is (0.0, 1.0): no runs means no knowledge, not an error
+  [ ] partial_score(0, 0, full=True) == 1 and partial_score(0, 0, full=False) == 0 (no applicable checks)
 Hint: build a manifest by hand: {"batch_id": "b", "repeat": 3, "expected": {"t": 3}, "runs": [...]},
 and results as [(entry, {"status": "pass"}), ...] -- then call score_batch(manifest, results).
 For check tests, build a RunBundle by hand (see test_verifiers.py) and call the check function directly.

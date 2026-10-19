@@ -39,6 +39,11 @@ Added since 2026-10-14 (not covered above yet):
       passes (a disclaimer); "The geometry comparison shows nonetheless a thicker wall." fails
   [ ] cited_standards_exist: a recalled standard id that is not on the platform fails
   [ ] answer_states_handoffs: "No hand-offs have been filed." is not a filing claim
+More use cases (added 2026-10-16, to write by hand):
+  [ ] release_gate_matches_db: finding critical_open 1, platform 2 -> the "critical_open" outcome fails and
+      its detail says "agent 1, platform 2"; the "ready" outcome is judged on its own
+  [ ] answer_states_change with the right numbers in another unit ("2 mm" vs "2.0 mm") -> decide and pin it
+  [ ] release_gate_matches_db on an answer with no verdict at all -> fail (silence is not a verdict)
 Hint: build a RunBundle by hand (agentkit.harness.checks.RunBundle) with `after` / `before` as
 {"observations": {"versions:<file_id>": {"value": [...]}}} -- no network, no files needed.
 """

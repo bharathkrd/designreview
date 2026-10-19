@@ -50,6 +50,10 @@ Use cases to cover:
   Holdout tasks (G8, not built yet):
   [ ] a task marked holdout is not run by a default batch, and is run with --holdout
 
+More use cases (added 2026-10-16, to write by hand):
+  [ ] parse_fault: "inject_text:A.list:field" (no "=") and "rename_field:A.list:=x" raise ValueError
+  [ ] parse_fault: "truncate:A.list:two" and "fail_times:A.get:banana:2" raise ValueError naming the problem
+  [ ] two faults at once (fail_once flaky + inject_text) on t01: the run passes and the payload is not in the answer
 Hint: the whole harness runs offline -- SimSession("packs/designreview/fixtures", faults, registry.read_only),
 then run_batch(tasks, runs_dir=tmp_path, reader_factory=sim.reader_for, agent_runner=sim.run_agent,
 fresh_reader_per_task=True), then grade_batch(batch_dir). For the gateway fault, pass compose_answer a fake
