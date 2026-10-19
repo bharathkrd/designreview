@@ -7,8 +7,8 @@
 | **Team members** | Sunil Jakkaraju ([@jssunil](https://github.com/jssunil)), Bharath KR ([@bharathkrd](https://github.com/bharathkrd)) |
 | **Core request** | *"What changed between rev B and rev C, and are there manufacturability problems in this part?"* |
 
-*Written in ASD-STE100 (Simplified Technical English) style, 2026-10-15. CI examines this file with
-`scripts/ste_check.py`.*
+*Written in ASD-STE100 (Simplified Technical English) style, 2026-10-15. Updated 2026-10-19. CI examines this
+file with `scripts/ste_check.py`.*
 
 ---
 
@@ -57,6 +57,31 @@ What the agent does to answer it:
 
 ---
 
+## 📋 Use cases (playbooks)
+
+[`packs/designreview/playbooks/`](packs/designreview/playbooks/README.md) has one file for each use case of the
+seat: 2 live, 3 blocked and 10 spec only. The head of each file gives the status, the plan, example questions,
+the seat tools and the tasks that test it. The body tells a person how the use case works and its limits.
+
+| Status | Use cases |
+|---|---|
+| **Live** | pb-01 revision change and manufacturability review; pb-02 release readiness, schedule and hand-offs |
+| **Blocked** | pb-03 the AI review of the platform. pb-04 a wall-thickness analysis. The seat does not have these tools. pb-05 the release of a file: it needs the `design_admin` role and a person's decision. |
+| **Spec only** | Release impact, BOM change, supplier response time and open review feedback. Characteristics with no tolerance, assemblies that use a part, external shares and checklist coverage. A daily digest, and a review of each new version. |
+
+The playbooks do not drive the agent. The plans and the routes do that. `scripts/playbooks_check.py` proves
+each status in CI:
+
+- the questions of a live or blocked playbook route to its plan, and the agent declines spec-only questions
+  today;
+- each seat offers each tool, and a "missing" tool is absent;
+- each task and each plan belongs to one playbook.
+
+[`constants.toml`](packs/designreview/playbooks/constants.toml) lists 16 numbers that the rules use, with the
+source of each. The check fails when the code has a different value.
+
+---
+
 ## 🏗️ Architecture
 
 The code has three layers. A lower layer never imports a higher layer.
@@ -74,8 +99,10 @@ agentkit/            domain-free framework (no design-review names; a lint test 
   sim/               platform fixtures + offline SimPlatform with injectable faults
   telemetry/         run tree for each run (task → node → tool / llm)
   viewer/            read-only browser page over the run folders
+  playbooks.py       playbook files and the constants register: load, check against plans, routes and tools
 packs/designreview/  the domain pack: actions, routes, finding, claim rules, template, probes, verifiers,
-                     mutants, prompts/*.md, plans/*.toml, tasks/*.toml, fixtures/*.json
+                     mutants, prompts/*.md, plans/*.toml, tasks/*.toml, fixtures/*.json,
+                     playbooks/*.md (one per use case) + constants.toml
 config/              tenants.toml, routing.toml (LLM providers and tiers), project.toml (defaults, LLM cost limit)
 ```
 
@@ -196,12 +223,17 @@ agent cannot make its own check pass.
 | [`rescore.py`](rescore.py) | Grade saved runs again (files only; no network, no LLM) |
 | [`as_client.py`](as_client.py) | Compatibility client (`AgentSwitchClient`); `.seat()` gives the new MCP client |
 | [`agentkit/`](agentkit/) · [`packs/designreview/`](packs/designreview/) · [`config/`](config/) | Framework · domain pack · configuration |
+| [`packs/designreview/playbooks/`](packs/designreview/playbooks/README.md) | One file for each use case (live, blocked, spec only) and the constants register |
+| [`harness/`](harness/) | The official platform runner (`python -m harness.runner`): smoke checks and our agent's tasks in `results.json` |
 | [`agentkit/viewer/`](agentkit/viewer/) | Read-only run viewer: `python -m agentkit.viewer` |
 | [`core/`](core/) | Legacy import paths (`core.harness`, `core.llm_gateway`, `core.economics` give the `agentkit` names); legacy `dag_engine`, `eval_framework`, `judge` |
-| [`scripts/`](scripts/) | CI scripts: fault matrix, retrieval evaluation, viewer smoke check, secret scan, STE check |
+| [`scripts/`](scripts/) | CI scripts: fault matrix, retrieval evaluation, playbook check, viewer smoke check, `results.json` check, secret scan, STE check |
 | [`tests/`](tests/) | Graded, **hand-written** test suite. See [`tests/README.md`](tests/README.md). |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How generic the agent is: layers, the pack seam, extension points, limits |
 | [`docs/EXPLAINERS.md`](docs/EXPLAINERS.md) | Explainers for each module |
+| [`docs/FIRST_PRINCIPLES.md`](docs/FIRST_PRINCIPLES.md) | The design from the problem down to the math: principles, algorithms, trade-offs |
+| [`docs/SCALING_AND_DEPLOYMENT.md`](docs/SCALING_AND_DEPLOYMENT.md) | The plan for 10,000 users at the same time, and the cloud deployment |
+| [`docs/COST_ACCURACY.md`](docs/COST_ACCURACY.md) | The measured cost and accuracy of each LLM route |
 | [`docs/RESEARCH_GAP_ANALYSIS.md`](docs/RESEARCH_GAP_ANALYSIS.md) | Comparison with published arXiv practice; the gaps and their status |
 | [`docs/CHANGES.md`](docs/CHANGES.md) | What changed, and why |
 
@@ -249,6 +281,9 @@ python capstone_evals.py --skip-llm         # template answers, no LLM cost
 
 # Grade the newest batch again from its saved files (free)
 python rescore.py
+
+# Check the playbooks against the plans, routes, tasks and tool lists (--write rebuilds their index)
+python scripts/playbooks_check.py
 
 # The CI gate, offline: each task 3 times (pass^k), then show that a second grading is identical
 python -m agentkit.harness.batch --sim packs/designreview/fixtures --skip-llm --batch-id ci --repeat 3 --grade
@@ -497,11 +532,16 @@ gitleaks git . --config .gitleaks.toml --redact --verbose   # gitleaks 8.30.1 (S
    grade in `packs/designreview/ci_faults.toml`, down to the check;
 6. retrieval quality, `scripts/retrieval_eval.py --check`: recall@5, precision@5 and MRR on the labelled
    queries must stay at or above the floors;
-7. a viewer smoke check, `scripts/ci_viewer_smoke.py`. It starts the run viewer on the CI batch and opens each
+7. the playbook check, `scripts/playbooks_check.py`. Each playbook status must agree with the plans, the
+   routes, the tasks and the captured tool lists. The index must be current, and `constants.toml` must agree
+   with the code;
+8. a viewer smoke check, `scripts/ci_viewer_smoke.py`. It starts the run viewer on the CI batch and opens each
    run, the report, the calibration and each telemetry tree. The viewer must stay read-only and confined;
-8. the docs style job, `scripts/ste_check.py`: this README, the architecture document and the explainers
-   must follow the measurable ASD-STE100 rules;
-9. the two secret scans above. The workflow pins each action to its commit SHA.
+9. the official runner, offline, for each instance. `scripts/check_results_json.py` examines each
+   `results.json`. Then a planted fault must give failed entries with evidence, and the runner must exit 1;
+10. the docs style job, `scripts/ste_check.py`: this README, the architecture documents, the explainers and
+    the playbooks must follow the measurable ASD-STE100 rules;
+11. the two secret scans above. The workflow pins each action to its commit SHA.
 
 ---
 

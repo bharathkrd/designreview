@@ -1,7 +1,7 @@
 # `packs/designreview/` — the design-review domain
 
 *Reading order: **11th**. All code that knows what a DesignFile is, is here. `agentkit/` knows none of it.
-Written in ASD-STE100 (Simplified Technical English) style, 2026-10-14.*
+Written in ASD-STE100 (Simplified Technical English) style, 2026-10-14. Updated 2026-10-19.*
 
 ## Overview
 
@@ -12,7 +12,8 @@ Written in ASD-STE100 (Simplified Technical English) style, 2026-10-14.*
 | Actions | `actions.py` | The read allowlist: `load_design_file`, `list_revisions`, `read_release_gate`, `list_feedback`, `list_failed_checklists`, `gather_dfm_standards`, `probe_tool_offered`, `decline`. |
 | Hand-off actions | `handoffs.py` | `list_milestones` and `find_cross_seat_dependencies` (reads), and `raise_handoffs`, the only **write** action of the pack. See "Hand-offs". |
 | Hand-off topics | `handoffs.toml` | Which owner (manufacturing, quality or purchasing) takes which type of problem. Pydantic validates the file. |
-| Read-only endpoints | `actions.py` | `endpoint.designreview.release_readiness`, `release_impact(.get)`, `parts_search`, `supplier_response_sla`. |
+| Read-only endpoints | `actions.py` | `endpoint.designreview.release_readiness`, `release_impact.get` and `parts_search`. `release_impact` (it releases the file) and `supplier_response_sla` (it can record an outcome) are writes. |
+| Playbooks | `playbooks/*.md` | One file for each use case, with a status: live, blocked or spec only. `scripts/playbooks_check.py` proves each status against the plans, the routes, the tasks and the captured tool lists. `playbooks/constants.toml` lists each number that a rule uses, with its source. |
 | Plans | `plans/*.toml` | `rev_diff_dfm`, `tool_refusal`, `release_handoff` and `route_declined`. See "The plans". |
 | Router | `router.py`, `routes.toml` | Finds the plan and the design file from a question. See "The router". |
 | Finding | `finding.py` | The answer that the harness grades. Code calculates it. |
@@ -270,7 +271,41 @@ Each task file ends with `[[golden]]` blocks: 39 in all. A person checked each v
 2026-10-16 (versions, release gates, milestones). The note of each golden says where. See
 `agentkit_harness.md` for the format.
 
+## Playbooks (since 2026-10-19)
+
+`playbooks/` has one markdown file for each use case of the seat. The head of each file is TOML between two
+`+++` lines. It gives the id, the status, the plan and example questions. It also gives the seat tools, the
+tasks, the triggers and whether it writes. The body tells a person when it runs, what it reads, what it checks, how the answer reads
+and its limits. `playbooks/README.md` has the index.
+
+| Status | Count | What the status claims |
+|---|---|---|
+| live | 2 | The plan exists, every seat offers its tools, and its questions route to it. pb-01 is `rev_diff_dfm` and pb-02 is `release_handoff`. |
+| blocked | 3 | Its questions route to a refusal, and `blocked_by` says why. pb-03 (AI review) and pb-04 (thickness analysis) use `tool_refusal`. The seat does not have their tools. pb-05 (release a file) goes to `route_declined`. A release needs the `design_admin` role and a person's decision. |
+| spec only | 10 | Designed and not built. Every seat offers each tool it needs, and the router declines its questions today. |
+
+The playbooks do not drive the agent. The plans and `routes.toml` do that, and no playbook text goes into a
+prompt. A playbook is a claim about the plans. `scripts/playbooks_check.py` proves the claim in CI with
+`agentkit/playbooks.py`:
+
+- each example question of a live or blocked playbook routes to its plan. The check uses the words of the
+  question only, with no record lookup;
+- each tool is in the captured tool list of each tenant. A tool in `missing_tools` is in none of them;
+- each task and each plan belongs to one playbook;
+- the index in the README is current. `--write` makes it again.
+
+`playbooks/constants.toml` lists 16 numbers that the rules use. Examples are the hand-off SLA, the serious
+severities, the router tie ratio and the retrieval gate. Others are the BM25 settings, the cost cap, the
+thread count and the provider cool-downs. Each entry gives the unit, the source and the date that a person checked the source. The code
+still reads each number from its own file. The check reads the number from the code and fails when it is
+not the same as the register.
+
+The 2026-10-19 work also found two write endpoints on the read-only list. `release_impact` releases the
+file, and `supplier_response_sla` can record an outcome. Both are now writes. Thus a call is
+not retried, and a dry run's policy check fails it. No action calls them yet.
+
 ## How to test
 
 The hand-written templates are `tests/test_finding_and_claims.py`, `tests/test_verifiers.py`,
-`tests/test_retrieval.py`, `tests/test_handoffs.py` and `tests/test_planning_and_routing.py`.
+`tests/test_retrieval.py`, `tests/test_handoffs.py`, `tests/test_planning_and_routing.py` and
+`tests/test_playbooks.py`. The AI-written playbook tests are in `tests_local/test_playbooks.py`.

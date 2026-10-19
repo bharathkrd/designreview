@@ -94,6 +94,12 @@ jobs:
       - name: Retrieval quality (labelled queries, floors)
         run: python scripts/retrieval_eval.py --check
 
+      # One file per use case (packs/designreview/playbooks): each live or blocked playbook's plan
+      # exists and its questions route to it, its tools are in every captured catalogue, every task
+      # and plan belongs to a playbook, the README index is current, and constants.toml matches the code.
+      - name: Playbooks (status, routes, tools, tasks, constants)
+        run: python scripts/playbooks_check.py
+
       # Starts the run viewer on the CI batch (its own process, 127.0.0.1) and opens every run:
       # page + static files, batch, report, calibration, each run's records and telemetry tree;
       # also checks it stays read-only (POST -> 405) and confined (path traversal -> 404).

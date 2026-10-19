@@ -3,7 +3,7 @@ Design-review pack (Team 21 seat on AgentSwitch).
 
 Everything domain-specific lives here: actions (the allowlist), read-only
 endpoint declarations, plans, the finding builder, claim rules, the
-template answer, prompts, hand-off topics (handoffs.toml), ground-truth probes, verifiers, verifier
+template answer, prompts, hand-off topics (handoffs.toml), playbooks (one per use case), ground-truth probes, verifiers, verifier
 self-test mutants, end-to-end replay faults, tasks and platform fixtures.
 
     from agentkit.registry import load_pack
@@ -31,6 +31,7 @@ PLANS_DIR = PACK_DIR / "plans"
 PROMPTS_DIR = PACK_DIR / "prompts"
 TASKS_DIR = PACK_DIR / "tasks"
 FIXTURES_DIR = PACK_DIR / "fixtures"
+PLAYBOOKS_DIR = PACK_DIR / "playbooks"
 
 
 def _prompt(name: str) -> str:
@@ -50,6 +51,9 @@ def register(reg: Registry) -> None:
         plans_dir=PLANS_DIR,
         tasks_dir=TASKS_DIR,
         fixtures_dir=FIXTURES_DIR,
+        # One file per use case (live, blocked, spec only); documentation checked by
+        # scripts/playbooks_check.py, never read by a planner.
+        playbooks_dir=PLAYBOOKS_DIR,
         finding_builder=build_finding,
         claim_rules=CLAIM_RULES,
         template=plain_rendering,
@@ -63,4 +67,4 @@ def register(reg: Registry) -> None:
     )
 
 
-__all__ = ["PACK_DIR", "PLANS_DIR", "PROMPTS_DIR", "TASKS_DIR", "READ_ONLY_ENDPOINTS", "register"]
+__all__ = ["PACK_DIR", "PLANS_DIR", "PLAYBOOKS_DIR", "PROMPTS_DIR", "TASKS_DIR", "READ_ONLY_ENDPOINTS", "register"]

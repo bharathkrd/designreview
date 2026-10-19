@@ -37,8 +37,10 @@ from typing import Iterator, List, Tuple
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FILES = [ROOT / "README.md", ROOT / "docs" / "ARCHITECTURE.md", ROOT / "docs" / "COST_ACCURACY.md",
+                 ROOT / "docs" / "FIRST_PRINCIPLES.md", ROOT / "docs" / "SCALING_AND_DEPLOYMENT.md",
                  ROOT / "docs" / "EXPLAINERS.md",
-                 *sorted((ROOT / "docs" / "explainers").glob("*.md"))]
+                 *sorted((ROOT / "docs" / "explainers").glob("*.md")),
+                 *sorted((ROOT / "packs" / "designreview" / "playbooks").glob("*.md"))]
 
 MAX_DESCRIPTIVE = 25
 MAX_PROCEDURAL = 20
@@ -73,6 +75,8 @@ class Finding:
 def blocks(text: str) -> Iterator[Tuple[int, str, bool]]:
     """(first line number, text, is_table_cell): paragraphs, list items and table cells; no code."""
     text = re.sub(r"```.*?```", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.S)
+    # A TOML head between +++ lines (the playbooks) is data, not prose.
+    text = re.sub(r"\A\+\+\+\n.*?\n\+\+\+\n", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.S)
     cur: List[str] = []
     start = 0
     for n, line in enumerate(text.split("\n"), 1):
