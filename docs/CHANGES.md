@@ -1,5 +1,15 @@
 # Changes
 
+## 2026-10-19 — Playbooks: one file for each use case
+
+| What | Before | After | Where |
+|---|---|---|---|
+| Use-case catalogue | the use cases were spread over plans, routes, tasks, hand-off topics and prompts; planned ones were only in the gap documents | 15 playbooks with a TOML head and a written procedure: 2 live, 3 blocked (AI review, thickness analysis, release), 10 spec only (release impact, BOM change, supplier response time, review status, characteristics with no tolerance, assemblies that use a part, external shares, checklist coverage, a daily digest, a review on each new version); a generated index | `packs/designreview/playbooks/` |
+| Playbook check | — | each live or blocked playbook names a real plan and its questions route to it; each spec-only question routes to the decline today; each tool is in every captured catalogue; a "missing" tool is absent; every task and plan belongs to one playbook; the index is current. Runs in CI. | `agentkit/playbooks.py`, `scripts/playbooks_check.py`, `.github/workflows/ci.yaml` |
+| Constants register | numbers in many files, most with no source | 16 numbers with their unit, source and check date; the check reads each from the code and fails on a difference (11 still need a person to check the source) | `packs/designreview/playbooks/constants.toml` |
+| Read-only list | `release_impact` (its only action releases the file) and `supplier_response_sla` (it can record an outcome) were declared reads, so a call would be retried and pass a dry run's policy check. No action calls them yet. | both are writes | `packs/designreview/actions.py` |
+| STE check | — | the playbooks are in the default file list; a TOML head between `+++` lines is skipped | `scripts/ste_check.py` |
+
 ## 2026-10-17 — First-principles document
 
 | What | Before | After | Where |

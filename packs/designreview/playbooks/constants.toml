@@ -1,0 +1,129 @@
+# The numbers the design-review rules use: one table each, with where the code reads it.
+#
+# The code keeps reading each value from its own file; this register does not replace them.
+# `python scripts/playbooks_check.py` reads every `where` and fails when a value here differs
+# from the code, so a changed number without a changed register (or the reverse) is caught.
+#
+# where     "file.toml#dotted.key" | "module:NAME" | "module:Callable(param)" (a default value)
+# source    a platform tool schema, a paper, or "team choice" with the reason
+# verified  the date a person last checked the source; "" = not checked yet
+
+# --- platform contract (checked against the captured tools/list, fixtures of 2026-10-12) --------------
+
+[handoff_sla_minutes]
+value = 1440
+unit = "minutes the assignee has to respond to a hand-off"
+where = "packs/designreview/handoffs.toml#sla_minutes"
+source = "endpoint.agent_governance.escalations.raise: sla_minutes snaps to 15, 30, 60, 120, 240, 480 or 1440. 1440 (one day) is team choice."
+verified = "2026-10-19"
+
+[handoff_reason_code]
+value = "needs_another_app"
+unit = "AgentEscalation reason code"
+where = "packs/designreview/handoffs.toml#reason_code"
+source = "endpoint.agent_governance.escalations.raise: reason_code enum"
+verified = "2026-10-19"
+
+# --- rules (team choice) ------------------------------------------------------------------------------
+
+[serious_severities]
+value = ["critical", "high"]
+unit = "feedback severities that can need a hand-off"
+where = "packs.designreview.handoffs:SERIOUS"
+source = "team choice: medium and low items stay with design review"
+verified = ""
+
+[finished_milestone_statuses]
+value = ["completed", "skipped"]
+unit = "milestone statuses that are never past due"
+where = "packs.designreview.handoffs:FINISHED_MILESTONE"
+source = "team choice, from the DesignMilestone status values seen in the seed data"
+verified = ""
+
+[router_tie_ratio]
+value = 0.9
+unit = "a file within this ratio of the best name score ties with it"
+where = "packs.designreview.router:TIE"
+source = "team choice; tasks t10-t12 pass with it"
+verified = ""
+
+[router_distinct_df]
+value = 3
+unit = "minimum document-frequency cap for a name word to count as evidence"
+where = "packs.designreview.router:DISTINCT_DF"
+source = "team choice: department words repeat across many seed file names"
+verified = ""
+
+# --- retrieval ----------------------------------------------------------------------------------------
+
+[retrieval_top_k]
+value = 5
+unit = "standards recalled per run"
+where = "packs/designreview/retrieval.toml#top_k"
+source = "team choice"
+verified = ""
+
+[retrieval_gate_keep_ratio]
+value = 0.5
+unit = "fraction of the best score for a hit to count as relevant"
+where = "packs/designreview/retrieval.toml#gate.keep_ratio"
+source = "Corrective RAG (arXiv 2401.15884) idea; value set on 4 labelled queries, 2026-10-14"
+verified = "2026-10-14"
+
+[retrieval_gate_ambiguous_ratio]
+value = 0.3
+unit = "fraction of the best score for a hit to count as possibly relevant"
+where = "packs/designreview/retrieval.toml#gate.ambiguous_ratio"
+source = "as retrieval_gate_keep_ratio"
+verified = "2026-10-14"
+
+[retrieval_gate_min_terms]
+value = 2
+unit = "distinct query terms a hit must match"
+where = "packs/designreview/retrieval.toml#gate.min_terms"
+source = "as retrieval_gate_keep_ratio"
+verified = "2026-10-14"
+
+[bm25_k1]
+value = 1.5
+unit = "BM25 term-frequency saturation"
+where = "agentkit.retrieval.index:EvidenceIndex(k1)"
+source = "common BM25 default (Robertson and Zaragoza 2009 give 1.2 to 2.0)"
+verified = ""
+
+[bm25_b]
+value = 0.75
+unit = "BM25 length normalisation"
+where = "agentkit.retrieval.index:EvidenceIndex(b)"
+source = "common BM25 default (Robertson and Zaragoza 2009)"
+verified = ""
+
+# --- budgets ------------------------------------------------------------------------------------------
+
+[max_llm_cost_usd_per_run]
+value = 0.25
+unit = "US dollars of LLM calls per run; past it the answer is the template"
+where = "config/project.toml#max_llm_cost_usd_per_run"
+source = "team choice: about 600 times the measured cost of a t01 run ($0.000414)"
+verified = ""
+
+[graph_max_workers]
+value = 4
+unit = "parallel node threads per run"
+where = "agentkit.graph.engine:LiveGraphExecutor(max_workers)"
+source = "team choice: the widest plan has 3 parallel reads"
+verified = ""
+
+[provider_failure_cooldown_s]
+value = 20.0
+unit = "seconds a provider rests after a failed call"
+where = "agentkit.llm.gateway:FAILURE_COOLDOWN_S"
+source = "team choice"
+verified = ""
+
+[provider_auth_cooldown_s]
+value = 300.0
+unit = "seconds a provider rests after 401, 402 or 403"
+where = "agentkit.llm.gateway:AUTH_COOLDOWN_S"
+source = "team choice: a bad key or an empty quota does not fix itself"
+verified = ""

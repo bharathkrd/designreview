@@ -52,6 +52,7 @@ Anything without a marker must run offline: no network, no LLM, no `.env`.
 | `test_llm_providers.py` | `agentkit/llm/*`, `agentkit/config.py`: providers by URL or native `api`, per-row request settings, the tier order, which model answered, `.env` values in child processes | yes |
 | `test_server_runner.py` | `harness/runner.py` (`--sim`, `--fault`), `harness/agent_tasks.py`, `scripts/check_results_json.py`: one results.json entry per task and per check, failures with evidence, the 200-entry limit | yes |
 | `test_goldens.py` | `agentkit/harness/goldens.py`: the `[[golden]]` format, paths and selectors, the comparisons, the `golden` check and its mutant, `scripts/make_goldens.py` | yes |
+| `test_playbooks.py` | `agentkit/playbooks.py`, `scripts/playbooks_check.py`: playbook status proved against plans, routes, tasks and tool lists; the index; the constants register; write endpoints not declared read-only | yes |
 | `test_docs_and_grader_words.py` | `scripts/ste_check.py` (ASD-STE100 docs check), `packs/designreview/checks.py` geometry disclaimers | yes |
 | `test_agent_tasks.py` | the nine tasks (t01–t05, t08 Suryodaya; t06, t07, t09 Keystone), end to end | live + agent |
 

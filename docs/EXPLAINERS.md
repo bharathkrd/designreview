@@ -21,6 +21,8 @@ Other documents:
   principles, the algorithms, the trade-offs, the evaluation, hallucination, the token budget and reuse.
 - [`SCALING_AND_DEPLOYMENT.md`](SCALING_AND_DEPLOYMENT.md) gives the plan for 10,000 users at the same time and
   the cloud deployment.
+- [`packs/designreview/playbooks/`](../packs/designreview/playbooks/README.md) has one file for each use case:
+  2 live, 3 blocked and 10 spec only. It also has the register of the numbers that the rules use.
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) tells how generic the architecture is: the pack seam, the extension
   points and the limits. Read it first.
 - [`COST_ACCURACY.md`](COST_ACCURACY.md) compares the cost and the accuracy of each LLM route (gap G12).
@@ -73,11 +75,12 @@ All explainers use ASD-STE100 (Simplified Technical English).
 8. [`agentkit_sim.md`](explainers/agentkit_sim.md): fixtures, the offline platform, faults, the CI fault matrix.
 9. [`agentkit_telemetry.md`](explainers/agentkit_telemetry.md): the run tree: spans, timings, tokens, retries.
 10. [`agentkit_viewer.md`](explainers/agentkit_viewer.md): the read-only browser page for batches and runs.
-11. [`packs_designreview.md`](explainers/packs_designreview.md): the domain: the finding, the verifiers, the router, the hand-offs, the tasks.
+11. [`packs_designreview.md`](explainers/packs_designreview.md): the domain: the finding, the verifiers, the router, the hand-offs, the tasks, the playbooks and the constants register.
 12. [`capstone_agent.md`](explainers/capstone_agent.md): the agent entry point.
 13. [`capstone_evals.md`](explainers/capstone_evals.md): run the benchmark and grade it again.
-14. [`as_client.md`](explainers/as_client.md): the compatibility client.
-15. [`core_legacy.md`](explainers/core_legacy.md): the old modules in `core/`, and why they stay.
+14. [`harness_runner.md`](explainers/harness_runner.md): the official runner: the smoke checks, our agent's tasks and checks in `results.json`, the format check.
+15. [`as_client.md`](explainers/as_client.md): the compatibility client.
+16. [`core_legacy.md`](explainers/core_legacy.md): the old modules in `core/`, and why they stay.
 
 ## Decisions for the full system
 

@@ -42,7 +42,7 @@ Git ignores `.env`. It has the values:
 2. It copies each value into the process environment. It does not change a variable that the process
    already has.
 3. It keeps a list of the names that it copied. `from_process(name)` uses this list. It gives `None` for a
-   value that came only from `.env`.
+   value that came only from `.env`. `from_process()` calls `load_env()` first (since 2026-10-16).
 4. It writes the list to `AGENTKIT_DOTENV_KEYS`. A child process reads this list. Thus the child knows which
    inherited values came from `.env`.
 
@@ -55,6 +55,13 @@ must not have the same effect.
 The batch starts each task in a child process. Before 2026-10-14, the child got the `.env` copies in its
 environment and used them as injected values. A live batch then sent each answer to OpenAI first. The list in
 `AGENTKIT_DOTENV_KEYS` stops this. A value that the runner injects is not on the list, so it still counts.
+
+The order of the calls is also important. Before 2026-10-16, `tenant_login()` called `from_process()` before
+`load_env()`. A new child process had not read the list yet. Thus it took the `.env` copy of
+`AGENTSWITCH_TOKEN` for an injected token. After that copy expired, each Suryodaya task got a 401.
+
+Now `from_process()` loads `.env` and the list first. A regression test runs a real parent process and
+a real child process.
 
 Importing `as_client` also loads `.env`.
 

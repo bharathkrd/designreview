@@ -23,12 +23,13 @@ from agentkit.transport.safe_reads import read_all, sort_rows
 
 # Computed endpoints this pack calls that are reads despite not ending in
 # .list/.get -- the journal and the dry-run policy check rely on this list.
+# Not here, on purpose: `release_impact` (its only action is "release": a write) and
+# `supplier_response_sla` (operation respond/remind/expire writes), so a call to either
+# counts as a write, is never retried, and fails a dry run's policy check.
 READ_ONLY_ENDPOINTS = (
     "endpoint.designreview.release_readiness",
-    "endpoint.designreview.release_impact",
     "endpoint.designreview.release_impact.get",
     "endpoint.designreview.parts_search",
-    "endpoint.designreview.supplier_response_sla",
 )
 
 # Filters the platform applies exactly (one scalar value, no operator). Lists
