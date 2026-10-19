@@ -307,5 +307,5 @@ not retried, and a dry run's policy check fails it. No action calls them yet.
 ## How to test
 
 The hand-written templates are `tests/test_finding_and_claims.py`, `tests/test_verifiers.py`,
-`tests/test_retrieval.py`, `tests/test_handoffs.py`, `tests/test_planning_and_routing.py` and
-`tests/test_playbooks.py`. The AI-written playbook tests are in `tests_local/test_playbooks.py`.
+`tests/test_retrieval.py`, `tests/test_handoffs.py` and `tests/test_planning_and_routing.py`. The playbooks
+have no hand-written test yet. The AI-written playbook tests are in `tests_local/test_playbooks.py`.
