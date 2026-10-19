@@ -38,6 +38,10 @@ Use cases to cover:
   The helper:
   [ ] scripts/make_goldens.py prints blocks that tomllib can parse; each has note = "CHECK: ..."
 
+More use cases (added 2026-10-16, to write by hand):
+  [ ] assign() on a missing path returns False and changes nothing; on "[rev=C]" it replaces that item only
+  [ ] resolve() on a path with text left over after the last part ("finding.x!") gives "missing"
+  [ ] contains on a string value: "3.0 mm" in "2.0 mm -> 3.0 mm" holds; on a number value it fails with a message
 Hint: build a RunBundle(run_dir=Path("."), task={"golden": [...]}, taskrun={...}, graph=None, journal=[...],
 before={}, after={}) and call agentkit.harness.checks.check_golden(bundle, {}). The mutant is
 next(m for m in agentkit.harness.mutants.BUILTIN_MUTANTS if m.name == "golden_broken"); call m.apply(bundle).

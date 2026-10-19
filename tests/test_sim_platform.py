@@ -25,6 +25,10 @@ Use cases to cover:
       rev C note edited during the run -> drift
   [ ] Two batches started in the same second get different ids (no evidence overwritten)
   [ ] scripts/ci_fault_matrix.py: all 13 scenarios of packs/designreview/ci_faults.toml grade as expected
+More use cases (added 2026-10-16, to write by hand):
+  [ ] tools_called() lists the tools in call order, including the ones that failed
+  [ ] SeatFixture.save then load gives the same calls (round-trip in tmp_path)
+  [ ] canonical(args) is the same for {"a": 1, "b": 2} and {"b": 2, "a": 1}
 Hint: SimSession(fixture, faults, registry.read_only) gives reader_for / run_agent to pass into
 agentkit.harness.batch.run_batch(..., runs_dir=tmp_path, fresh_reader_per_task=True); grade with
 agentkit.harness.grade.grade_batch(batch_dir).

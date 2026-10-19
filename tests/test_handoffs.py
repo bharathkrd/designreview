@@ -48,6 +48,10 @@ Use cases to cover:
   [ ] t09 passes offline with no hand-off and three past-due milestones; file_handoffs never added
   [ ] t08 with fail_always:DesignMilestone.list -> fail; with drop_tool:DesignFeedback.list -> fail
       (the quality item is unseen); with an edit_text rename of the late milestone -> drift
+More use cases (added 2026-10-16, to write by hand):
+  [ ] the same open item cited by two feedback rows for one owner gives one citation, not two
+  [ ] a milestone due TODAY (frozen clock) is not past due; due yesterday is
+  [ ] the hand-off finding is the same for two runs on the same data (owner order is stable)
 Hint: RunBundle(run_dir=Path("."), task={}, graph=None, journal=[], taskrun={"finding": ..., "claimed_answer": ...,
 "dry_run": True}, before=..., after=...) with observations under "release_gate:<file_id>", "feedback:<file_id>",
 "milestones:<project_id>".

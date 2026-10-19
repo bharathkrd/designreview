@@ -24,6 +24,10 @@ Use cases to cover:
   [ ] /api/runs/<id> includes "telemetry" (the run tree for the Timeline tab); a run without telemetry.json
       gives null, not an error
   [ ] The Cost tab data (the ledger) has the provider and the model of each LLM call
+More use cases (added 2026-10-16, to write by hand):
+  [ ] ground_truth_changes: a key only in "after" is a changed row; error kinds before/after are reported
+  [ ] /api/runs/<id> for an id that does not exist -> 404 with a JSON error body
+  [ ] a query string ("/api/batches?x=1") is served like the plain path, or refused -- pin which
 Hint: ViewerApp(runs_dir).handle("/api/...") returns (status, content_type, body_bytes) with no socket;
 for HTTP, make_server(runs_dir, port=0) in a threading.Thread and http.client.HTTPConnection.
 """

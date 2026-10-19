@@ -15,6 +15,11 @@ Use cases to cover (tick when written):
   [ ] Importing as_client loads .env (tests/conftest.py relies on this)
   [ ] seat() returns a SeatRpcClient that reuses the logged-in token
   [ ] read_body() recovers plain JSON sent with a wrong "Transfer-Encoding: chunked" header
+More use cases (added 2026-10-16, to write by hand):
+  [ ] request() with no token logs in first: the first fake urlopen call goes to /api/auth/login, the
+      second to the requested path with the new token
+  [ ] request(payload=None) sends no body (req.data is None); an empty reply body returns {}
+  [ ] init_mcp() sends "initialize" and then "notifications/initialized": two calls, ids 1 and 2
 Hint: monkeypatch as_client.urllib.request.urlopen with a fake (req, context=None, timeout=None).
 """
 

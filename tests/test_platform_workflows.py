@@ -24,6 +24,10 @@ Use cases to cover:
  Shares / supplier requests
   [ ] A revoked share can no longer be used
   [ ] A supplier request moves draft -> sent -> received -> accepted / rejected
+More use cases (added 2026-10-16, to write by hand):
+  [ ] a review created by the test is visible to a second read with the T21-TEST prefix and team21 as author
+  [ ] the same transition twice (start_review on an open review) is rejected, and the status does not change
+  [ ] clean-up: every record the test created ends in a closed or withdrawn state when the test finishes
 """
 
 import pytest

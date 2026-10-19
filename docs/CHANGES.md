@@ -1,5 +1,22 @@
 # Changes
 
+## 2026-10-19 — Harness rules from the instructors: a spent token budget
+
+The instructors listed the harness rules that several teams missed. We examined each one:
+
+| Rule | Status | Evidence |
+|---|---|---|
+| Call the platform at `AGENTSWITCH_BASE_URL` | yes | `harness/runner.py` and `tenant_login()` use it when the server injects it. A public URL is only the local default. |
+| Read the instance from `AGENTSWITCH_INSTANCE` | yes | `harness/runner.py`; `tenant_login()` uses token mode only for that instance. |
+| The install step installs the dependencies | yes | A new Python 3.11 environment with only `requirements.txt` ran the runner: 138 of 138 (Suryodaya) and 84 of 84 (Keystone) entries, offline. |
+| No `.env` file | yes | The same run used a clean checkout with no `.env` and an empty environment. |
+| Python 3.11 | yes | The same run, and CI tests 3.11. |
+| A spent budget returns 429 `budget_exhausted` | **fixed** | Before, the gateway retried that 429 as a rate limit (three attempts and a 20 s cool-down, then again on the next tier). Now it does not retry, the provider stays down for the run, and the answer is the template. |
+
+| What | Before | After | Where |
+|---|---|---|---|
+| 429 `budget_exhausted` | retried as a rate limit | not retried; the provider stays down for the run; a `budget_exhausted` event in telemetry; the fallback reason names it | `agentkit/llm/gateway.py` |
+
 ## 2026-10-19 — Playbooks: one file for each use case
 
 | What | Before | After | Where |

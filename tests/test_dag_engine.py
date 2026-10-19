@@ -41,6 +41,11 @@ Since 2026-10-14 / 2026-10-15:
       and no condition is rejected; verdict = "exploded" is rejected
   [ ] a fallback node with requires = "settled" runs after its dependency FAILED (with "resolved" it would
       be bypassed)
+More use cases (added 2026-10-16, to write by hand):
+  [ ] the same plan run twice with the same fake client gives the same verdict and data for every node
+  [ ] an action that raises a plain Exception ends its node FAILED with the error text; independent
+      siblings still finish and results() has every node
+  [ ] a node that is BYPASSED is never passed to its action (the fake action records no call)
 Hint: build a Registry with small fake actions, and use RunEnv(client=<fake with invoke_tool>),
 so no MCP is needed. Plans: agentkit.graph.load_plan("packs/designreview/plans/rev_diff_dfm.toml").
 """

@@ -33,6 +33,10 @@ Use cases to cover:
   [ ] GET /api/designreview/files/{id}/gltf -> 404 (flip the expectation once fixed)
  Keystone
   [ ] The same contract checks pass on Keystone
+More use cases (added 2026-10-16, to write by hand):
+  [ ] tools/list pages: following nextCursor gives each tool name once, and the total is stable across two reads
+  [ ] DesignFile.get on a random UUID returns a not-found error (MISSING), not an empty record
+  [ ] release_readiness on Battery Tray twice in a row gives the same ready / critical_open (no flapping)
 """
 
 import pytest

@@ -39,6 +39,10 @@ Use cases to cover:
   [ ] a child passage's indexed text starts with its parent's name and category; the text shown to
       the narrator does not
 
+More use cases (added 2026-10-16, to write by hand):
+  [ ] relevance_band with best = 0 or score <= min_score -> "incorrect"; matched = -1 skips the term floor
+  [ ] expand_query keeps the original text first; a phrase that appears inside another word does not match
+  [ ] evaluate() on an empty list does not divide by zero (decide the result and pin it)
 Hint: ParentChildIndex().add_documents([ParentDoc(id=..., text=..., meta=..., entity="DesignStandard")]),
 then recall_parents(query, k=5). EvidenceIndex is the flat BM25 index; fixed_span_passages is the
 fixed-size baseline; standards_query(results) builds the query the action uses.

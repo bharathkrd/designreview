@@ -30,6 +30,11 @@ Added since 2026-10-14:
   [ ] compose_answer(tiers=("fast", "quality")): a passing fast draft is the answer; a failing one goes to the
       quality tier; the result names the tier, the provider and the model
   [ ] audit_narrative with "[@path]" citations: see test_llm_cascade_and_budgets.py
+More use cases (added 2026-10-16, to write by hand):
+  [ ] known_numbers() of a nested finding collects numbers from lists and dicts at every depth
+  [ ] strip_citations("Wall grew to 3.0 mm [@revision_delta.change_notes[1]].") leaves no "[@" in the text
+  [ ] fence_data on a finding whose text has "<untrusted_platform_data>" (an opening tag) still parses as
+      one JSON object inside one fence
 Hint: build node results by hand -- agentkit.graph.NodeResult("resolved", data={...}) -- and call
 build_finding(results, {"file_id": ..., "prompt": ...}). For the narrator, pass a fake gateway object
 with a call(prompt, **kw) method that returns scripted strings.

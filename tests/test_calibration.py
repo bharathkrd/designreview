@@ -24,6 +24,11 @@ End-to-end calibration (agentkit/harness/replay.py, since 2026-10-13):
   [ ] replaying t01 with the gate_reports_ready fault: the new run's finding says ready, release_gate_matches_db
       fails, and failed_checklists is gone (its rule saw no blockers)
   [ ] the original run folder is byte-for-byte unchanged after a replay
+More use cases (added 2026-10-16, to write by hand):
+  [ ] every mutant name (built-in and pack) is unique, and each names a target check that the registry has
+  [ ] calibrate() run twice on the same batch gives the same report (deterministic)
+  [ ] golden_broken on a passing t01 run: the golden outcome fails; the other built-in checks keep their status
+      (a pack verifier that reads the same finding field, e.g. revision_delta_matches_db, may fail too)
 Hint: build the offline batch as in test_sim_platform.py, then calibrate([batch_dir]).
 """
 
