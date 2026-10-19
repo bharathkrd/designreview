@@ -18,6 +18,9 @@ What a caller can rely on:
   provider, then a cooldown and the next provider. Not retryable (400, 401,
   403, 404, ...) -> straight to the next provider; 401/402/403 also cool the
   provider down for 5 minutes (a bad key or empty quota doesn't fix itself).
+  A 429 whose body says "budget_exhausted" is a spent token budget, not a rate
+  limit (the platform's LLM endpoint answers it so): not retried, and the
+  provider stays down for the rest of the run, so the answer falls back at once.
 - API keys go in headers only -- never in URLs -- and every error message is
   scrubbed of key values, so a key can't leak into logs or run records.
 - TLS is always verified, against the OS trust store (works behind a
@@ -59,6 +62,8 @@ AUTH_STATUS = frozenset({401, 402, 403})  # bad key / no quota: won't fix itself
 MAX_BACKOFF_S = 4.0
 FAILURE_COOLDOWN_S = 20.0
 AUTH_COOLDOWN_S = 300.0
+BUDGET_COOLDOWN_S = 24 * 3600.0  # a spent token budget: the rest of the run
+BUDGET_EXHAUSTED = "budget_exhausted"
 ANTHROPIC_VERSION = "2023-06-01"
 # Current Claude models that reject temperature/top_p/top_k with a 400.
 _NO_SAMPLING_MODELS = re.compile(r"^claude-(opus-5|opus-4-[78]|sonnet-5|haiku-5|fable|mythos)", re.I)
@@ -132,11 +137,13 @@ def load_routing(path: Path) -> RoutingConfig:
 
 
 class ProviderFault(Exception):
-    def __init__(self, provider: str, message: str, *, status: Optional[int] = None, retryable: bool = True):
+    def __init__(self, provider: str, message: str, *, status: Optional[int] = None, retryable: bool = True,
+                 budget_exhausted: bool = False):
         super().__init__(f"{provider}: {message}")
         self.provider = provider
         self.status = status
         self.retryable = retryable
+        self.budget_exhausted = budget_exhausted
 
 
 @dataclass
@@ -401,7 +408,10 @@ class LLMGateway:
                         self._sleep(min(0.5 * 2 ** attempt, MAX_BACKOFF_S))
                         continue
                     errors.append(msg)
-                    if fault.status in AUTH_STATUS:
+                    if fault.budget_exhausted:
+                        add_event("budget_exhausted", provider=provider)
+                        state.cool_down(BUDGET_COOLDOWN_S)
+                    elif fault.status in AUTH_STATUS:
                         state.cool_down(AUTH_COOLDOWN_S)
                     elif fault.retryable:
                         state.cool_down(FAILURE_COOLDOWN_S)
@@ -429,8 +439,10 @@ class LLMGateway:
         except httpx.TransportError as e:
             raise ProviderFault(provider, f"network error ({type(e).__name__})", retryable=True) from None
         if resp.status_code != 200:
+            spent = resp.status_code == 429 and BUDGET_EXHAUSTED in resp.text
             raise ProviderFault(provider, f"HTTP {resp.status_code}: {self._scrub(resp.text[:300])}",
-                                status=resp.status_code, retryable=resp.status_code in RETRYABLE_STATUS)
+                                status=resp.status_code, budget_exhausted=spent,
+                                retryable=resp.status_code in RETRYABLE_STATUS and not spent)
         try:
             return resp.json()
         except ValueError:

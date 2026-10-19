@@ -81,6 +81,10 @@ The gateway never writes a prompt or a key to these files.
 - **No retry for a bad request.** For 400, 404 and 422, the gateway goes to the next provider immediately.
 - **Long cool-down for account errors.** For 401, 402 and 403 (bad key, no credit), the provider cools down
   for 5 minutes. These errors do not stop during a run.
+- **A spent budget is not a rate limit (since 2026-10-19).** The LLM endpoint of the platform answers 429 with
+  `budget_exhausted` when the token budget of the team is spent. The gateway does not retry this 429. The
+  provider stays down for the rest of the run, and the answer falls back to the template at once. A test run
+  against a stub endpoint gave one request for each task, and the tasks still passed.
 - **Real token counts.** Each adapter reads the token counts that the provider sends. Gemini thinking tokens
   count as output tokens. Anthropic cache tokens count as input tokens. The ledger shows each call that has
   estimated counts.
