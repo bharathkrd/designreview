@@ -23,6 +23,9 @@ What a caller can rely on:
   provider stays down for the rest of the run, so the answer falls back at once.
 - API keys go in headers only -- never in URLs -- and every error message is
   scrubbed of key values, so a key can't leak into logs or run records.
+- Model-visible means logged: each attempt (answered, cache hit or failed)
+  goes into ledger.calls with the exact system prompt, prompt and reply, keys
+  scrubbed; the harness writes them to llm_calls.jsonl in the run folder.
 - TLS is always verified, against the OS trust store (works behind a
   TLS-inspecting proxy). One httpx.Client per gateway (connection reuse);
   pass `transport=` (e.g. httpx.MockTransport) to test without a network.
@@ -49,7 +52,7 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from agentkit.config import CONFIG_DIR, ConfigError, from_process, load_env, read_config, validation_message
-from agentkit.llm.economics import CostLedger
+from agentkit.llm.economics import CostLedger, LLMCall
 from agentkit.telemetry.spans import add_event, span
 from agentkit.transport.wire import refuse_if_offline
 
@@ -353,6 +356,14 @@ class LLMGateway:
                 text = text.replace(k, "***")
         return text
 
+    def _log_call(self, tier: str, provider: str, model: str, system_prompt: Optional[str], prompt: str,
+                  **fields: Any) -> None:
+        """Record what the model saw and said for one attempt, with every key value scrubbed."""
+        scrub = lambda v: self._scrub(v) if isinstance(v, str) else v  # noqa: E731
+        self.ledger.log_call(LLMCall(tier=tier, provider=provider, model=model or "",
+                                     system=scrub(system_prompt or ""), prompt=scrub(prompt),
+                                     **{k: scrub(v) for k, v in fields.items()}))
+
     # ---- public API ---------------------------------------------------------
 
     def call(self, prompt: str, system_prompt: Optional[str] = None, temperature: float = 0.1,
@@ -381,6 +392,8 @@ class LLMGateway:
         hit = self.cache.get(ckey)
         if hit is not None:
             logger.info("cache_hit tier=%s provider=%s", tier, hit.provider)
+            self._log_call(tier, hit.provider, hit.model, system_prompt, prompt, reply=hit.text,
+                           stop_reason=hit.stop_reason, cached=True)
             return LLMReply(**{**hit.__dict__, "cached": True})
 
         errors: List[str] = []
@@ -403,6 +416,8 @@ class LLMGateway:
                                     temperature if fixed is None else fixed, max_tokens, json_mode)
                 except ProviderFault as fault:
                     msg = self._scrub(str(fault))
+                    self._log_call(tier, provider, model, system_prompt, prompt, error=msg,
+                                   latency_sec=round(time.time() - t0, 3))
                     if fault.retryable and attempt < self.max_attempts - 1:
                         add_event("retry", provider=provider, attempt=attempt + 1, status=fault.status)
                         self._sleep(min(0.5 * 2 ** attempt, MAX_BACKOFF_S))
@@ -418,9 +433,13 @@ class LLMGateway:
                     break
                 reply.latency_s = round(time.time() - t0, 3)
                 reply.text, reply.reasoning_chars = strip_reasoning(reply.text)
-                self.ledger.record(provider, model, prompt, reply.text, reply.latency_s,
-                                   input_tokens=reply.input_tokens, output_tokens=reply.output_tokens,
-                                   stop_reason=reply.stop_reason)
+                entry = self.ledger.record(provider, model, prompt, reply.text, reply.latency_s,
+                                           input_tokens=reply.input_tokens, output_tokens=reply.output_tokens,
+                                           stop_reason=reply.stop_reason)
+                self._log_call(tier, provider, model, system_prompt, prompt, reply=reply.text,
+                               stop_reason=reply.stop_reason, input_tokens=entry.input_tokens,
+                               output_tokens=entry.output_tokens, cost_usd=entry.cost_usd,
+                               latency_sec=reply.latency_s)
                 if reply.stop_reason == "refusal" or not reply.text.strip():
                     errors.append(f"{provider}: {reply.stop_reason} with {len(reply.text)} chars")
                     break  # try the next provider

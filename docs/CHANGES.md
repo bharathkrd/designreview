@@ -1,5 +1,16 @@
 # Changes
 
+## 2026-10-20 — Each LLM prompt is logged, and spans go to any OpenTelemetry collector
+
+Two ideas from the framework comparison of 2026-10-20, built in our own code with no new dependency.
+
+| What | Before | After | Where |
+|---|---|---|---|
+| LLM call log | The ledger had tokens, cost and latency; the exact prompt of a call was not saved | Each attempt (answered, cache hit, failed) is in `CostLedger.calls` with the exact system prompt, prompt and reply, keys removed; the run folder has `llm_calls.jsonl`; a resumed run adds to it; `AGENTKIT_LOG_PROMPTS=0` stops it; never graded | `agentkit/llm/economics.py`, `gateway.py`, `agentkit/harness/run_one.py` |
+| Viewer | The Cost tab showed tokens and cost | Also "Prompts and replies" for each attempt, as text only | `agentkit/viewer/server.py`, `static/app.js` |
+| OTLP export | Spans stayed in `telemetry.json` | `python -m agentkit.telemetry.otlp` converts them to OTLP/HTTP JSON (trace and span ids from SHA-256 of the run id, GenAI attributes on `llm` spans) and sends them to `OTEL_EXPORTER_OTLP_ENDPOINT`; each run sends when the variable is set; a failure is a run warning; an offline run sends only to loopback; no OpenTelemetry SDK | `agentkit/telemetry/otlp.py`, `agentkit/harness/run_one.py` |
+| CI | — | `scripts/ci_otlp_smoke.py`: the CI batch's spans reach a stub collector, every span of every run | `.github/workflows/ci.yaml` |
+
 ## 2026-10-19 — Harness rules from the instructors: a spent token budget
 
 The instructors listed the harness rules that several teams missed. We examined each one:

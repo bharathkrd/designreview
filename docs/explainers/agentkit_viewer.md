@@ -66,7 +66,7 @@ Run data has platform text from other teams. Thus the viewer treats it as hostil
 | `GET /api/batches` | `[{batch_id, started_at, finished_at, skip_llm, write, runs, status_counts, calibration_ok}]` |
 | `GET /api/runs` | `[{run_id, task_id, tenant, ended, started_at, score_status}]` |
 | `GET /api/batches/<id>` | `{manifest, runs: [entry + score_status, counts, failing], report, calibration}` |
-| `GET /api/runs/<id>` | `{task, taskrun, score, graph, journal, before, after, ground_truth_changes, ledger, telemetry, stdout}` |
+| `GET /api/runs/<id>` | `{task, taskrun, score, graph, journal, before, after, ground_truth_changes, ledger, llm_calls, telemetry, stdout}`. `llm_calls` is the prompt and the reply of each LLM attempt; the Cost tab shows them as text. |
 
 A missing file is `null`. A file that the viewer cannot parse is `{"_unreadable": "<name>"}`. Thus the viewer
 shows a half-written run or a crashed run. It does not fail on it.

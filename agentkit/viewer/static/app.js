@@ -239,12 +239,27 @@ function truthTab(r) {
 
 function costTab(r) {
   const l = r.ledger;
-  if (!l || !(l.calls || []).length) return el("p", { class: "muted" }, "No LLM calls (template answer or --skip-llm).");
-  const s = l.summary || {};
-  return el("div", {}, el("p", {}, `${s.calls} call(s) · ${s.input_tokens} in / ${s.output_tokens} out tokens · $${fmt(s.cost_usd_estimated, 4)} estimated`),
-    table(["Provider", "Model", "In", "Out", "Cost $", "Latency s", "Stop", "Usage"], l.calls.map((c) => [
-      c.provider, c.model, c.input_tokens, c.output_tokens, fmt(c.cost_usd, 4), fmt(c.latency_sec),
-      badge(c.stop_reason), c.usage_estimated ? "estimated" : "reported"])));
+  const attempts = r.llm_calls || [];
+  if ((!l || !(l.calls || []).length) && !attempts.length) return el("p", { class: "muted" }, "No LLM calls (template answer or --skip-llm).");
+  const s = (l && l.summary) || {};
+  return el("div", {},
+    l && (l.calls || []).length ? [
+      el("p", {}, `${s.calls} call(s) · ${s.input_tokens} in / ${s.output_tokens} out tokens · $${fmt(s.cost_usd_estimated, 4)} estimated`),
+      table(["Provider", "Model", "In", "Out", "Cost $", "Latency s", "Stop", "Usage"], l.calls.map((c) => [
+        c.provider, c.model, c.input_tokens, c.output_tokens, fmt(c.cost_usd, 4), fmt(c.latency_sec),
+        badge(c.stop_reason), c.usage_estimated ? "estimated" : "reported"]))] : null,
+    attempts.length ? promptsSection(attempts) : null);
+}
+
+// What the model saw and said, for each attempt (llm_calls.jsonl). Shown as text only.
+function promptsSection(attempts) {
+  return el("div", {}, el("h2", {}, "Prompts and replies"),
+    attempts.map((c, i) => el("details", {},
+      el("summary", {}, `${i + 1}. ${c.tier} · ${c.provider} · ${c.model || "—"} · `,
+        c.error ? badge("error") : c.cached ? badge("cached") : badge(c.stop_reason)),
+      el("h3", {}, "System"), pretty(c.system || ""),
+      el("h3", {}, "Prompt"), pretty(c.prompt || ""),
+      c.error ? [el("h3", {}, "Error"), pretty(c.error)] : [el("h3", {}, "Reply"), pretty(c.reply || "")])));
 }
 
 // ---- router ---------------------------------------------------------------------

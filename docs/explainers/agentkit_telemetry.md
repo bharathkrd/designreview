@@ -72,9 +72,38 @@ The kinds are `task`, `node`, `tool`, `llm`, `step` and `retriever`.
 | Batch view | A status table for each run | Also a Performance table in `report.md` |
 | Viewer | An Evidence tab (graph nodes only) | Also a Timeline tab (task, node, tool, llm, step) |
 
+## Send the spans to a collector (OTLP, since 2026-10-20)
+
+`otlp.py` converts `telemetry.json` to the OTLP/HTTP JSON format and sends it to an OpenTelemetry collector.
+It uses no OpenTelemetry SDK: a guard test keeps the SDK out of `agentkit`. Thus the same spans can go to
+Jaeger, Grafana Tempo, CloudWatch or a hosted trace tool.
+
+```
+python -m agentkit.telemetry.otlp runs/<run_id> [runs/batches/<batch_id>] --endpoint http://127.0.0.1:4318
+python -m agentkit.telemetry.otlp runs/batches/<batch_id> --print      # write the payload, send nothing
+```
+
+Set `OTEL_EXPORTER_OTLP_ENDPOINT`, and each run sends its spans when it writes `telemetry.json`.
+`OTEL_EXPORTER_OTLP_HEADERS` (`k1=v1,k2=v2`) gives the headers, for example an API key.
+
+| Our span | OTLP |
+|---|---|
+| One run | One `resourceSpans` with `service.name` and `agentkit.run_id` |
+| `run_id` | `traceId`: 32 hex characters of SHA-256 of the run id. The same run always has the same trace id. |
+| `span_id`, `parent_id` | `spanId`, `parentSpanId`: 16 hex characters of SHA-256 of the run id and the span id |
+| `start_time`, `duration_ms` | `startTimeUnixNano`, `endTimeUnixNano` |
+| `status`, `error` | `status.code` 1 (ok) or 2 (error) with the message |
+| `attrs`, `events` | Attributes and events, plus `agentkit.kind` |
+| `llm` span | Also `gen_ai.system`, `gen_ai.request.model`, `gen_ai.usage.input_tokens` and `gen_ai.usage.output_tokens` |
+| `tool` span | Also `tool.name` |
+
+A failed export never fails a run. The run record gets the warning "OTLP export failed". An offline run
+(`AGENTKIT_OFFLINE=1`) sends only to a collector on this computer (127.0.0.1, `localhost`). CI sends the CI
+batch to a stub collector with `scripts/ci_otlp_smoke.py` and checks that every span arrived.
+
 ## How to test
 
-1. The reference test is `tests_local/test_telemetry.py`. The hand-written template is
-   `tests/test_telemetry.py`.
+1. The reference tests are `tests_local/test_telemetry.py` and `tests_local/test_otlp_export.py`. The
+   hand-written template is `tests/test_telemetry.py`.
 2. For an offline run, run `python -m agentkit.harness.batch --sim packs/designreview/fixtures --skip-llm --grade`.
 3. Run `python -m agentkit.viewer` and open the Timeline tab of a run.

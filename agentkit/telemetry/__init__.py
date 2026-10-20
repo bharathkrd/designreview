@@ -5,7 +5,8 @@ Spans (task -> node -> tool / llm / step) with timings, attributes and events,
 collected per run and written to runs/<run_id>/telemetry.json. Nothing here
 grades anything, and with no active tracer every instrumentation point is a
 no-op. No tracing SDK or collector is used: spans.py explains the algorithm
-(an external open-source run-tree design, rebuilt in plain Python).
+(an external open-source run-tree design, rebuilt in plain Python). otlp.py sends
+the same spans to any OpenTelemetry collector (OTLP/HTTP JSON), still without an SDK.
 """
 
 from agentkit.telemetry.exporter import TELEMETRY_FILE, export_run, load_telemetry

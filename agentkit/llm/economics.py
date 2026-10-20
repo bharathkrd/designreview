@@ -74,12 +74,41 @@ class LedgerEntry:
         return self.input_tokens + self.output_tokens
 
 
+@dataclass
+class LLMCall:
+    """What the model saw and said, for one attempt ("model-visible means logged").
+
+    One per attempt: an answered call, a cache hit (`cached`), or a failed attempt (`error`,
+    no reply). The gateway scrubs key values from every string before it records one."""
+
+    tier: str
+    provider: str
+    model: str
+    system: str
+    prompt: str
+    reply: str = ""
+    stop_reason: Optional[str] = None
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
+    cost_usd: Optional[float] = None
+    latency_sec: Optional[float] = None
+    cached: bool = False
+    error: Optional[str] = None
+    ts: float = field(default_factory=time.time)
+
+
 class CostLedger:
     """Running in-memory record of every LLM call this process made."""
 
     def __init__(self) -> None:
         self.entries: List[LedgerEntry] = []
+        self.calls: List[LLMCall] = []  # the prompt and reply of each attempt (see LLMCall)
         self._lock = threading.Lock()
+
+    def log_call(self, call: LLMCall) -> LLMCall:
+        with self._lock:
+            self.calls.append(call)
+        return call
 
     def record(self, provider: str, model: str, prompt: str = "", response: str = "",
                latency_sec: float = 0.0, *, input_tokens: Optional[int] = None,
