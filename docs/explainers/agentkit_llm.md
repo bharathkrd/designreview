@@ -68,8 +68,25 @@ The run folder keeps the provider and the model for each LLM call:
 | `telemetry.json` | One `llm` span for each call: tier, provider, model, tokens, stop reason. |
 | `taskrun.json` | The narrate step: the provider and the model that wrote the answer, and the same for each attempt. |
 | `report.md` (batch) | The Performance table has a "Models (provider:model)" column. |
+| `llm_calls.jsonl` | One line for each attempt: tier, provider, model, the exact system prompt, the prompt and the reply, tokens, cost, latency, and `cached` or `error`. |
 
-The gateway never writes a prompt or a key to these files.
+These files never hold a key. Only `llm_calls.jsonl` holds prompts.
+
+## Model-visible means logged (since 2026-10-20)
+
+Each LLM attempt goes into the call log of the ledger (`CostLedger.calls`, type `LLMCall`). The log has
+three kinds of line:
+
+- an answered call, with the reply, the tokens and the cost;
+- a cache hit (`cached: true`), which costs nothing and has no ledger entry;
+- a failed attempt (`error`), with the error text and no reply.
+
+The gateway removes each key value from each string before it records the line. The harness writes the
+log to `llm_calls.jsonl` in the run folder. A resumed run adds its lines after the earlier ones. The viewer
+shows the lines under "Prompts and replies" in the Cost tab, as text only.
+
+Thus a person can see what the model saw for each answer, and why the claim audit passed or failed it. The
+log is evidence only, like telemetry: the grader never reads it. Set `AGENTKIT_LOG_PROMPTS=0` to stop it.
 
 ## Design decisions
 
@@ -151,8 +168,8 @@ used the `.env` copy of `OPENAI_API_KEY` as a runner key and put `openai` first 
 1. Run `python -m agentkit.llm.models_check`. It reads the model list of each provider. It costs no tokens.
    A configured model that the list does not have shows as `RETIRED`.
 2. Run `python -m agentkit.llm.gateway [tier]`. It shows the providers that have keys and makes one small call.
-3. Run `python -m pytest tests_local/test_url_providers.py tests_local/test_llm_gateway.py -q`. These tests
-   are offline. They use `httpx.MockTransport`.
+3. Run `python -m pytest tests_local/test_url_providers.py tests_local/test_llm_gateway.py
+   tests_local/test_llm_call_log.py -q`. These tests are offline. They use `httpx.MockTransport`.
 4. Run `python -m pytest tests_local -m gateway_live -q` for one real call to each provider.
 
 The hand-written template for this module is `tests/test_llm_gateway.py`.

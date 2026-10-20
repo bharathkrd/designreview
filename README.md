@@ -90,14 +90,14 @@ The code has three layers. A lower layer never imports a higher layer.
 agentkit/            domain-free framework (no design-review names; a lint test enforces it)
   agents/            run a plan, record its steps, word the answer; router: question → plan + params
   transport/         MCP client (typed errors, re-login, read-only retries, argument check), REST reader, tool-call journal
-  llm/               multi-provider LLM gateway (tiers, classified retries, real token usage, cost ledger, model check)
+  llm/               multi-provider LLM gateway (tiers, classified retries, real token usage, cost ledger, call log, model check)
   graph/             live task graph: verdicts, allowlisted actions, rule planner, timeouts, checkpoints
   answer/            claim audit + narrator (cheap draft → quality tier → template), data fence, quarantine
   retrieval/         topic chunker, BM25 evidence index, parent/child index, quality metrics, relevance gate
   record/            crash-safe run record (TaskRun) and atomic writes
   harness/           tasks, ground-truth capture, checks, batch runner, grader, verifier self-test
   sim/               platform fixtures + offline SimPlatform with injectable faults
-  telemetry/         run tree for each run (task → node → tool / llm)
+  telemetry/         run tree for each run (task → node → tool / llm); OTLP export without an SDK
   viewer/            read-only browser page over the run folders
   playbooks.py       playbook files and the constants register: load, check against plans, routes and tools
 packs/designreview/  the domain pack: actions, routes, finding, claim rules, template, probes, verifiers,
@@ -314,7 +314,13 @@ python -m agentkit.harness.cleanup --tenant suryodaya --dry-run   # is anything 
 
 # Look at batches and runs in a browser (read-only, this computer only)
 python -m agentkit.viewer                   # http://127.0.0.1:8765/   [--runs-dir runs] [--port 8765]
+
+# Send the spans of a run or a batch to an OpenTelemetry collector (OTLP/HTTP, no SDK)
+python -m agentkit.telemetry.otlp runs/batches/<batch_id> --endpoint http://127.0.0.1:4318
 ```
+
+Each run folder also has `llm_calls.jsonl`: the exact system prompt, prompt and reply of each LLM attempt,
+with no key in it. Set `OTEL_EXPORTER_OTLP_ENDPOINT`, and each run sends its spans to that collector.
 
 The **run viewer** shows each batch: task and tenant, failed checks, calibration. It shows each run in tabs:
 
@@ -325,7 +331,7 @@ The **run viewer** shows each batch: task and tenant, failed checks, calibration
 - the run tree (Timeline);
 - the tool journal;
 - the ground truth before and after the run (what changed during the run);
-- the LLM cost, with the provider and the model of each call.
+- the LLM cost, with the provider and the model of each call, and the exact prompt and reply of each attempt.
 
 The viewer only reads the run folders. It cannot start runs or change anything.
 
@@ -537,11 +543,13 @@ gitleaks git . --config .gitleaks.toml --redact --verbose   # gitleaks 8.30.1 (S
    with the code;
 8. a viewer smoke check, `scripts/ci_viewer_smoke.py`. It starts the run viewer on the CI batch and opens each
    run, the report, the calibration and each telemetry tree. The viewer must stay read-only and confined;
-9. the official runner, offline, for each instance. `scripts/check_results_json.py` examines each
+9. an OTLP export smoke check, `scripts/ci_otlp_smoke.py`. It sends the spans of the CI batch to a stub
+   collector on 127.0.0.1, and every span of every run must arrive;
+10. the official runner, offline, for each instance. `scripts/check_results_json.py` examines each
    `results.json`. Then a planted fault must give failed entries with evidence, and the runner must exit 1;
-10. the docs style job, `scripts/ste_check.py`: this README, the architecture documents, the explainers and
+11. the docs style job, `scripts/ste_check.py`: this README, the architecture documents, the explainers and
     the playbooks must follow the measurable ASD-STE100 rules;
-11. the two secret scans above. The workflow pins each action to its commit SHA.
+12. the two secret scans above. The workflow pins each action to its commit SHA.
 
 ---
 

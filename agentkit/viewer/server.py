@@ -10,7 +10,8 @@ and a small JSON API over the run folders the harness writes:
   GET /api/runs                 every run folder (batch or not), newest first
   GET /api/batches/<batch_id>   manifest, report.md, calibration, one row per run
   GET /api/runs/<run_id>        task, run record, score, graph, tool journal,
-                                ground truth before/after (+ what changed), ledger, stdout
+                                ground truth before/after (+ what changed), ledger, LLM calls
+                                (prompt and reply of each attempt), stdout
 
 Safety: GET only (other methods get 405); ids must match a strict pattern and
 resolve inside the runs folder (no path traversal); binds to 127.0.0.1 by
@@ -166,6 +167,7 @@ class ViewerApp:
         data: Dict[str, Any] = {name: _load(d / fname) for name, fname in RUN_FILES.items()}
         data["run_id"] = d.name
         data["journal"] = read_jsonl(d / "tool_journal.jsonl")
+        data["llm_calls"] = read_jsonl(d / "llm_calls.jsonl")
         data["stdout"] = _text(d / "stdout.txt")
         data["ground_truth_changes"] = ground_truth_changes(data["before"], data["after"])
         return data

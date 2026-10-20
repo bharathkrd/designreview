@@ -30,6 +30,8 @@ rewrites taskrun.json and telemetry.json.
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -41,14 +43,32 @@ from agentkit.graph import GraphStore, RunEnv, load_plan
 from agentkit.harness.tasks import ROUTED, TaskDef, load_task
 from agentkit.llm import LLMGateway
 from agentkit.record import TaskRun, dump_record, load_record
-from agentkit.record.durable_io import read_jsonl
+from agentkit.record.durable_io import durable_write_text, read_jsonl
 from agentkit.registry import Registry, load_pack
 from agentkit.transport import SeatRpcClient
 from agentkit.telemetry import Tracer, export_run, span, use_tracer
+from agentkit.telemetry.otlp import export_from_env
 from agentkit.transport.journal import JOURNAL_FILE, JournaledSeatClient
 
 GRAPH_FILE = "graph.json"
 LEDGER_FILE = "llm_ledger.json"
+CALLS_FILE = "llm_calls.jsonl"  # what the model saw and said, per attempt (AGENTKIT_LOG_PROMPTS=0: not written)
+
+
+def save_llm_records(gateway: Any, run_dir: Path, *, keep_earlier: bool = False) -> None:
+    """The ledger (tokens, cost) and the call log (prompts and replies) of this run's gateway.
+    `keep_earlier`: a resumed run adds its calls after the ones already in the run folder."""
+    ledger = getattr(gateway, "ledger", None)
+    if ledger is None:
+        return
+    dump_record(run_dir / LEDGER_FILE, {"summary": ledger.summary(),
+                                       "calls": [e.__dict__ for e in ledger.entries]})
+    if os.environ.get("AGENTKIT_LOG_PROMPTS", "1") == "0":
+        return
+    rows = read_jsonl(run_dir / CALLS_FILE) if keep_earlier else []
+    rows += [c.__dict__ for c in getattr(ledger, "calls", [])]
+    if rows:
+        durable_write_text(run_dir / CALLS_FILE, "".join(json.dumps(r, default=str) + "\n" for r in rows))
 
 
 def describe_catalog(client: Any, registry: Registry) -> Optional[dict]:
@@ -134,16 +154,24 @@ def run_task(task: TaskDef, tenant: str, run_dir: Path, run_id: str, *, skip_llm
             root.set(ended=run.ended, ok=run.ended == "done", outcome=(run.finding or {}).get("outcome"),
                      answer_source=run.answer_source, tool_catalog=(run.tool_catalog or {}).get("fingerprint"))
     finally:
-        ledger = getattr(gateway, "ledger", None)
-        if ledger is not None:
-            dump_record(run_dir / LEDGER_FILE, {"summary": ledger.summary(),
-                                               "calls": [e.__dict__ for e in ledger.entries]})
-        try:
-            export_run(tracer, run_dir)
-        except Exception as e:  # telemetry is never graded and must never fail a run
-            run.warnings.append(f"telemetry not written: {type(e).__name__}: {e}")
+        save_llm_records(gateway, run_dir)
+        write_telemetry(tracer, run_dir, run)
     run.seconds = round(time.time() - t0, 2)
     return run
+
+
+def write_telemetry(tracer: Tracer, run_dir: Path, run: TaskRun) -> None:
+    """telemetry.json, then the OTLP export when OTEL_EXPORTER_OTLP_ENDPOINT is set. Telemetry is never
+    graded and must never fail a run: a failure of either is a warning."""
+    try:
+        export_run(tracer, run_dir)
+    except Exception as e:
+        run.warnings.append(f"telemetry not written: {type(e).__name__}: {e}")
+        return
+    try:
+        export_from_env(run_dir)
+    except Exception as e:
+        run.warnings.append(f"OTLP export failed: {type(e).__name__}: {e}"[:300])
 
 
 def resume_task(run_dir: Path, *, approve: Iterable[str] = (), reject: Iterable[str] = (), skip_llm: bool = False,
@@ -195,14 +223,8 @@ def resume_task(run_dir: Path, *, approve: Iterable[str] = (), reject: Iterable[
                 run.finish(run_dir, error=f"{type(e).__name__}: {e}")
             root.set(ended=run.ended, ok=run.ended == "done", outcome=(run.finding or {}).get("outcome"))
     finally:
-        ledger = getattr(gateway, "ledger", None)
-        if ledger is not None:
-            dump_record(run_dir / LEDGER_FILE, {"summary": ledger.summary(),
-                                               "calls": [e.__dict__ for e in ledger.entries]})
-        try:
-            export_run(tracer, run_dir)
-        except Exception as e:
-            run.warnings.append(f"telemetry not written: {type(e).__name__}: {e}")
+        save_llm_records(gateway, run_dir, keep_earlier=True)
+        write_telemetry(tracer, run_dir, run)
     run.seconds = round(time.time() - t0, 2)
     return run
 
