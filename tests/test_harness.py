@@ -109,3 +109,46 @@ def test_clock_env_value_frozen_block_and_timezone_rule(monkeypatch):
         assert now_utc().year == 2020
     assert now_utc().year >= 2026                              # restored after the block
 
+
+# --- Bharath: behaviours not covered above ---
+
+def test_grade_run_writes_score_json(tmp_path):
+    # Create a taskrun.json and tool_journal.jsonl
+    (tmp_path / "taskrun.json").write_text("{}")
+    (tmp_path / "tool_journal.jsonl").write_text("")
+
+    # if write=True, score.json should be created
+    grade_run(tmp_path, write=True)
+
+    # verify score.json
+    assert (tmp_path / "score.json").exists()
+
+
+def test_grade_run_dont_write_score_json(tmp_path):
+    # Create a taskrun.json and tool_journal.jsonl
+    (tmp_path / "taskrun.json").write_text("{}")
+    (tmp_path / "tool_journal.jsonl").write_text("")
+
+    # if write=False, score.json should not be created
+    grade_run(tmp_path, write=False)
+
+    # verify if its created or not.
+    assert not (tmp_path / "score.json").exists()
+
+
+def test_env_variable_wins(monkeypatch):
+    # the environment variable wins over frozen_now.
+    monkeypatch.setenv("AGENTKIT_FROZEN_NOW", "2026-10-16T10:00:00+05:30")
+    assert now_utc() == dt.datetime(2026, 10, 16, 4, 30, tzinfo=dt.timezone.utc)
+    with frozen_now("2026-10-16T12:00:00+05:30"):
+        assert now_utc() == dt.datetime(2026, 10, 16, 4, 30, tzinfo=dt.timezone.utc)
+
+
+def test_frozen_now_nested_restores_outer(monkeypatch):
+    monkeypatch.delenv("AGENTKIT_FROZEN_NOW", raising=False)
+    with frozen_now("2026-10-16T12:00:00+05:30"):
+        assert now_utc() == dt.datetime(2026, 10, 16, 6, 30, tzinfo=dt.timezone.utc)
+        with frozen_now("2026-10-16T14:00:00+05:30"):
+            assert now_utc() == dt.datetime(2026, 10, 16, 8, 30, tzinfo=dt.timezone.utc)
+        # After the inner frozen_now block, the outer frozen_now should be restored
+        assert now_utc() == dt.datetime(2026, 10, 16, 6, 30, tzinfo=dt.timezone.utc)
